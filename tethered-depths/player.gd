@@ -11,6 +11,12 @@ var current_battery: float = 100.0
 var max_cargo: int = 10
 var current_cargo: int = 0
 
+# TileSet source IDs (matching main.gd)
+const TILE_DIRT := 0
+const TILE_GRASS := 1
+const TILE_COBBLE := 3
+const TILE_DEEPSLATE := 4
+
 # Mining SFX (assign in Inspector, or place `anvil.mp3` at res://anvil.mp3)
 const DEFAULT_MINING_SFX_PATH: String = "res://anvil.mp3"
 @export var mining_sfx: AudioStream
@@ -210,19 +216,17 @@ func _update_highlight():
 
 func _update_animation():
 	var target_anim: StringName
-	# NOTE: In the SpriteFrames (player.tscn), 'idle' and 'walk' slots are swapped.
-	# Animation 'idle' contains walk frames, and 'walk' contains idle frames.
 	if is_mining:
 		var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 		target_anim = &"mine_down" if target_tile_coords.y > player_tile.y else &"mine_right"
 	elif is_wall_climbing:
 		target_anim = &"climb"
 	elif is_walking:
-		# Use 'idle' slot because it contains the walk frames
-		target_anim = &"idle" 
+		# Animation 'walk' contains the walk frames
+		target_anim = &"walk" 
 	else:
-		# Use 'walk' slot because it contains the idle frames
-		target_anim = &"walk"
+		# Animation 'idle' contains the idle frames
+		target_anim = &"idle"
 
 	if is_mining:
 		var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
@@ -310,23 +314,55 @@ func _roll_count() -> int:
 
 func finish_mining():
 	if not tilemap: return
-	var is_grass = tilemap.get_cell_source_id(target_tile_coords) == 1
+	
+	# Identify block type before destroying it
+	var source_id = tilemap.get_cell_source_id(target_tile_coords)
+	var is_grass = (source_id == 1)
+	
+	# Destroy the block
 	tilemap.set_cell(target_tile_coords, -1)
 	is_mining = false
 
 	if is_grass:
 		return
 
+	# Block-specific luck bonus (compared to Dirt base)
+	var block_luck_mult = 1.0
+	if source_id == 3: # Cobblestone
+		block_luck_mult = 1.1
+	elif source_id == 4: # Deepslate
+		block_luck_mult = 1.5
+
 	var tile_world_pos = tilemap.to_global(tilemap.map_to_local(target_tile_coords))
 	var found: Array[Dictionary] = []
 	var cargo_remaining = max_cargo - current_cargo
 	
-	# Current luck bonus based on pickaxe level
-	var current_luck = PICKAXE_UPGRADES[pickaxe_level]["luck"]
+	if cargo_remaining <= 0:
+		_spawn_floating_text("Cargo Full!", tile_world_pos, Color(1.0, 0.3, 0.3))
+		return
+
+	# Combined luck: Pickaxe Luck * Block Luck
+	var current_luck = PICKAXE_UPGRADES[pickaxe_level]["luck"] * block_luck_mult
+
+	# 75% (3/4) chance to drop at least one Stone when mining Dirt/Stone/Cobble/Deepslate
+	if source_id in [TILE_DIRT, TILE_COBBLE, TILE_DEEPSLATE] and randf() < 0.75:
+		var amount = min(_roll_count(), cargo_remaining)
+		if amount > 0:
+			cargo_remaining -= amount
+			found.append({
+				"name":   "Stone",
+				"amount": amount,
+				"value":  2,
+				"color":  Color(0.75, 0.70, 0.65),
+			})
 
 	for ore in ORE_TABLE:
 		if cargo_remaining <= 0:
 			break
+		# Skip Stone here since we handled it as a guaranteed drop above
+		if ore[0] == "Stone":
+			continue
+			
 		# Apply luck to the roll
 		var chance_denom = float(ore[1]) / current_luck
 		if randf() * chance_denom < 1.0:
