@@ -5,6 +5,7 @@ var player_nearby: Node = null
 
 func _ready():
 	prompt_label.visible = false
+	prompt_label.bbcode_enabled = true
 	$HouseZone.body_entered.connect(_on_body_entered)
 	$HouseZone.body_exited.connect(_on_body_exited)
 
@@ -18,7 +19,7 @@ func _input(event):
 func _on_body_entered(body):
 	if body.is_in_group("player"):
 		player_nearby = body
-		prompt_label.text = "[center]Press F to sleep[/center]"
+		prompt_label.text = "[center][b]HOUSE[/b][/center]\n[center]Press [b]F[/b] to sleep[/center]\n\n[center][color=gray]Step away to close[/color][/center]"
 		prompt_label.visible = true
 
 func _on_body_exited(body):

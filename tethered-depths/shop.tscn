@@ -21,17 +21,17 @@ offset = Vector2(0, -30)
 
 [node name="PromptLabel" type="RichTextLabel" parent="."]
 clip_contents = false
-offset_left = -147.0
-offset_top = -103.0
-offset_right = 153.0
-offset_bottom = -3.0
+offset_left = -360.0
+offset_top = -250.0
+offset_right = 360.0
+offset_bottom = 150.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/normal_font_size = 16
 bbcode_enabled = true
 text = "[center]Hold E to sell ores[/center]"
 scroll_active = false
-autowrap_mode = 0
+autowrap_mode = 3
 
 [node name="ShopZone" type="Area2D" parent="."]
 

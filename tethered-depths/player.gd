@@ -206,8 +206,8 @@ func _ready():
 
 		# Hotbar (Minecraft-style)
 		var hotbar_container = HBoxContainer.new()
-		hotbar_container.set_anchors_preset(12) # PRESET_BOTTOM_CENTER
-		hotbar_container.grow_horizontal = 2 # GROW_DIRECTION_BOTH
+		hotbar_container.set_anchors_preset(Control.LayoutPreset.PRESET_BOTTOM_WIDE)
+		hotbar_container.grow_horizontal = Control.GrowDirection.GROW_DIRECTION_BOTH
 		hotbar_container.offset_bottom = -10.0
 		hotbar_container.alignment = BoxContainer.ALIGNMENT_CENTER
 		hud.add_child(hotbar_container)
@@ -1017,8 +1017,8 @@ func _setup_end_of_day_ui():
 
 	fade_rect = ColorRect.new()
 	fade_rect.color = Color(0, 0, 0, 0)
-	fade_rect.set_anchors_preset(15) # PRESET_FULL_RECT
-	fade_rect.mouse_filter = 1 # MOUSE_FILTER_IGNORE
+	fade_rect.set_anchors_preset(Control.LayoutPreset.PRESET_FULL_RECT)
+	fade_rect.mouse_filter = Control.MouseFilter.MOUSE_FILTER_IGNORE
 	end_day_layer.add_child(fade_rect)
 	
 	dashboard = TextureRect.new()
@@ -1028,7 +1028,7 @@ func _setup_end_of_day_ui():
 	else:
 		var fallback_bg = ColorRect.new()
 		fallback_bg.color = Color(0.35, 0.2, 0.1)
-		fallback_bg.set_anchors_preset(15) # PRESET_FULL_RECT
+		fallback_bg.set_anchors_preset(Control.LayoutPreset.PRESET_FULL_RECT)
 		dashboard.add_child(fallback_bg)
 
 	dashboard.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -1037,17 +1037,17 @@ func _setup_end_of_day_ui():
 	dashboard.anchor_top = 0.125
 	dashboard.anchor_bottom = 0.875
 	dashboard.modulate.a = 0.0
-	dashboard.mouse_filter = 0 # MOUSE_FILTER_STOP
+	dashboard.mouse_filter = Control.MouseFilter.MOUSE_FILTER_STOP
 	end_day_layer.add_child(dashboard)
 	
 	stats_label = RichTextLabel.new()
 	stats_label.bbcode_enabled = true
-	stats_label.set_anchors_preset(15) # PRESET_FULL_RECT
+	stats_label.set_anchors_preset(Control.LayoutPreset.PRESET_FULL_RECT)
 	stats_label.offset_left = 40.0
 	stats_label.offset_top = 40.0
 	stats_label.offset_right = -40.0
 	stats_label.offset_bottom = -40.0
-	stats_label.mouse_filter = 1 # MOUSE_FILTER_IGNORE
+	stats_label.mouse_filter = Control.MouseFilter.MOUSE_FILTER_IGNORE
 	dashboard.add_child(stats_label)
 	
 	close_btn = TextureButton.new()
@@ -1087,7 +1087,7 @@ func trigger_end_of_day(_from_death: bool = false):
 	end_day_layer.visible = true
 	fade_rect.color.a = 0.0
 	dashboard.modulate.a = 0.0
-	fade_rect.mouse_filter = 0 # MOUSE_FILTER_STOP
+	fade_rect.mouse_filter = Control.MouseFilter.MOUSE_FILTER_STOP
 	
 	var tw = create_tween()
 	tw.tween_property(fade_rect, "color:a", 1.0, 1.5)
@@ -1113,7 +1113,7 @@ func _close_end_of_day():
 	tw.tween_property(fade_rect, "color:a", 0.0, 0.5)
 	tw.tween_callback(func():
 		end_day_layer.visible = false
-		fade_rect.mouse_filter = 1 # MOUSE_FILTER_IGNORE
+		fade_rect.mouse_filter = Control.MouseFilter.MOUSE_FILTER_IGNORE
 		is_end_of_day = false
 		
 		daily_ores_collected = 0

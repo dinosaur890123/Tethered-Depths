@@ -7,50 +7,53 @@ var interact_timer: float = 0.0
 var interact_progress: float = 0.0
 var is_interacting: bool = false
 
+const INTERACT_ACTION: StringName = &"sell" # Bound to F in project.godot
+
 func _ready():
 	prompt_label.visible = false
+	prompt_label.bbcode_enabled = true
 	$ShopZone.body_entered.connect(_on_body_entered)
 	$ShopZone.body_exited.connect(_on_body_exited)
 
 func _process(_delta):
 	if not player_nearby:
+		prompt_label.visible = false
 		return
 
-	var current_level = player_nearby.pickaxe_level
-	var max_level = player_nearby.PICKAXE_UPGRADES.size() - 1
-	
-	var info_text = "
-[center]Pickaxe Upgrades:[/center]
-[center]"
+	prompt_label.visible = true
+
+	var current_level: int = int(player_nearby.pickaxe_level)
+	var max_level: int = int(player_nearby.PICKAXE_UPGRADES.size() - 1)
+
+	var info_text := "[center][b]PICKAXE UPGRADE[/b][/center]\n\n"
+	info_text += "[center][color=gray]Current: %s (Lv %d/%d)[/color][/center]\n\n" % [player_nearby.PICKAXE_UPGRADES[current_level]["name"], current_level, max_level]
+	info_text += "[center][b]Options[/b][/center]\n"
 	
 	# Show prices for all upgrades
 	for i in range(1, player_nearby.PICKAXE_UPGRADES.size()):
 		var upg = player_nearby.PICKAXE_UPGRADES[i]
-		var color_hex = upg["color"].to_html(false)
-		var status = ""
+		var upg_color: Color = upg["color"] as Color
+		var color_hex: String = upg_color.to_html(false)
+		var status := ""
 		if i <= current_level:
-			status = " (Owned)"
-		info_text += "[color=#%s]%s: $%d%s[/color]
-" % [color_hex, upg["name"], upg["price"], status]
-	info_text += "[/center]"
+			status = " [color=green](Owned)[/color]"
+		info_text += "[center][color=#%s]%d: %s  $%d%s[/color][/center]\n" % [color_hex, i, upg["name"], int(upg["price"]), status]
 
 	if current_level >= max_level:
-		prompt_label.text = "[center][color=#00ff00]MAX LEVEL REACHED[/color][/center]" + info_text
-		prompt_label.visible = true
+		prompt_label.text = info_text + "\n[center][color=green]MAX LEVEL REACHED[/color][/center]\n\n[center][color=gray]Step away to close[/color][/center]"
 		return
 
 	var next_upg = player_nearby.PICKAXE_UPGRADES[current_level + 1]
-	var can_afford = player_nearby.money >= next_upg["price"]
+	var can_afford: bool = int(player_nearby.money) >= int(next_upg["price"])
 
-	if Input.is_action_pressed("sell"): # Using "sell" action (F key)
+	if Input.is_action_pressed(INTERACT_ACTION): # Using "sell" action (F key)
 		if not can_afford:
-			prompt_label.text = "[center][color=#ff0000]NEED $%d[/color][/center]" % next_upg["price"] + info_text
+			prompt_label.text = "[center][color=yellow]Need $%d[/color][/center]\n\n" % int(next_upg["price"]) + info_text + "\n[center][color=gray]Hold F to upgrade[/color][/center]"
 			return
 			
 		interact_timer += _delta
 		interact_progress = clamp(interact_timer / upgrade_hold_time, 0.0, 1.0)
-		prompt_label.text = "[center]Upgrading... " + str(int(interact_progress * 100)) + "%[/center]"
-		prompt_label.visible = true
+		prompt_label.text = info_text + "\n\n[center]Upgrading to [color=yellow]%s[/color]... %d%%[/center]" % [next_upg["name"], int(interact_progress * 100)]
 		is_interacting = true
 		queue_redraw()
 
@@ -66,12 +69,11 @@ func _process(_delta):
 			interact_progress = 0.0
 			is_interacting = false
 			
-		var prompt = "Hold F to Upgrade to %s" % next_upg["name"]
+		var prompt := "Hold [b]F[/b] to upgrade to [color=yellow]%s[/color] ($%d)" % [next_upg["name"], int(next_upg["price"])]
 		if not can_afford:
-			prompt = "[color=#aaaaaa]Cannot Afford %s[/color]" % next_upg["name"]
+			prompt = "[color=gray]Need $%d to upgrade to %s[/color]" % [int(next_upg["price"]), next_upg["name"]]
 			
-		prompt_label.text = "[center]%s[/center]" % prompt + info_text
-		prompt_label.visible = true
+		prompt_label.text = info_text + "\n\n[center]%s[/center]" % prompt
 		queue_redraw()
 
 func _draw():

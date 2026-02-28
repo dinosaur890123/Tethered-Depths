@@ -15,6 +15,8 @@ enum ShopState { IDLE, PROMPT, MAIN_MENU, SELL_MENU, BUY_MENU, UPGRADE_MENU, CON
 var current_state = ShopState.IDLE
 var pending_upgrade_index: int = -1
 
+const INTERACT_ACTION: StringName = &"sell" # Bound to F in project.godot
+
 const CARGO_UPGRADE_STEP: int = 5
 const OXYGEN_UPGRADE_STEP: float = 25.0
 const SPEED_UPGRADE_STEP: float = 40.0
@@ -33,6 +35,8 @@ var feedback_text: String = ""
 
 func _ready():
 	prompt_label.visible = false
+	# Ensure BBCode is enabled even if the scene gets edited.
+	prompt_label.bbcode_enabled = true
 	$ShopZone.body_entered.connect(_on_body_entered)
 	$ShopZone.body_exited.connect(_on_body_exited)
 	_register_unbreakable_foundation_tiles()
@@ -154,14 +158,44 @@ func _input(event):
 		
 		# Allow going back to main menu
 		if event.keycode == KEY_ESCAPE or event.keycode == KEY_BACKSPACE:
+			if current_state == ShopState.MAIN_MENU:
+				current_state = ShopState.PROMPT
+				feedback_text = ""
+				return
 			if current_state in [ShopState.SELL_MENU, ShopState.BUY_MENU, ShopState.UPGRADE_MENU]:
 				current_state = ShopState.MAIN_MENU
 				feedback_text = ""
+				return
+			if current_state == ShopState.CONFIRM_BUY:
+				current_state = ShopState.BUY_MENU
+				feedback_text = ""
+				return
+
+
+func _wrap_feedback(body_text: String) -> String:
+	if feedback_text != "":
+		return "[center][color=yellow]%s[/color][/center]\n%s" % [feedback_text, body_text]
+	return body_text
+
+
+func _controls_hint(hint: String) -> String:
+	return "\n\n[center][color=gray]%s[/color][/center]" % hint
+
+
+func _money_str(amount: int) -> String:
+	return "$%d" % amount
 
 func _process(delta):
 	if not player_nearby:
 		_set_pickaxes_visible(false)
 		return
+
+	if current_state == ShopState.IDLE:
+		prompt_label.visible = false
+		_set_pickaxes_visible(false)
+		return
+
+	prompt_label.visible = true
 
 	if feedback_timer > 0:
 		feedback_timer -= delta
@@ -170,45 +204,73 @@ func _process(delta):
 
 	match current_state:
 		ShopState.PROMPT:
-			prompt_label.text = _ui_header() + "[center]Press F to open shop[/center]"
-			prompt_label.visible = true
+			var t := _ui_header()
+			t += "[center][b]SHOP[/b][/center]\n"
+			t += "[center]Press [b]F[/b] to open[/center]"
+			prompt_label.text = t
 			_set_pickaxes_visible(false)
-			if Input.is_action_just_pressed("sell"):
+			if Input.is_action_just_pressed(INTERACT_ACTION):
 				current_state = ShopState.MAIN_MENU
 		
 		ShopState.MAIN_MENU:
-			prompt_label.text = _ui_header() + "[center][b]SHOP[/b]\n\n1: Sell Ores\n2: Buy Pickaxes\n3: Upgrades[/center]"
+			var t := _ui_header()
+			t += "[center][b]SHOP[/b][/center]\n\n"
+			t += "[center]1: Sell Ores[/center]\n"
+			t += "[center]2: Buy Pickaxes[/center]\n"
+			t += "[center]3: Upgrades[/center]"
+			t += _controls_hint("ESC/Backspace: Close")
+			prompt_label.text = _wrap_feedback(t)
 			_set_pickaxes_visible(false)
 		
 		ShopState.SELL_MENU:
-			var cargo_msg = ""
-			if player_nearby.current_cargo <= 0:
-				cargo_msg = "No ore to sell"
+			var total_value := 0
+			var lines: Array[String] = []
+			for ore in player_nearby.ORE_TABLE:
+				var nm: String = ore[0]
+				var val_each: int = int(ore[2])
+				var count: int = int(player_nearby.ore_counts.get(nm, 0))
+				if count <= 0:
+					continue
+				var value := count * val_each
+				total_value += value
+				lines.append("%s x%d (%s)" % [nm, count, _money_str(value)])
+
+			var t := _ui_header()
+			t += "[center][b]SELL ORES[/b][/center]\n\n"
+			if lines.is_empty():
+				t += "[center]No ore to sell[/center]"
 			else:
-				cargo_msg = "Press F to sell ores"
-			
-			prompt_label.text = _ui_header() + "[center][b]SELL[/b]\n%s[/center]" % cargo_msg
+				t += "[center]" + "\n".join(lines) + "[/center]\n\n"
+				t += "[center]Press [b]F[/b] to sell all for [color=yellow]%s[/color][/center]" % _money_str(total_value)
+			t += _controls_hint("ESC/Backspace: Back")
+			prompt_label.text = _wrap_feedback(t)
 			_set_pickaxes_visible(false)
 			
-			if Input.is_action_just_pressed("sell"):
+			if Input.is_action_just_pressed(INTERACT_ACTION):
 				_sell_ores()
 				
 		ShopState.BUY_MENU:
 			_set_pickaxes_visible(true)
-			var upg_text = _ui_header() + "[center][b]BUY PICKAXES[/b][/center]\n"
+			var upg_text := _ui_header()
+			upg_text += "[center][b]BUY PICKAXES[/b][/center]\n\n"
 			for i in range(1, 5):
 				var upg = player_nearby.PICKAXE_UPGRADES[i]
 				var color_hex = upg["color"].to_html(false)
 				pickaxe_sprites[i-1].modulate = upg["color"]
-				var status = ""
+				var status := ""
 				if player_nearby.pickaxe_level == i:
-					status = " (Owned)"
-				upg_text += "[center][color=#%s]%d: %s  ($%d)%s[/color][/center]\n" % [color_hex, i, upg["name"], upg["price"], status]
+					status = " [color=green](Owned)[/color]"
+				var price: int = int(upg["price"])
+				var can_afford: bool = int(player_nearby.money) >= price
+				var line_color := "#%s" % color_hex
+				if not can_afford and player_nearby.pickaxe_level != i:
+					line_color = "gray"
+				upg_text += "[center][color=%s]%d: %s  %s%s[/color][/center]\n" % [line_color, i, upg["name"], _money_str(price), status]
+				upg_text += "[center][color=gray]Mine: %.2fs   Luck: %.1fx[/color][/center]\n\n" % [float(upg["mine_time"]) * (float(player_nearby.get_mine_time_mult()) if player_nearby.has_method("get_mine_time_mult") else 1.0), float(upg["luck"]) ]
+
+			upg_text += _controls_hint("1-4: Select   ESC/Backspace: Back")
 			
-			if feedback_text != "":
-				prompt_label.text = "[center][color=yellow]%s[/color][/center]\n%s" % [feedback_text, upg_text]
-			else:
-				prompt_label.text = upg_text
+			prompt_label.text = _wrap_feedback(upg_text)
 
 		ShopState.UPGRADE_MENU:
 			_set_pickaxes_visible(false)
@@ -228,10 +290,7 @@ func _process(delta):
 			t += "[center]4: Drill Motor  (-%d%% mine time)     $%d  (Lv %d/%d)[/center]\n" % [MINE_SPEED_UPGRADE_STEP_PCT, mine_price, mine_lv, MAX_STAT_UPGRADE_LEVEL]
 			t += "\n[center][color=gray]ESC/Backspace: Back[/color][/center]"
 
-			if feedback_text != "":
-				prompt_label.text = "[center][color=yellow]%s[/color][/center]\n%s" % [feedback_text, t]
-			else:
-				prompt_label.text = t
+			prompt_label.text = _wrap_feedback(t)
 		
 		ShopState.CONFIRM_BUY:
 			_set_pickaxes_visible(false)
@@ -244,14 +303,15 @@ func _process(delta):
 			var old_luck = old_upg["luck"]
 			var new_luck = upg["luck"]
 			
-			var confirm_text = _ui_header() + "[center]Are you sure you want to buy [color=yellow]%s[/color]?[/center]\n" % upg["name"]
+			var confirm_text := _ui_header() + "[center][b]CONFIRM PURCHASE[/b][/center]\n\n"
+			confirm_text += "[center]Buy [color=yellow]%s[/color]?[/center]\n" % upg["name"]
 			confirm_text += "[center]Mine Time: %.2fs [color=green]→[/color] [color=green]%.2fs[/color][/center]\n" % [old_speed, new_speed]
 			if new_luck > old_luck:
 				confirm_text += "[center]Ore Luck: %.1fx [color=green]→[/color] [color=green]%.1fx[/color][/center]\n" % [old_luck, new_luck]
-			confirm_text += "[center]Cost: $%d[/center]\n" % upg["price"]
-			confirm_text += "\n[center][color=white]Return: Yes (Confirm) | Backspace: No (Cancel)[/color][/center]"
+			confirm_text += "[center]Cost: [color=yellow]%s[/color][/center]\n" % _money_str(int(upg["price"]))
+			confirm_text += _controls_hint("Enter: Confirm   ESC/Backspace: Cancel")
 			
-			prompt_label.text = confirm_text
+			prompt_label.text = _wrap_feedback(confirm_text)
 
 		ShopState.DEV_MENU:
 			_set_pickaxes_visible(false)
@@ -300,7 +360,7 @@ func _buy_pickaxe(index: int):
 			asp.play()
 			asp.finished.connect(asp.queue_free)
 	else:
-		feedback_text = "they dont have enough money"
+		feedback_text = "Not enough money"
 		feedback_timer = 2.0
 
 func _stat_upgrade_price(base_price: int, level: int) -> int:

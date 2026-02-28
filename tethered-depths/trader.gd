@@ -12,6 +12,7 @@ var feedback_text: String = ""
 
 func _ready():
 	prompt_label.visible = false
+	prompt_label.bbcode_enabled = true
 	$InteractZone.body_entered.connect(_on_body_entered)
 	$InteractZone.body_exited.connect(_on_body_exited)
 	anim_sprite.play("idle")
@@ -46,7 +47,7 @@ func _process(delta):
 
 	match current_state:
 		TraderState.PROMPT:
-			prompt_label.text = "[center]Press F to talk to Trader[/center]"
+			prompt_label.text = "[center][b]TRADER[/b][/center]\n[center]Press [b]F[/b] to talk[/center]\n\n[center][color=gray]Step away to close[/color][/center]"
 			prompt_label.visible = true
 		
 		TraderState.TALKING:
@@ -55,15 +56,15 @@ func _process(delta):
 				total_ores += player_nearby.ore_counts.get(ore[0], 0)
 			
 			if total_ores <= 0:
-				prompt_label.text = '[center]Trader: "You have no ores to gamble!"\n[color=gray]Press any key to close[/color][/center]'
+				prompt_label.text = '[center][b]TRADER[/b][/center]\n\n[center]"You have no ores to gamble!"[/center]\n\n[center][color=gray]Press any key to close[/color][/center]'
 				if Input.is_anything_pressed():
 					current_state = TraderState.PROMPT
 					anim_sprite.play("idle")
 			else:
-				prompt_label.text = '[center]Trader: "Want to gamble your %d ores?"\n[color=yellow]1: Yes (50/50 double or lose) | 2: No[/color][/center]' % total_ores
+				prompt_label.text = '[center][b]TRADER[/b][/center]\n\n[center]"Want to gamble your %d ores?"[/center]\n\n[center][color=yellow]1: Yes (50/50 double or lose)[/color][/center]\n[center][color=yellow]2 / ESC: No[/color][/center]' % total_ores
 		
 		TraderState.GAMBLING_RESULT:
-			prompt_label.text = '[center]%s\n[color=gray]Press any key[/color][/center]' % feedback_text
+			prompt_label.text = '[center][b]TRADER[/b][/center]\n\n[center]%s[/center]\n\n[center][color=gray]Press any key to close[/color][/center]' % feedback_text
 			if Input.is_anything_pressed() and feedback_timer < 1.5: # Small delay to prevent instant skip
 				current_state = TraderState.PROMPT
 				anim_sprite.play("idle")
