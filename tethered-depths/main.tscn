@@ -4,9 +4,13 @@
 [ext_resource type="Texture2D" uid="uid://dpv4ta56b7rmg" path="res://dirt.png" id="2_h2yge"]
 [ext_resource type="Texture2D" uid="uid://2e4giavjp67j" path="res://grass.png" id="3_h2yge"]
 [ext_resource type="Texture2D" uid="uid://bx88s3vjljx6p" path="res://ore.jpeg" id="4_1bvp3"]
-[ext_resource type="PackedScene" path="res://shop.tscn" id="5_shop"]
+[ext_resource type="PackedScene" uid="uid://0ijrdji8yveo" path="res://shop.tscn" id="5_shop"]
 [ext_resource type="Texture2D" uid="uid://bd8aiay1onsco" path="res://blocks/cobblestone.png" id="6_272bh"]
 [ext_resource type="Texture2D" uid="uid://csa4gx2cjg3fv" path="res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg" id="7_272bh"]
+[ext_resource type="Texture2D" uid="uid://d2pckowi7wx4e" path="res://trees/tree1.png" id="8_5vw27"]
+[ext_resource type="Texture2D" uid="uid://jxsq55icgv5s" path="res://trees/tree2.png" id="9_efxa6"]
+[ext_resource type="Texture2D" uid="uid://brygcidv5xlq7" path="res://trees/tree3.png" id="10_dg77c"]
+[ext_resource type="Texture2D" uid="uid://cn3u5c107fi7p" path="res://trees/tree4.png" id="11_ycdy4"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_0xm2m"]
 resource_name = "Dirt"
@@ -90,3 +94,23 @@ texture = ExtResource("7_272bh")
 [node name="8BitPixelGraphicBlueSkyBackgroundWithCloudsVector3" type="Sprite2D" parent="." unique_id=750230036]
 position = Vector2(-1775, -219)
 texture = ExtResource("7_272bh")
+
+[node name="Tree1" type="Sprite2D" parent="." unique_id=158817387]
+position = Vector2(900.7143, 180)
+scale = Vector2(3.5580356, 3.2529757)
+texture = ExtResource("8_5vw27")
+
+[node name="Tree2" type="Sprite2D" parent="." unique_id=1045172836]
+position = Vector2(-467.14285, 168.21428)
+scale = Vector2(3.1398804, 3.6755948)
+texture = ExtResource("9_efxa6")
+
+[node name="Tree3" type="Sprite2D" parent="." unique_id=1512346114]
+position = Vector2(-249.28572, 167.14287)
+scale = Vector2(3.4315474, 3.7589283)
+texture = ExtResource("10_dg77c")
+
+[node name="Tree4" type="Sprite2D" parent="." unique_id=2015288977]
+position = Vector2(-174.2143, 193.14285)
+scale = Vector2(3.468006, 2.690476)
+texture = ExtResource("11_ycdy4")
