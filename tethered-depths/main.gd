@@ -71,35 +71,41 @@ func generate_world():
 				source_id = TILE_GRASS
 			else:
 				var patch_val := patch_noise.get_noise_2d(float(x), float(y)) # -1..1
-				var deep_line := int(DEPTH * 0.65)
-				var mid_line := int(DEPTH * 0.35)
-
-				if y <= SURFACE_Y + 10:
-					# Mostly dirt with occasional stones
-					source_id = TILE_COBBLE if patch_val > 0.60 else TILE_DIRT
-				elif y < mid_line:
-					# Stone band: mostly cobble, with dirt pockets
-					source_id = TILE_DIRT if patch_val < -0.35 else TILE_COBBLE
-				elif y < deep_line:
-					# Transition: cobble → deepslate
-					source_id = TILE_DEEPSLATE if patch_val > 0.10 else TILE_COBBLE
+				
+				if y <= SURFACE_Y + 20:
+					# Mostly dirt with very rare stones
+					source_id = TILE_COBBLE if patch_val > 0.75 else TILE_DIRT
+				elif y <= 60:
+					# Transitioning: Dirt fades out, Cobble/Deepslate takes over
+					var transition_factor = (y - 20.0) / 40.0
+					if randf() < transition_factor:
+						source_id = TILE_DEEPSLATE if patch_val > 0.2 else TILE_COBBLE
+					else:
+						source_id = TILE_DIRT
 				else:
-					# Deep: mostly deepslate, with some cobble pockets
-					source_id = TILE_COBBLE if patch_val < -0.25 else TILE_DEEPSLATE
+					# Deep: Deepslate and Cobble only
+					source_id = TILE_DEEPSLATE if patch_val > -0.1 else TILE_COBBLE
 
-			# 3. Ores (only embedded in stone-like blocks)
-			if y > SURFACE_Y + 12 and (source_id == TILE_COBBLE or source_id == TILE_DEEPSLATE):
-				var ore_val := ore_noise.get_noise_2d(float(x) * 1.3, float(y) * 1.3)
+			# 3. Ores (Very rich as you go deeper)
+			if y > SURFACE_Y + 15:
+				var ore_val := ore_noise.get_noise_2d(float(x) * 1.5, float(y) * 1.5)
 				var roll := randf()
-				# Copper: common in upper/mid depths
-				if y < int(DEPTH * 0.55) and ore_val > 0.62 and roll < 0.08:
+				var depth_factor = float(y) / float(DEPTH) # 0 to 1
+				
+				# Copper: common in upper/mid
+				if y < 80 and ore_val > 0.5 and roll < 0.15:
 					source_id = TILE_COPPER_NODE
-				# Silver: mid/deeper
-				elif y >= int(DEPTH * 0.35) and ore_val > 0.68 and roll < 0.05:
-					source_id = TILE_SILVER_NODE
-				# Gold: deep and rarer
-				elif y >= int(DEPTH * 0.65) and ore_val > 0.74 and roll < 0.03:
-					source_id = TILE_GOLD_NODE
+				# Silver: starts appearing at 40, becomes very common at 100+
+				elif y >= 40:
+					var silver_chance = 0.05 + (depth_factor * 0.2)
+					if ore_val > 0.4 and roll < silver_chance:
+						source_id = TILE_SILVER_NODE
+				
+				# Gold: starts appearing at 80, becomes extremely common at depth
+				if y >= 80:
+					var gold_chance = 0.02 + (depth_factor * 0.25)
+					if ore_val > 0.45 and roll < gold_chance:
+						source_id = TILE_GOLD_NODE
 
 			# 4. Gaps and Randomization
 			# Random air gaps (2% chance) throughout the map

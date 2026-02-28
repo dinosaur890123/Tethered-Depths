@@ -19,11 +19,11 @@ var mining_sfx_player: AudioStreamPlayer
 # Upgrade tracking
 var pickaxe_level: int = 0
 const PICKAXE_UPGRADES = [
-	{"name": "Starter Pick", "price": 0,     "mine_time": 2.0,  "luck": 1.0, "color": Color(0.6, 0.6, 0.6)},
-	{"name": "Stone Pick",   "price": 267,   "mine_time": 1.0,  "luck": 1.1, "color": Color(0.75, 0.7, 0.65)},
-	{"name": "Copper Pick",  "price": 667,  "mine_time": 0.9,  "luck": 1.2, "color": Color(0.9, 0.5, 0.15)},
-	{"name": "Silver Pick",  "price": 1676,  "mine_time": 0.5,  "luck": 1.4, "color": Color(0.8, 0.85, 0.95)},
-	{"name": "Gold Pick",    "price": 4676, "mine_time": 0.25, "luck": 1.8, "color": Color(1.0, 0.85, 0.1)}
+	{"name": "Starter Pick", "price": 0,     "mine_time": 2.0,  "luck": 1.0,  "color": Color(0.6, 0.6, 0.6)},
+	{"name": "Stone Pick",   "price": 500,   "mine_time": 1.6,  "luck": 1.1,  "color": Color(0.75, 0.7, 0.65)},
+	{"name": "Copper Pick",  "price": 1000,  "mine_time": 1.2,  "luck": 1.2,  "color": Color(0.9, 0.5, 0.15)},
+	{"name": "Silver Pick",  "price": 5000,  "mine_time": 1.0,  "luck": 1.35, "color": Color(0.8, 0.85, 0.95)},
+	{"name": "Gold Pick",    "price": 50000, "mine_time": 0.7,  "luck": 1.5,  "color": Color(1.0, 0.85, 0.1)}
 ]
 
 @onready var mining_timer: Timer = $MiningTimer
@@ -44,12 +44,8 @@ var is_wall_climbing: bool = false
 # Highlight state — updated every frame based on mouse position
 var highlighted_tile: Vector2i
 var highlight_valid: bool = false
-var highlight_unbreakable: bool = false
 # Tile size in world space: tileset is 128px, TileMapLayer scale is 0.5
 const TILE_WORLD_SIZE = 64.0
-
-const CANT_MINE_MSG_COOLDOWN := 0.45
-var _cant_mine_msg_cd: float = 0.0
 
 # Ore table: [name, 1-in-N drop chance, value per ore, display color]
 const ORE_TABLE = [
@@ -63,14 +59,6 @@ const ORE_TABLE = [
 var ore_counts: Dictionary = {}
 # HUD label references keyed by ore name
 var ore_labels: Dictionary = {}
-
-func _is_tile_unbreakable(tile_coords: Vector2i) -> bool:
-	if tilemap == null:
-		return false
-	if not tilemap.has_meta("unbreakable_tiles"):
-		return false
-	var data = tilemap.get_meta("unbreakable_tiles")
-	return data is Dictionary and (data as Dictionary).has(tile_coords)
 
 func _ready():
 	spawn_position = global_position
@@ -128,9 +116,6 @@ func _ready():
 
 func _physics_process(delta):
 	if not tilemap: return
-
-	if _cant_mine_msg_cd > 0.0:
-		_cant_mine_msg_cd = max(0.0, _cant_mine_msg_cd - delta)
 
 	# 1. Drain Battery (Oxygen)
 	var pos_tile = tilemap.local_to_map(tilemap.to_local(global_position))
@@ -220,22 +205,24 @@ func _update_highlight():
 	if mouse_tile in adjacent_tiles and tilemap.get_cell_source_id(mouse_tile) != -1:
 		highlighted_tile = mouse_tile
 		highlight_valid = true
-		highlight_unbreakable = _is_tile_unbreakable(mouse_tile)
 	else:
 		highlight_valid = false
-		highlight_unbreakable = false
 
 func _update_animation():
 	var target_anim: StringName
+	# NOTE: In the SpriteFrames (player.tscn), 'idle' and 'walk' slots are swapped.
+	# Animation 'idle' contains walk frames, and 'walk' contains idle frames.
 	if is_mining:
 		var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 		target_anim = &"mine_down" if target_tile_coords.y > player_tile.y else &"mine_right"
 	elif is_wall_climbing:
 		target_anim = &"climb"
 	elif is_walking:
-		target_anim = &"walk" # In SF_miner, walk and idle were swapped.
+		# Use 'idle' slot because it contains the walk frames
+		target_anim = &"idle" 
 	else:
-		target_anim = &"idle"
+		# Use 'walk' slot because it contains the idle frames
+		target_anim = &"walk"
 
 	if is_mining:
 		var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
@@ -257,12 +244,8 @@ func _draw():
 		var tile_center_local = to_local(tile_center_global)
 		var half = TILE_WORLD_SIZE / 2.0
 		var rect = Rect2(tile_center_local - Vector2(half, half), Vector2(TILE_WORLD_SIZE, TILE_WORLD_SIZE))
-		if highlight_unbreakable:
-			draw_rect(rect, Color(0.0, 0.0, 0.0, 0.35), true)
-			draw_rect(rect, Color(0.9, 0.2, 0.2, 0.95), false, 3.0)
-		else:
-			draw_rect(rect, Color(1.0, 1.0, 0.0, 0.45), true)
-			draw_rect(rect, Color(1.0, 0.85, 0.0, 1.0), false, 3.0)
+		draw_rect(rect, Color(1.0, 1.0, 0.0, 0.45), true)
+		draw_rect(rect, Color(1.0, 0.85, 0.0, 1.0), false, 3.0)
 
 	if is_mining:
 		var progress = 1.0 - (mining_timer.time_left / mine_time)
@@ -282,12 +265,6 @@ func _draw():
 		draw_rect(Rect2(bar_pos, Vector2(bar_w, bar_h)), Color(1.0, 1.0, 1.0, 0.5), false, 1.0)
 
 func start_mining(tile_coords: Vector2i):
-	if _is_tile_unbreakable(tile_coords):
-		if _cant_mine_msg_cd <= 0.0:
-			_cant_mine_msg_cd = CANT_MINE_MSG_COOLDOWN
-			var msg_pos = tilemap.to_global(tilemap.map_to_local(tile_coords))
-			_spawn_floating_text("Can't mine this", msg_pos, Color(1.0, 0.7, 0.2, 0.95))
-		return
 	is_mining = true
 	target_tile_coords = tile_coords
 	_play_mining_sfx()
@@ -333,9 +310,6 @@ func _roll_count() -> int:
 
 func finish_mining():
 	if not tilemap: return
-	if _is_tile_unbreakable(target_tile_coords):
-		is_mining = false
-		return
 	var is_grass = tilemap.get_cell_source_id(target_tile_coords) == 1
 	tilemap.set_cell(target_tile_coords, -1)
 	is_mining = false
