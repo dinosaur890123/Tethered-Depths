@@ -124,11 +124,17 @@ func _process(delta):
 		ShopState.CONFIRM_BUY:
 			_set_pickaxes_visible(false)
 			var upg = player_nearby.PICKAXE_UPGRADES[pending_upgrade_index]
-			var old_speed = player_nearby.PICKAXE_UPGRADES[player_nearby.pickaxe_level]["mine_time"]
+			var old_upg = player_nearby.PICKAXE_UPGRADES[player_nearby.pickaxe_level]
+			
+			var old_speed = old_upg["mine_time"]
 			var new_speed = upg["mine_time"]
+			var old_luck = old_upg["luck"]
+			var new_luck = upg["luck"]
 			
 			var confirm_text = "[center]Are you sure you want to buy [color=yellow]%s[/color]?[/center]\n" % upg["name"]
 			confirm_text += "[center]Mine Time: %.2fs [color=green]→[/color] [color=green]%.2fs[/color][/center]\n" % [old_speed, new_speed]
+			if new_luck > old_luck:
+				confirm_text += "[center]Ore Luck: %.1fx [color=green]→[/color] [color=green]%.1fx[/color][/center]\n" % [old_luck, new_luck]
 			confirm_text += "[center]Cost: $%d[/center]\n" % upg["price"]
 			confirm_text += "\n[center]1: Yes (Confirm) | 2: No (Cancel)[/center]"
 			
