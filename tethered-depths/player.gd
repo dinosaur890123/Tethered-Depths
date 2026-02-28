@@ -31,14 +31,19 @@ var highlight_valid: bool = false
 # Tile size in world space: tileset is 128px, TileMapLayer scale is 0.5
 const TILE_WORLD_SIZE = 64.0
 
-# Ore table: [name, 1-in-N drop chance, value per ore]
+# Ore table: [name, 1-in-N drop chance, value per ore, display color]
 # Adjust values to match your spreadsheet
 const ORE_TABLE = [
-	["Stone",  2,  2  ],
-	["Copper", 10, 15 ],
-	["Silver", 25, 50 ],
-	["Gold",   50, 200],
+	["Stone",  2,  2,   Color(0.75, 0.70, 0.65)],
+	["Copper", 10, 15,  Color(0.90, 0.50, 0.15)],
+	["Silver", 25, 50,  Color(0.80, 0.85, 0.95)],
+	["Gold",   50, 200, Color(1.00, 0.85, 0.10)],
 ]
+
+# Per-ore inventory counts
+var ore_counts: Dictionary = {}
+# HUD label references keyed by ore name
+var ore_labels: Dictionary = {}
 
 func _ready():
 	spawn_position = global_position
@@ -49,6 +54,22 @@ func _ready():
 	add_to_group("player")
 	# Draw above the tilemap so highlights aren't buried under adjacent tiles
 	z_index = 1
+
+	# Initialise ore counts and build HUD labels below the money label
+	var hud = get_parent().get_node("HUD")
+	var y: float = 68.0
+	for ore in ORE_TABLE:
+		var nm: String = ore[0]
+		ore_counts[nm] = 0
+
+		var lbl := Label.new()
+		lbl.text = "%s: 0" % nm
+		lbl.modulate = ore[3] as Color
+		lbl.add_theme_font_size_override("font_size", 20)
+		lbl.position = Vector2(20.0, y)
+		hud.add_child(lbl)
+		ore_labels[nm] = lbl
+		y += 26.0
 
 func _physics_process(delta):
 	# 1. Drain Battery
@@ -211,6 +232,11 @@ func die_and_respawn():
 	# Reset stats — cargo is lost as a death penalty
 	current_battery = max_battery
 	current_cargo = 0
+	for ore in ORE_TABLE:
+		var nm: String = ore[0]
+		ore_counts[nm] = 0
+		if ore_labels.has(nm):
+			ore_labels[nm].text = "%s: 0" % nm
 
 	# Teleport back to spawn
 	global_position = spawn_position
@@ -227,31 +253,92 @@ func _roll_count() -> int:
 	return count
 
 func finish_mining():
-	# Destroy the tile
+	# Destroy the block immediately
 	tilemap.set_cell(target_tile_coords, -1)
 	is_mining = false
 
-	# Roll each ore type independently
-	var summary: Array[String] = []
+	var tile_world_pos = tilemap.to_global(tilemap.map_to_local(target_tile_coords))
+
+	# Pre-calculate drops, respecting remaining cargo space
+	var found: Array[Dictionary] = []
+	var cargo_remaining = max_cargo - current_cargo
 	for ore in ORE_TABLE:
-		var ore_name: String = ore[0]
-		var chance: int     = ore[1]
-		var value: int      = ore[2]
+		if cargo_remaining <= 0:
+			break
+		if randi() % int(ore[1]) == 0:
+			var amount = min(_roll_count(), cargo_remaining)
+			cargo_remaining -= amount
+			found.append({
+				"name":   ore[0] as String,
+				"amount": amount,
+				"value":  int(ore[2]),
+				"color":  ore[3] as Color,
+			})
 
-		if randi() % chance == 0:
-			var rolled = _roll_count()
-			# Clamp to remaining cargo space
-			var space = max_cargo - current_cargo
-			if space <= 0:
-				break
-			var amount = min(rolled, space)
-			current_cargo += amount
-			var earned = amount * value
-			money += earned
-			summary.append("%dx %s ($%d)" % [amount, ore_name, earned])
+	if found.is_empty():
+		_spawn_floating_text("No ore...", tile_world_pos, Color(0.6, 0.6, 0.6, 0.85))
+		return
 
-	if summary.size() > 0:
+	# Stagger each ore type's animation slightly so they don't all overlap
+	var delay := 0.0
+	for ore_data in found:
+		_spawn_ore_fly(ore_data, tile_world_pos, delay)
+		delay += 0.22
+
+# Floating text that drifts upward and fades (used for "no ore" feedback)
+func _spawn_floating_text(msg: String, world_pos: Vector2, color: Color) -> void:
+	var hud = get_parent().get_node("HUD")
+	var label := Label.new()
+	label.text = msg
+	label.modulate = color
+	label.add_theme_font_size_override("font_size", 16)
+	label.position = get_viewport().get_canvas_transform() * world_pos + Vector2(-30.0, -10.0)
+	label.z_index = 10
+	hud.add_child(label)
+
+	var tween = create_tween()
+	tween.tween_property(label, "position", label.position + Vector2(0.0, -45.0), 1.1)
+	tween.parallel().tween_property(label, "modulate:a", 0.0, 1.1)
+	tween.tween_callback(label.queue_free)
+
+# "+N Type" label that pops up at the block then flies into the player
+func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float) -> void:
+	var hud = get_parent().get_node("HUD")
+	var label := Label.new()
+	label.text = "+%d %s" % [ore_data["amount"], ore_data["name"]]
+	label.modulate = ore_data["color"]
+	label.add_theme_font_size_override("font_size", 18)
+	label.z_index = 10
+
+	var ct := get_viewport().get_canvas_transform()
+	var screen_start := ct * tile_world_pos + Vector2(-36.0, -16.0)
+	# Player is always near the viewport centre because the camera follows them
+	var screen_end := get_viewport_rect().size * 0.5
+
+	label.position = screen_start
+	hud.add_child(label)
+
+	var tween = create_tween()
+	if delay > 0.0:
+		tween.tween_interval(delay)
+	# Brief upward pop before arcing toward the player
+	tween.tween_property(label, "position", screen_start + Vector2(0.0, -20.0), 0.20)
+	tween.tween_property(label, "position", screen_end, 0.45) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_callback(func() -> void:
+		# Ore arrives — update inventory and HUD
+		var nm: String    = ore_data["name"]
+		var amt: int      = ore_data["amount"]
+		var val: int      = ore_data["value"]
+		ore_counts[nm] += amt
+		current_cargo   += amt
+		money           += amt * val
 		money_label.text = "$" + str(money)
-		print("Mined: ", ", ".join(summary), " | Cargo: ", current_cargo, "/", max_cargo)
-	else:
-		print("Nothing found. Cargo: ", current_cargo, "/", max_cargo)
+		if ore_labels.has(nm):
+			ore_labels[nm].text = "%s: %d" % [nm, ore_counts[nm]]
+			# Quick flash on the HUD row to draw the eye
+			var flash = create_tween()
+			flash.tween_property(ore_labels[nm], "modulate:a", 0.15, 0.07)
+			flash.tween_property(ore_labels[nm], "modulate:a", 1.00, 0.18)
+		label.queue_free()
+	)
