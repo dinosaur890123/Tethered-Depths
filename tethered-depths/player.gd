@@ -1,7 +1,7 @@
 extends CharacterBody2D
 
 # Stats (Upgradable!)
-var speed: float = 150.0
+var speed: float = 300.0
 var jump_speed: float = 400.0
 var gravity: float = 980.0
 var mine_time: float = 1.0
@@ -11,7 +11,9 @@ var max_cargo: int = 10
 var current_cargo: int = 0
 
 @onready var mining_timer = $MiningTimer
-@onready var tilemap: TileMapLayer = get_parent().get_node("Dirt")
+var tilemap: TileMapLayer
+var money_label: Label
+var money: int = 0
 var is_mining: bool = false
 var target_tile_coords: Vector2i
 var spawn_position: Vector2
@@ -27,6 +29,9 @@ const TILE_WORLD_SIZE = 64.0
 
 func _ready():
 	spawn_position = global_position
+	tilemap = get_parent().get_node("Dirt") as TileMapLayer
+	money_label = get_parent().get_node("HUD/MoneyLabel") as Label
+	money_label.text = "$0"
 
 func _physics_process(delta):
 	# 1. Drain Battery
@@ -142,13 +147,13 @@ func die_and_respawn():
 	print("Player died! Respawning at ", spawn_position)
 
 func finish_mining():
-	# Get tile data before destroying it to check for ores
-	var tile_data = tilemap.get_cell_tile_data(target_tile_coords)
-	if tile_data:
-		var is_ore = tile_data.get_custom_data("is_ore")
-		if is_ore and current_cargo < max_cargo:
-			current_cargo += 1
-			print("Ore collected! Cargo: ", current_cargo, "/", max_cargo)
+	# Source 2 = ore tile
+	var src_id = tilemap.get_cell_source_id(target_tile_coords)
+	if src_id == 2 and current_cargo < max_cargo:
+		current_cargo += 1
+		money += 10
+		money_label.text = "$" + str(money)
+		print("Ore collected! Money: $", money, "  Cargo: ", current_cargo, "/", max_cargo)
 
 	# Destroy the tile
 	tilemap.set_cell(target_tile_coords, -1)
