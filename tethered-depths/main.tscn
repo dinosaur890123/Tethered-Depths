@@ -6,15 +6,15 @@
 [ext_resource type="Texture2D" uid="uid://bx88s3vjljx6p" path="res://ore.jpeg" id="4_1bvp3"]
 [ext_resource type="PackedScene" uid="uid://0ijrdji8yveo" path="res://shop.tscn" id="5_shop"]
 [ext_resource type="Texture2D" uid="uid://bd8aiay1onsco" path="res://blocks/cobblestone.png" id="6_272bh"]
-[ext_resource type="Texture2D" uid="uid://bc742ecv7axh5" path="res://blocks/deepslate.png" id="10_deep"]
-[ext_resource type="Texture2D" uid="uid://ckrxwand3qkiu" path="res://Stones_ores_bars/copper_node.png" id="11_cu"]
-[ext_resource type="Texture2D" uid="uid://tggf2quxumt5" path="res://Stones_ores_bars/silver_node.png" id="12_ag"]
-[ext_resource type="Texture2D" uid="uid://k2e3v7exan55" path="res://Stones_ores_bars/gold_node.png" id="13_au"]
 [ext_resource type="Texture2D" uid="uid://csa4gx2cjg3fv" path="res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg" id="7_272bh"]
 [ext_resource type="Texture2D" uid="uid://d2pckowi7wx4e" path="res://trees/tree1.png" id="8_5vw27"]
 [ext_resource type="Texture2D" uid="uid://jxsq55icgv5s" path="res://trees/tree2.png" id="9_efxa6"]
+[ext_resource type="Texture2D" uid="uid://bc742ecv7axh5" path="res://blocks/deepslate.png" id="10_deep"]
+[ext_resource type="Texture2D" uid="uid://ckrxwand3qkiu" path="res://Stones_ores_bars/copper_node.png" id="11_cu"]
 [ext_resource type="Texture2D" uid="uid://b8ejsoft6l3ti" path="res://signprice.png" id="11_efxa6"]
+[ext_resource type="Texture2D" uid="uid://tggf2quxumt5" path="res://Stones_ores_bars/silver_node.png" id="12_ag"]
 [ext_resource type="Texture2D" uid="uid://b08ow73g6yw48" path="res://stonewallbackground.png" id="12_dg77c"]
+[ext_resource type="Texture2D" uid="uid://k2e3v7exan55" path="res://Stones_ores_bars/gold_node.png" id="13_au"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_0xm2m"]
 resource_name = "Dirt"
@@ -51,21 +51,18 @@ texture_region_size = Vector2i(128, 128)
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_cu"]
 resource_name = "CopperNode"
 texture = ExtResource("11_cu")
-texture_region_size = Vector2i(16, 16)
 0:0/0 = 0
 0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_ag"]
 resource_name = "SilverNode"
 texture = ExtResource("12_ag")
-texture_region_size = Vector2i(16, 16)
 0:0/0 = 0
 0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_au"]
 resource_name = "GoldNode"
 texture = ExtResource("13_au")
-texture_region_size = Vector2i(16, 16)
 0:0/0 = 0
 0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
 
@@ -94,7 +91,8 @@ scale = Vector2(1.4, 1.4)
 position = Vector2(-20, -98)
 
 [node name="Shop" parent="." unique_id=1331454043 instance=ExtResource("5_shop")]
-position = Vector2(445, 323)
+z_index = 1
+position = Vector2(445, 202.28583)
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=901234567]
 
@@ -189,35 +187,19 @@ position = Vector2(64.464355, -71.4286)
 scale = Vector2(1.0000001, 1.0000001)
 shape = SubResource("RectangleShape2D_efxa6")
 
-<<<<<<< HEAD
-[node name="CollisionShape2D2" type="CollisionShape2D" parent="StaticBody2D2" unique_id=356277401]
+[node name="StaticBody2D2#CollisionShape2D2" type="CollisionShape2D" parent="." unique_id=356277401]
 position = Vector2(23.57129, 1377.859)
 scale = Vector2(1.0000004, 1.0000004)
-=======
-[node name="CollisionShape2D2" type="CollisionShape2D" parent="Vertical Borders" unique_id=356277401]
-position = Vector2(37.142876, 1063.5728)
-scale = Vector2(1.0000002, 1.0000002)
->>>>>>> 66176f186db9cb51f2c8110a834b0436ca219e1a
 shape = SubResource("RectangleShape2D_efxa6")
 
 [node name="Side Borders" type="StaticBody2D" parent="." unique_id=532993636]
 
-<<<<<<< HEAD
-[node name="Left Border" type="CollisionShape2D" parent="StaticBody2D" unique_id=1623177840]
+[node name="StaticBody2D#Left Border" type="CollisionShape2D" parent="." unique_id=1623177840]
 position = Vector2(-1263.5715, 435.71436)
 scale = Vector2(0.9999996, 0.9999996)
 shape = SubResource("RectangleShape2D_4c57u")
 
-[node name="Right Border" type="CollisionShape2D" parent="StaticBody2D" unique_id=671127593]
+[node name="StaticBody2D#Right Border" type="CollisionShape2D" parent="." unique_id=671127593]
 position = Vector2(1487.143, 494.28574)
-=======
-[node name="Left Border" type="CollisionShape2D" parent="Side Borders" unique_id=1623177840]
-position = Vector2(-619.2857, 429.6428)
-scale = Vector2(0.9999996, 0.9999996)
-shape = SubResource("RectangleShape2D_4c57u")
-
-[node name="Right Border" type="CollisionShape2D" parent="Side Borders" unique_id=671127593]
-position = Vector2(939.28564, 527.1429)
->>>>>>> 66176f186db9cb51f2c8110a834b0436ca219e1a
 scale = Vector2(0.99999905, 0.99999905)
 shape = SubResource("RectangleShape2D_4c57u")
