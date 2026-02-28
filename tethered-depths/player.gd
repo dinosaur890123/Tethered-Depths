@@ -313,7 +313,6 @@ func _ready():
 				y += 26.0
 
 		# --- Minimap ---
-		var minimap_panel = hud.get_node_or_null("MinimapPanel") as Panel
 		if minimap_panel:
 			minimap_texture_rect = minimap_panel.get_node_or_null("MinimapTexture") as TextureRect
 			minimap_timer_node = minimap_panel.get_node_or_null("MinimapTimer") as Timer
