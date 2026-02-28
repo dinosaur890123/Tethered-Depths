@@ -19,11 +19,11 @@ var mining_sfx_player: AudioStreamPlayer
 # Upgrade tracking
 var pickaxe_level: int = 0
 const PICKAXE_UPGRADES = [
-	{"name": "Starter Pick", "price": 0,     "mine_time": 2.0,  "color": Color(0.6, 0.6, 0.6)},
-	{"name": "Stone Pick",   "price": 500,   "mine_time": 1.0,  "color": Color(0.75, 0.7, 0.65)},
-	{"name": "Copper Pick",  "price": 1000,  "mine_time": 0.9,  "color": Color(0.9, 0.5, 0.15)},
-	{"name": "Silver Pick",  "price": 5000,  "mine_time": 0.5,  "color": Color(0.8, 0.85, 0.95)},
-	{"name": "Gold Pick",    "price": 50000, "mine_time": 0.25, "color": Color(1.0, 0.85, 0.1)}
+	{"name": "Starter Pick", "price": 0,     "mine_time": 2.0,  "luck": 1.0, "color": Color(0.6, 0.6, 0.6)},
+	{"name": "Stone Pick",   "price": 500,   "mine_time": 1.0,  "luck": 1.1, "color": Color(0.75, 0.7, 0.65)},
+	{"name": "Copper Pick",  "price": 1000,  "mine_time": 0.9,  "luck": 1.2, "color": Color(0.9, 0.5, 0.15)},
+	{"name": "Silver Pick",  "price": 5000,  "mine_time": 0.5,  "luck": 1.4, "color": Color(0.8, 0.85, 0.95)},
+	{"name": "Gold Pick",    "price": 50000, "mine_time": 0.25, "luck": 1.8, "color": Color(1.0, 0.85, 0.1)}
 ]
 
 @onready var mining_timer: Timer = $MiningTimer
@@ -316,10 +316,16 @@ func finish_mining():
 	var tile_world_pos = tilemap.to_global(tilemap.map_to_local(target_tile_coords))
 	var found: Array[Dictionary] = []
 	var cargo_remaining = max_cargo - current_cargo
+	
+	# Current luck bonus based on pickaxe level
+	var current_luck = PICKAXE_UPGRADES[pickaxe_level]["luck"]
+
 	for ore in ORE_TABLE:
 		if cargo_remaining <= 0:
 			break
-		if randi() % int(ore[1]) == 0:
+		# Apply luck to the roll
+		var chance_denom = float(ore[1]) / current_luck
+		if randf() * chance_denom < 1.0:
 			var amount = min(_roll_count(), cargo_remaining)
 			cargo_remaining -= amount
 			found.append({

@@ -101,8 +101,21 @@ func generate_world():
 				elif y >= int(DEPTH * 0.65) and ore_val > 0.74 and roll < 0.03:
 					source_id = TILE_GOLD_NODE
 
-			# 4. Set the cell
-			tilemap.set_cell(cell_pos, source_id, Vector2i(0, 0))
+			# 4. Gaps and Randomization
+			# Random air gaps (2% chance) throughout the map
+			if y > SURFACE_Y and randf() < 0.02:
+				continue
+
+			# Randomize tile transforms (flips) for visual variety
+			# In Godot 4, we can use alternative_tile IDs: 
+			# 1=FlipH, 2=FlipV, 4=Transpose
+			var alt_tile = 0
+			if source_id == TILE_DIRT or source_id == TILE_COBBLE or source_id == TILE_DEEPSLATE:
+				if randf() < 0.5: alt_tile |= TileSetAtlasSource.TRANSFORM_FLIP_H
+				if randf() < 0.5: alt_tile |= TileSetAtlasSource.TRANSFORM_FLIP_V
+
+			# 5. Set the cell
+			tilemap.set_cell(cell_pos, source_id, Vector2i(0, 0), alt_tile)
 			generated_count += 1
 			
 	print("World generation complete. Total tiles: ", generated_count)
