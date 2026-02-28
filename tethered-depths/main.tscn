@@ -15,7 +15,7 @@
 [ext_resource type="Texture2D" uid="uid://b8ejsoft6l3ti" path="res://signprice.png" id="11_efxa6"]
 [ext_resource type="Texture2D" uid="uid://cn3u5c107fi7p" path="res://trees/tree4.png" id="11_ycdy4"]
 [ext_resource type="Texture2D" uid="uid://b08ow73g6yw48" path="res://stonewallbackground.png" id="12_dg77c"]
-[ext_resource type="PackedScene" path="res://trader.tscn" id="14_trader"]
+[ext_resource type="PackedScene" uid="uid://j4qhjgifve7e" path="res://trader.tscn" id="14_trader"]
 [ext_resource type="PackedScene" uid="uid://cejj4pr8eahri" path="res://house.tscn" id="15_house"]
 [ext_resource type="Texture2D" uid="uid://b4qtjr0p7e7o5" path="res://signtutorial.png" id="16_2cqfq"]
 [ext_resource type="Texture2D" uid="uid://1odjg1g6j6s7" path="res://shopsign.png" id="18_074og"]
@@ -262,7 +262,7 @@ scale = Vector2(0.350641, 0.35)
 texture = ExtResource("12_dg77c")
 
 [node name="Stonewallbackground3" type="Sprite2D" parent="Background Under" unique_id=1629843755]
-z_index = -34
+z_index = -5
 position = Vector2(-1645.25, 921.625)
 scale = Vector2(0.35, 0.35)
 texture = ExtResource("12_dg77c")

@@ -212,15 +212,15 @@ func _ready():
 		bg_sb.corner_radius_top_left = 10; bg_sb.corner_radius_top_right = 10
 		bg_sb.border_width_top = 2; bg_sb.border_color = Color(0.3, 0.3, 0.3)
 		hotbar_bg.add_theme_stylebox_override("panel", bg_sb)
-		hotbar_bg.set_anchors_preset(Control.LayoutPreset.PRESET_BOTTOM_CENTER)
-		hotbar_bg.grow_horizontal = Control.GrowDirection.GROW_DIRECTION_BOTH
+		hotbar_bg.set_anchors_preset(Control.PRESET_BOTTOM_CENTER)
+		hotbar_bg.grow_horizontal = Control.GROW_DIRECTION_BOTH
 		hotbar_bg.offset_bottom = 0
 		hotbar_bg.offset_top = -70
 		hud.add_child(hotbar_bg)
 
 		var hotbar_container = HBoxContainer.new()
-		hotbar_container.set_anchors_preset(Control.LayoutPreset.PRESET_FULL_RECT)
-		hotbar_container.alignment = BoxContainer.AlignmentMode.ALIGNMENT_CENTER
+		hotbar_container.set_anchors_preset(Control.PRESET_FULL_RECT)
+		hotbar_container.alignment = BoxContainer.ALIGNMENT_CENTER
 		hotbar_container.set_theme_constant_override("separation", 8)
 		hotbar_bg.add_child(hotbar_container)
 		
@@ -253,14 +253,13 @@ func _ready():
 			hotbar_container.add_child(slot)
 			hotbar_slots.append(slot)
 
-		# Selected Item Name Label
 		var item_label = Label.new()
 		item_label.name = "SelectedItemLabel"
 		item_label.text = "Starter Pick"
 		item_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		item_label.set_anchors_preset(Control.LayoutPreset.PRESET_BOTTOM_CENTER)
+		item_label.set_anchors_preset(Control.PRESET_BOTTOM_CENTER)
 		item_label.offset_bottom = -75
-		item_label.grow_horizontal = Control.GrowDirection.GROW_DIRECTION_BOTH
+		item_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
 		item_label.add_theme_font_size_override("font_size", 20)
 		item_label.add_theme_color_override("font_outline_color", Color.BLACK)
 		item_label.add_theme_constant_override("outline_size", 4)
