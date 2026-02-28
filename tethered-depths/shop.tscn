@@ -22,9 +22,9 @@ offset = Vector2(0, -30)
 [node name="PromptLabel" type="RichTextLabel" parent="."]
 clip_contents = false
 offset_left = -360.0
-offset_top = -250.0
+offset_top = -210.0
 offset_right = 360.0
-offset_bottom = 150.0
+offset_bottom = 190.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/normal_font_size = 16

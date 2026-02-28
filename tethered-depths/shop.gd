@@ -2,7 +2,9 @@ extends Node2D
 
 @onready var prompt_label: RichTextLabel = $PromptLabel
 @onready var ui_layer: CanvasLayer = $ShopUI
+@onready var ui_panel: PanelContainer = $ShopUI/Root/Panel
 @onready var ui_feedback: Label = $ShopUI/Root/Panel/Margin/VBox/Feedback
+@onready var ui_vbox: VBoxContainer = $ShopUI/Root/Panel/Margin/VBox
 @onready var ui_header: RichTextLabel = $ShopUI/Root/Panel/Margin/VBox/Header
 @onready var ui_body: RichTextLabel = $ShopUI/Root/Panel/Margin/VBox/Body
 @onready var ui_buttons: VBoxContainer = $ShopUI/Root/Panel/Margin/VBox/Buttons
@@ -42,6 +44,12 @@ var _last_render_state: int = -999
 var _last_render_feedback: String = "__init__"
 var _last_render_header: String = "__init__"
 
+var _ui_style_ready: bool = false
+var _btn_sb_normal: StyleBoxFlat
+var _btn_sb_hover: StyleBoxFlat
+var _btn_sb_pressed: StyleBoxFlat
+var _btn_sb_disabled: StyleBoxFlat
+
 func _ready():
 	prompt_label.visible = false
 	# Ensure BBCode is enabled even if the scene gets edited.
@@ -49,6 +57,7 @@ func _ready():
 	ui_layer.visible = false
 	ui_header.bbcode_enabled = true
 	ui_body.bbcode_enabled = true
+	_apply_shop_ui_style()
 	$ShopZone.body_entered.connect(_on_body_entered)
 	$ShopZone.body_exited.connect(_on_body_exited)
 	_register_unbreakable_foundation_tiles()
@@ -70,6 +79,61 @@ func _ready():
 		s.position = Vector2(-120 + i * 80, -320)
 		add_child(s)
 		pickaxe_sprites.append(s)
+
+
+func _apply_shop_ui_style() -> void:
+	if _ui_style_ready:
+		return
+	_ui_style_ready = true
+
+	# Spacing (keeps everything breathable).
+	ui_vbox.add_theme_constant_override("separation", 10)
+	ui_buttons.add_theme_constant_override("separation", 8)
+
+	# Panel styling (dark framed card, not default grey).
+	var panel_sb := StyleBoxFlat.new()
+	panel_sb.bg_color = Color(0.06, 0.06, 0.09, 0.96)
+	panel_sb.border_width_left = 2
+	panel_sb.border_width_top = 2
+	panel_sb.border_width_right = 2
+	panel_sb.border_width_bottom = 2
+	panel_sb.border_color = Color(0.25, 0.23, 0.12, 1.0)
+	panel_sb.corner_radius_top_left = 14
+	panel_sb.corner_radius_top_right = 14
+	panel_sb.corner_radius_bottom_left = 14
+	panel_sb.corner_radius_bottom_right = 14
+	panel_sb.shadow_color = Color(0.0, 0.0, 0.0, 0.55)
+	panel_sb.shadow_size = 10
+	ui_panel.add_theme_stylebox_override("panel", panel_sb)
+
+	# Button styling.
+	_btn_sb_normal = StyleBoxFlat.new()
+	_btn_sb_normal.bg_color = Color(0.14, 0.14, 0.20, 1.0)
+	_btn_sb_normal.border_width_left = 2
+	_btn_sb_normal.border_width_top = 2
+	_btn_sb_normal.border_width_right = 2
+	_btn_sb_normal.border_width_bottom = 2
+	_btn_sb_normal.border_color = Color(0.22, 0.22, 0.30, 1.0)
+	_btn_sb_normal.corner_radius_top_left = 10
+	_btn_sb_normal.corner_radius_top_right = 10
+	_btn_sb_normal.corner_radius_bottom_left = 10
+	_btn_sb_normal.corner_radius_bottom_right = 10
+	_btn_sb_normal.content_margin_left = 12
+	_btn_sb_normal.content_margin_right = 12
+	_btn_sb_normal.content_margin_top = 10
+	_btn_sb_normal.content_margin_bottom = 10
+
+	_btn_sb_hover = _btn_sb_normal.duplicate(true)
+	_btn_sb_hover.bg_color = Color(0.18, 0.18, 0.26, 1.0)
+	_btn_sb_hover.border_color = Color(0.34, 0.34, 0.45, 1.0)
+
+	_btn_sb_pressed = _btn_sb_normal.duplicate(true)
+	_btn_sb_pressed.bg_color = Color(0.10, 0.10, 0.16, 1.0)
+	_btn_sb_pressed.border_color = Color(0.55, 0.50, 0.25, 1.0)
+
+	_btn_sb_disabled = _btn_sb_normal.duplicate(true)
+	_btn_sb_disabled.bg_color = Color(0.10, 0.10, 0.12, 1.0)
+	_btn_sb_disabled.border_color = Color(0.16, 0.16, 0.18, 1.0)
 
 func _register_unbreakable_foundation_tiles() -> void:
 	var main := get_parent()
@@ -263,9 +327,26 @@ func _add_button(text: String, on_pressed: Callable, disabled: bool = false) -> 
 	var b := Button.new()
 	b.text = text
 	b.disabled = disabled
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.focus_mode = Control.FOCUS_ALL
+	_style_shop_button(b)
 	b.pressed.connect(on_pressed)
 	ui_buttons.add_child(b)
 	return b
+
+
+func _style_shop_button(b: Button) -> void:
+	if not _ui_style_ready:
+		_apply_shop_ui_style()
+	b.add_theme_stylebox_override("normal", _btn_sb_normal)
+	b.add_theme_stylebox_override("hover", _btn_sb_hover)
+	b.add_theme_stylebox_override("pressed", _btn_sb_pressed)
+	b.add_theme_stylebox_override("disabled", _btn_sb_disabled)
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	b.add_theme_color_override("font_color", Color(0.92, 0.92, 0.96, 1.0))
+	b.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0, 1.0))
+	b.add_theme_color_override("font_pressed_color", Color(1.0, 1.0, 1.0, 1.0))
+	b.add_theme_color_override("font_disabled_color", Color(0.55, 0.55, 0.60, 1.0))
 
 
 func _render_ui() -> void:
