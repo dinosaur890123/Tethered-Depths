@@ -14,11 +14,11 @@ var current_cargo: int = 0
 # Upgrade tracking
 var pickaxe_level: int = 0
 const PICKAXE_UPGRADES = [
-	{"name": "Starter Pick", "price": 0,    "mine_time": 1.0, "color": Color(0.7, 0.7, 0.7)},
-	{"name": "Iron Pick",    "price": 250,  "mine_time": 0.8, "color": Color(0.8, 0.8, 0.9)},
-	{"name": "Steel Pick",   "price": 750,  "mine_time": 0.6, "color": Color(0.6, 0.7, 0.8)},
-	{"name": "Titanium Pick","price": 2000, "mine_time": 0.4, "color": Color(0.5, 0.9, 1.0)},
-	{"name": "Diamond Drill","price": 5000, "mine_time": 0.2, "color": Color(0.4, 1.0, 0.8)}
+	{"name": "Starter Pick", "price": 0,     "mine_time": 1.2,  "color": Color(0.6, 0.6, 0.6)},
+	{"name": "Stone Pick",   "price": 500,   "mine_time": 1.0,  "color": Color(0.75, 0.7, 0.65)},
+	{"name": "Copper Pick",  "price": 1000,  "mine_time": 0.75, "color": Color(0.9, 0.5, 0.15)},
+	{"name": "Silver Pick",  "price": 5000,  "mine_time": 0.5,  "color": Color(0.8, 0.85, 0.95)},
+	{"name": "Gold Pick",    "price": 50000, "mine_time": 0.25, "color": Color(1.0, 0.85, 0.1)}
 ]
 
 @onready var mining_timer = $MiningTimer
