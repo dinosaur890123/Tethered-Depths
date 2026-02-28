@@ -2,6 +2,16 @@ extends Node2D
 
 @onready var tilemap: TileMapLayer = $Dirt
 
+# TileSet source IDs (must match `main.tscn` TileSet sources/*)
+const TILE_DIRT := 0
+const TILE_GRASS := 1
+const TILE_ORE_GENERIC := 2
+const TILE_COBBLE := 3
+const TILE_DEEPSLATE := 4
+const TILE_COPPER_NODE := 5
+const TILE_SILVER_NODE := 6
+const TILE_GOLD_NODE := 7
+
 # World parameters
 const WIDTH = 100
 const DEPTH = 200
@@ -11,6 +21,8 @@ const SURFACE_Y = 0
 var cave_noise = FastNoiseLite.new()
 # Noise parameters for ore/stone patches
 var patch_noise = FastNoiseLite.new()
+# Noise for ore veins
+var ore_noise = FastNoiseLite.new()
 
 func _ready():
 	randomize()
@@ -22,12 +34,17 @@ func setup_noise():
 	# Configure cave noise (Perlin-like for organic caves)
 	cave_noise.seed = randi()
 	cave_noise.noise_type = FastNoiseLite.TYPE_PERLIN
-	cave_noise.frequency = 0.1
+	cave_noise.frequency = 0.10
 	
 	# Configure patch noise for stone/ore distribution
 	patch_noise.seed = randi()
 	patch_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
 	patch_noise.frequency = 0.05
+
+	# Configure ore noise to form chunky veins/pockets
+	ore_noise.seed = randi()
+	ore_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	ore_noise.frequency = 0.085
 
 func generate_world():
 	tilemap.clear()
@@ -39,31 +56,52 @@ func generate_world():
 		for y in range(SURFACE_Y, DEPTH):
 			var cell_pos = Vector2i(x, y)
 			
-			# 1. Check for caves (exclude top layer for stability)
-			if y > SURFACE_Y + 2:
-				var cave_val = cave_noise.get_noise_2d(x, y)
-				if cave_val > 0.2: # Threshold for caves
-					continue # It's a cave, leave it empty
-			
-			# 2. Determine tile type
-			var source_id = 0 # Default: Dirt
-			
+			# 1. Caves (skip top few layers so the surface stays stable)
+			if y > SURFACE_Y + 4:
+				var cave_val := cave_noise.get_noise_2d(float(x), float(y))
+				# More caves deeper down
+				var depth_t := float(y - SURFACE_Y) / float(DEPTH)
+				var cave_threshold := 0.28 - (depth_t * 0.18)
+				if cave_val > cave_threshold:
+					continue
+
+			# 2. Base material by depth + patch noise
+			var source_id := TILE_DIRT
 			if y == SURFACE_Y:
-				source_id = 1 # Grass
+				source_id = TILE_GRASS
 			else:
-				# Use patch noise to decide between Dirt and Cobblestone
-				var patch_val = patch_noise.get_noise_2d(x, y)
-				
-				# Increase stone probability with depth
-				var depth_factor = float(y - SURFACE_Y) / DEPTH
-				var stone_threshold = 0.3 - (depth_factor * 0.5) # Decreasing threshold = more stone
-				
-				if patch_val > stone_threshold:
-					source_id = 3 # Cobblestone
+				var patch_val := patch_noise.get_noise_2d(float(x), float(y)) # -1..1
+				var deep_line := int(DEPTH * 0.65)
+				var mid_line := int(DEPTH * 0.35)
+
+				if y <= SURFACE_Y + 10:
+					# Mostly dirt with occasional stones
+					source_id = TILE_COBBLE if patch_val > 0.60 else TILE_DIRT
+				elif y < mid_line:
+					# Stone band: mostly cobble, with dirt pockets
+					source_id = TILE_DIRT if patch_val < -0.35 else TILE_COBBLE
+				elif y < deep_line:
+					# Transition: cobble → deepslate
+					source_id = TILE_DEEPSLATE if patch_val > 0.10 else TILE_COBBLE
 				else:
-					source_id = 0 # Dirt
-			
-			# 3. Set the cell
+					# Deep: mostly deepslate, with some cobble pockets
+					source_id = TILE_COBBLE if patch_val < -0.25 else TILE_DEEPSLATE
+
+			# 3. Ores (only embedded in stone-like blocks)
+			if y > SURFACE_Y + 12 and (source_id == TILE_COBBLE or source_id == TILE_DEEPSLATE):
+				var ore_val := ore_noise.get_noise_2d(float(x) * 1.3, float(y) * 1.3)
+				var roll := randf()
+				# Copper: common in upper/mid depths
+				if y < int(DEPTH * 0.55) and ore_val > 0.62 and roll < 0.08:
+					source_id = TILE_COPPER_NODE
+				# Silver: mid/deeper
+				elif y >= int(DEPTH * 0.35) and ore_val > 0.68 and roll < 0.05:
+					source_id = TILE_SILVER_NODE
+				# Gold: deep and rarer
+				elif y >= int(DEPTH * 0.65) and ore_val > 0.74 and roll < 0.03:
+					source_id = TILE_GOLD_NODE
+
+			# 4. Set the cell
 			tilemap.set_cell(cell_pos, source_id, Vector2i(0, 0))
 			generated_count += 1
 			
