@@ -100,4 +100,4 @@ func _sell_ores():
 	player_nearby.money += total_earnings
 	player_nearby.money_label.text = "$" + str(player_nearby.money)
 	player_nearby.current_cargo = 0
-	print("Sold ", cargo, " ores for $", earnings)
+	print("Sold cargo for $", total_earnings)
