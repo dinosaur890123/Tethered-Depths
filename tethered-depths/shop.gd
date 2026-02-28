@@ -40,7 +40,7 @@ func _process(_delta):
 		# Hold-to-sell behaviour
 		sell_timer += _delta
 		sell_progress = clamp(sell_timer / sell_hold_time, 0.0, 1.0)
-		prompt_label.text = "Hold E to sell... " + str(int(sell_progress * 100)) + "%"
+		prompt_label.text = "Press E to Interact"
 		prompt_label.visible = true
 		is_selling = true
 		queue_redraw()
@@ -79,25 +79,27 @@ func _on_body_exited(body):
 func _sell_ores():
 	if player_nearby.current_cargo <= 0:
 		return
-	
+
 	var total_earnings = 0
-	
+	var total_ores_sold = 0
+
 	# Calculate earnings based on individual ore values from player's ORE_TABLE
 	for ore in player_nearby.ORE_TABLE:
 		var nm: String = ore[0]
 		var val: int = ore[2]
 		var count = player_nearby.ore_counts.get(nm, 0)
-		
+
 		total_earnings += count * val
-		
+		total_ores_sold += count
+
 		# Reset the count for this ore
 		player_nearby.ore_counts[nm] = 0
-		
+
 		# Update the HUD label for this ore
 		if player_nearby.ore_labels.has(nm):
 			player_nearby.ore_labels[nm].text = "%s: 0" % nm
-	
+
 	player_nearby.money += total_earnings
 	player_nearby.money_label.text = "$" + str(player_nearby.money)
 	player_nearby.current_cargo = 0
-	print("Sold ", cargo, " ores for $", earnings)
+	print("Sold ", total_ores_sold, " ores for $", total_earnings)
