@@ -7,7 +7,7 @@ var player_nearby: Node = null
 @export var foundation_half_width_tiles: int = 2 # total width = (half*2+1)
 @export var foundation_depth_tiles: int = 2
 
-# Developer menu unlock (press E 10x near shop)
+# Developer menu unlock (press F 10x near shop)
 const DEV_TAP_TARGET: int = 10
 var _dev_tap_count: int = 0
 
@@ -74,8 +74,8 @@ func _input(event):
 	if not player_nearby:
 		return
 
-	# Secret dev menu: tap E 10 times while near the shop.
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_E:
+	# Secret dev menu: tap F 10 times while near the shop.
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
 		if current_state != ShopState.DEV_MENU:
 			_dev_tap_count += 1
 			if _dev_tap_count >= DEV_TAP_TARGET:
@@ -146,7 +146,7 @@ func _process(delta):
 
 	match current_state:
 		ShopState.PROMPT:
-			prompt_label.text = "[center]Press E to open shop[/center]"
+			prompt_label.text = "[center]Press F to open shop[/center]"
 			prompt_label.visible = true
 			_set_pickaxes_visible(false)
 			if Input.is_action_just_pressed("sell"):
@@ -161,7 +161,7 @@ func _process(delta):
 			if player_nearby.current_cargo <= 0:
 				cargo_msg = "No ore to sell"
 			else:
-				cargo_msg = "Press E to sell ores"
+				cargo_msg = "Press F to sell ores"
 			
 			prompt_label.text = "[center]%s[/center]" % cargo_msg
 			_set_pickaxes_visible(false)

@@ -42,7 +42,7 @@ func _process(_delta):
 	var next_upg = player_nearby.PICKAXE_UPGRADES[current_level + 1]
 	var can_afford = player_nearby.money >= next_upg["price"]
 
-	if Input.is_action_pressed("sell"): # Using "sell" action (E key)
+	if Input.is_action_pressed("sell"): # Using "sell" action (F key)
 		if not can_afford:
 			prompt_label.text = "[center][color=#ff0000]NEED $%d[/color][/center]" % next_upg["price"] + info_text
 			return
@@ -66,7 +66,7 @@ func _process(_delta):
 			interact_progress = 0.0
 			is_interacting = false
 			
-		var prompt = "Hold E to Upgrade to %s" % next_upg["name"]
+		var prompt = "Hold F to Upgrade to %s" % next_upg["name"]
 		if not can_afford:
 			prompt = "[color=#aaaaaa]Cannot Afford %s[/color]" % next_upg["name"]
 			
