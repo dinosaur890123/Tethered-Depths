@@ -39,6 +39,7 @@ sources/2 = SubResource("TileSetAtlasSource_lquwl")
 sources/3 = SubResource("TileSetAtlasSource_kek77")
 
 [node name="Main" type="Node2D" unique_id=2041820833]
+scale = Vector2(1.4, 1.4)
 
 [node name="Player" parent="." unique_id=1551261113 instance=ExtResource("1_ig7tw")]
 position = Vector2(-20, -98)
