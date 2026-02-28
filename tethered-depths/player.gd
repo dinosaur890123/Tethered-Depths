@@ -11,6 +11,11 @@ var current_battery: float = 100.0
 var max_cargo: int = 10
 var current_cargo: int = 0
 
+# Shop upgrades (repeatable)
+var cargo_upgrade_level: int = 0
+var oxygen_upgrade_level: int = 0
+var speed_upgrade_level: int = 0
+
 # --- Grappling Hook ---
 var grapple_active: bool = false
 var grapple_point: Vector2
@@ -86,8 +91,8 @@ var walking_sfx_player: AudioStreamPlayer
 # Upgrade tracking
 var pickaxe_level: int = 0
 const PICKAXE_UPGRADES = [
-	{"name": "Starter Pick", "price": 0,     "mine_time": 2.5,  "luck": 1.0,  "color": Color(0.6, 0.6, 0.6)},
-	{"name": "Stone Pick",   "price": 500,   "mine_time": 1.6,  "luck": 1.1,  "color": Color(0.75, 0.7, 0.65)},
+	{"name": "Starter Pick", "price": 0,     "mine_time": 2,  "luck": 1.0,  "color": Color(0.6, 0.6, 0.6)},
+	{"name": "Stone Pick",   "price": 500,   "mine_time": 1.4,  "luck": 1.1,  "color": Color(0.75, 0.7, 0.65)},
 	{"name": "Copper Pick",  "price": 1000,  "mine_time": 1,  "luck": 1.2,  "color": Color(0.9, 0.5, 0.15)},
 	{"name": "Silver Pick",  "price": 5000,  "mine_time": 0.6,  "luck": 1.35, "color": Color(0.8, 0.85, 0.95)},
 	{"name": "Gold Pick",    "price": 50000, "mine_time": 0.3,  "luck": 1.55,  "color": Color(1.0, 0.85, 0.1)}
@@ -114,18 +119,32 @@ var highlight_valid: bool = false
 # Tile size in world space: tileset is 128px, TileMapLayer scale is 0.5
 const TILE_WORLD_SIZE = 64.0
 
+# --- Mutated Ores ---
+const MUTATED_CHANCE: float = 0.05
+const MUTATED_DROP_DENOM: float = 999999.0  # kept for pricing/inventory; never rolled directly
+
 # Ore table: [name, 1-in-N drop chance, value per ore, display color]
 const ORE_TABLE = [
 	["Stone",  1.8,  2,   Color(0.75, 0.70, 0.65)],
 	["Copper", 9, 15,  Color(0.90, 0.50, 0.15)],
 	["Silver", 22, 50,  Color(0.80, 0.85, 0.95)],
 	["Gold",   45, 200, Color(1.00, 0.85, 0.10)],
+	["Rainbow", 180, 2500, Color(1.00, 1.00, 1.00)],
+	["Mutated Stone",  MUTATED_DROP_DENOM,  8,   Color(0.80, 0.20, 0.95)],
+	["Mutated Copper", MUTATED_DROP_DENOM,  60,  Color(0.80, 0.20, 0.95)],
+	["Mutated Silver", MUTATED_DROP_DENOM,  200, Color(0.80, 0.20, 0.95)],
+	["Mutated Gold",   MUTATED_DROP_DENOM,  800, Color(0.80, 0.20, 0.95)],
 ]
 
 # Per-ore inventory counts
 var ore_counts: Dictionary = {}
 # HUD label references keyed by ore name
 var ore_labels: Dictionary = {}
+
+# --- Inventory (opened with the `inventory` action, default E) ---
+var inventory_panel: ColorRect
+var inventory_label: RichTextLabel
+var inventory_open: bool = false
 
 func _ready():
 	spawn_position = global_position
@@ -210,6 +229,34 @@ func _ready():
 		hud.add_child(lbl_ox)
 		low_oxygen_label = lbl_ox
 
+		# --- Inventory Panel ---
+		inventory_panel = ColorRect.new()
+		inventory_panel.visible = false
+		inventory_panel.color = Color(0.0, 0.0, 0.0, 0.78)
+		inventory_panel.anchor_left = 0.5
+		inventory_panel.anchor_right = 0.5
+		inventory_panel.anchor_top = 0.5
+		inventory_panel.anchor_bottom = 0.5
+		inventory_panel.offset_left = -320.0
+		inventory_panel.offset_right = 320.0
+		inventory_panel.offset_top = -220.0
+		inventory_panel.offset_bottom = 220.0
+		inventory_panel.z_index = 20
+		hud.add_child(inventory_panel)
+
+		inventory_label = RichTextLabel.new()
+		inventory_label.bbcode_enabled = true
+		inventory_label.fit_content = true
+		inventory_label.anchor_left = 0.0
+		inventory_label.anchor_right = 1.0
+		inventory_label.anchor_top = 0.0
+		inventory_label.anchor_bottom = 1.0
+		inventory_label.offset_left = 18.0
+		inventory_label.offset_right = -18.0
+		inventory_label.offset_top = 14.0
+		inventory_label.offset_bottom = -14.0
+		inventory_panel.add_child(inventory_label)
+
 	# --- Minimap ---
 	var minimap_panel = hud.get_node_or_null("MinimapPanel") if hud else null
 	if minimap_panel:
@@ -231,15 +278,15 @@ func _ready():
 		for ore in ORE_TABLE:
 			var nm: String = ore[0]
 			ore_counts[nm] = 0
-
-			var lbl := Label.new()
-			lbl.text = "%s: 0" % nm
-			lbl.modulate = ore[3] as Color
-			lbl.add_theme_font_size_override("font_size", 20)
-			lbl.position = Vector2(20.0, y)
-			hud.add_child(lbl)
-			ore_labels[nm] = lbl
-			y += 26.0
+			if nm in ["Stone", "Copper", "Silver", "Gold"]:
+				var lbl := Label.new()
+				lbl.text = "%s: 0" % nm
+				lbl.modulate = ore[3] as Color
+				lbl.add_theme_font_size_override("font_size", 20)
+				lbl.position = Vector2(20.0, y)
+				hud.add_child(lbl)
+				ore_labels[nm] = lbl
+				y += 26.0
 
 	_setup_end_of_day_ui()
 
@@ -566,17 +613,29 @@ func finish_mining():
 	for ore in ORE_TABLE:
 		if cargo_remaining <= 0:
 			break
-		if ore[0] == "Stone":
+		var ore_name: String = ore[0] as String
+		if ore_name == "Stone":
+			continue
+		if ore_name.begins_with("Mutated "):
 			continue
 		var chance_denom = float(ore[1]) / current_luck
 		if randf() * chance_denom < 1.0:
 			var amount = min(_roll_count(), cargo_remaining)
 			cargo_remaining -= amount
+			var drop_name: String = ore_name
+			var drop_color: Color = ore[3] as Color
+			var drop_value: int = int(ore[2])
+			if drop_name == "Rainbow":
+				drop_color = Color.from_hsv(randf(), 0.95, 1.0, 1.0)
+			elif randf() < MUTATED_CHANCE:
+				drop_name = "Mutated %s" % drop_name
+				drop_color = Color(0.80, 0.20, 0.95)
+				drop_value = _get_ore_value(drop_name)
 			found.append({
-				"name":   ore[0] as String,
+				"name":   drop_name,
 				"amount": amount,
-				"value":  int(ore[2]),
-				"color":  ore[3] as Color,
+				"value":  drop_value,
+				"color":  drop_color,
 			})
 
 	if found.is_empty():
@@ -780,17 +839,25 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 	var fly_node = Node2D.new()
 	fly_node.z_index = 10
 	
+	var ore_name: String = ore_data.get("name", "") as String
+	var base_name := ore_name
+	if ore_name.begins_with("Mutated "):
+		base_name = ore_name.substr("Mutated ".length(), ore_name.length())
+
 	var tex_path = ""
-	match ore_data["name"]:
+	match base_name:
 		"Stone": tex_path = "res://Stones_ores_bars/stone_1.png"
 		"Copper": tex_path = "res://Stones_ores_bars/copper_ore.png"
 		"Silver": tex_path = "res://Stones_ores_bars/silver_ore.png"
 		"Gold": tex_path = "res://Stones_ores_bars/gold_ore.png"
+		"Rainbow": tex_path = "res://Stones_ores_bars/gold_ore.png"
 		
 	var sprite = Sprite2D.new()
 	if tex_path != "" and FileAccess.file_exists(tex_path):
 		sprite.texture = load(tex_path)
 		sprite.scale = Vector2(2.5, 2.5)
+	if (ore_name == "Rainbow" or ore_name.begins_with("Mutated ")) and ore_data.has("color") and ore_data["color"] is Color:
+		sprite.modulate = ore_data["color"] as Color
 	fly_node.add_child(sprite)
 
 	var label := Label.new()
@@ -824,6 +891,8 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 			var flash = create_tween()
 			flash.tween_property(ore_labels[nm], "modulate:a", 0.15, 0.07)
 			flash.tween_property(ore_labels[nm], "modulate:a", 1.00, 0.18)
+		if inventory_open:
+			_refresh_inventory()
 		fly_node.queue_free()
 	)
 
@@ -964,3 +1033,32 @@ func _respawn_and_reset_day():
 	if is_mining: cancel_mining()
 	_update_low_battery_overlay()
 	if clock_label: clock_label.text = _format_game_time(game_minutes)
+
+func _toggle_inventory() -> void:
+	inventory_open = not inventory_open
+	if inventory_panel:
+		inventory_panel.visible = inventory_open
+	if inventory_open:
+		_refresh_inventory()
+
+func _refresh_inventory() -> void:
+	if not inventory_label:
+		return
+
+	var special_names := ["Rainbow", "Mutated Stone", "Mutated Copper", "Mutated Silver", "Mutated Gold"]
+	var total_value := 0
+	var text := "[center][b]INVENTORY[/b][/center]\n[center]Press E to close[/center]\n\n"
+	text += "[b]Rainbow / Mutated Ores[/b]\n"
+	for nm in special_names:
+		var count := int(ore_counts.get(nm, 0))
+		var value_each := _get_ore_value(nm)
+		total_value += count * value_each
+		text += "%s: %d  ($%d ea)\n" % [nm, count, value_each]
+	text += "\n[b]Special value:[/b] $%d" % total_value
+	inventory_label.text = text
+
+func _get_ore_value(ore_name: String) -> int:
+	for ore in ORE_TABLE:
+		if (ore[0] as String) == ore_name:
+			return int(ore[2])
+	return 0

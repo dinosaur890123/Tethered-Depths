@@ -22,7 +22,7 @@ func _input(event):
 		
 	if event is InputEventKey and event.pressed and not event.echo:
 		if current_state == TraderState.PROMPT:
-			if event.keycode == KEY_E:
+			if event.keycode == KEY_F:
 				current_state = TraderState.TALKING
 				anim_sprite.play("dialogue")
 		elif current_state == TraderState.TALKING:
@@ -46,7 +46,7 @@ func _process(delta):
 
 	match current_state:
 		TraderState.PROMPT:
-			prompt_label.text = "[center]Press E to talk to Trader[/center]"
+			prompt_label.text = "[center]Press F to talk to Trader[/center]"
 			prompt_label.visible = true
 		
 		TraderState.TALKING:

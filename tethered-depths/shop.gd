@@ -7,13 +7,23 @@ var player_nearby: Node = null
 @export var foundation_half_width_tiles: int = 2 # total width = (half*2+1)
 @export var foundation_depth_tiles: int = 2
 
-# Developer menu unlock (press E 10x near shop)
+# Developer menu unlock (press F 10x near shop)
 const DEV_TAP_TARGET: int = 10
 var _dev_tap_count: int = 0
 
-enum ShopState { IDLE, PROMPT, MAIN_MENU, SELL_MENU, BUY_MENU, CONFIRM_BUY, DEV_MENU }
+enum ShopState { IDLE, PROMPT, MAIN_MENU, SELL_MENU, BUY_MENU, UPGRADE_MENU, CONFIRM_BUY, DEV_MENU }
 var current_state = ShopState.IDLE
 var pending_upgrade_index: int = -1
+
+const CARGO_UPGRADE_STEP: int = 5
+const OXYGEN_UPGRADE_STEP: float = 25.0
+const SPEED_UPGRADE_STEP: float = 40.0
+
+const CARGO_UPGRADE_BASE_PRICE: int = 400
+const OXYGEN_UPGRADE_BASE_PRICE: int = 600
+const SPEED_UPGRADE_BASE_PRICE: int = 800
+
+const MAX_STAT_UPGRADE_LEVEL: int = 8
 
 var pickaxe_sprites: Array[Sprite2D] = []
 var feedback_timer: float = 0.0
@@ -74,8 +84,8 @@ func _input(event):
 	if not player_nearby:
 		return
 
-	# Secret dev menu: tap E 10 times while near the shop.
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_E:
+	# Secret dev menu: tap F 10 times while near the shop.
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
 		if current_state != ShopState.DEV_MENU:
 			_dev_tap_count += 1
 			if _dev_tap_count >= DEV_TAP_TARGET:
@@ -111,6 +121,9 @@ func _input(event):
 			elif event.keycode == KEY_2:
 				current_state = ShopState.BUY_MENU
 				feedback_text = ""
+			elif event.keycode == KEY_3:
+				current_state = ShopState.UPGRADE_MENU
+				feedback_text = ""
 		elif current_state == ShopState.BUY_MENU:
 			if event.keycode == KEY_1:
 				_start_confirm_buy(1)
@@ -120,6 +133,13 @@ func _input(event):
 				_start_confirm_buy(3)
 			elif event.keycode == KEY_4:
 				_start_confirm_buy(4)
+		elif current_state == ShopState.UPGRADE_MENU:
+			if event.keycode == KEY_1:
+				_buy_stat_upgrade("cargo")
+			elif event.keycode == KEY_2:
+				_buy_stat_upgrade("oxygen")
+			elif event.keycode == KEY_3:
+				_buy_stat_upgrade("speed")
 		elif current_state == ShopState.CONFIRM_BUY:
 			if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
 				_buy_pickaxe(pending_upgrade_index)
@@ -130,7 +150,7 @@ func _input(event):
 		
 		# Allow going back to main menu
 		if event.keycode == KEY_ESCAPE or event.keycode == KEY_BACKSPACE:
-			if current_state in [ShopState.SELL_MENU, ShopState.BUY_MENU]:
+			if current_state in [ShopState.SELL_MENU, ShopState.BUY_MENU, ShopState.UPGRADE_MENU]:
 				current_state = ShopState.MAIN_MENU
 				feedback_text = ""
 
@@ -146,14 +166,14 @@ func _process(delta):
 
 	match current_state:
 		ShopState.PROMPT:
-			prompt_label.text = "[center]Press E to open shop[/center]"
+			prompt_label.text = "[center]Press F to open shop[/center]"
 			prompt_label.visible = true
 			_set_pickaxes_visible(false)
 			if Input.is_action_just_pressed("sell"):
 				current_state = ShopState.MAIN_MENU
 		
 		ShopState.MAIN_MENU:
-			prompt_label.text = "[center]1: Sell Ores\n2: Buy Pickaxes[/center]"
+			prompt_label.text = "[center]1: Sell Ores\n2: Buy Pickaxes\n3: Upgrades[/center]"
 			_set_pickaxes_visible(false)
 		
 		ShopState.SELL_MENU:
@@ -161,7 +181,7 @@ func _process(delta):
 			if player_nearby.current_cargo <= 0:
 				cargo_msg = "No ore to sell"
 			else:
-				cargo_msg = "Press E to sell ores"
+				cargo_msg = "Press F to sell ores"
 			
 			prompt_label.text = "[center]%s[/center]" % cargo_msg
 			_set_pickaxes_visible(false)
@@ -185,6 +205,26 @@ func _process(delta):
 				prompt_label.text = "[center][color=yellow]%s[/color][/center]\n%s" % [feedback_text, upg_text]
 			else:
 				prompt_label.text = upg_text
+
+		ShopState.UPGRADE_MENU:
+			_set_pickaxes_visible(false)
+			var cargo_lv := int(player_nearby.cargo_upgrade_level)
+			var oxy_lv := int(player_nearby.oxygen_upgrade_level)
+			var spd_lv := int(player_nearby.speed_upgrade_level)
+			var cargo_price := _stat_upgrade_price(CARGO_UPGRADE_BASE_PRICE, cargo_lv)
+			var oxy_price := _stat_upgrade_price(OXYGEN_UPGRADE_BASE_PRICE, oxy_lv)
+			var spd_price := _stat_upgrade_price(SPEED_UPGRADE_BASE_PRICE, spd_lv)
+
+			var t := "[center]Upgrades:[/center]\n"
+			t += "[center]1: Cargo Pack (+%d max cargo)  $%d  (Lv %d/%d)[/center]\n" % [CARGO_UPGRADE_STEP, cargo_price, cargo_lv, MAX_STAT_UPGRADE_LEVEL]
+			t += "[center]2: Oxygen Tank (+%d max oxygen) $%d  (Lv %d/%d)[/center]\n" % [int(OXYGEN_UPGRADE_STEP), oxy_price, oxy_lv, MAX_STAT_UPGRADE_LEVEL]
+			t += "[center]3: Boots (+%d speed)          $%d  (Lv %d/%d)[/center]\n" % [int(SPEED_UPGRADE_STEP), spd_price, spd_lv, MAX_STAT_UPGRADE_LEVEL]
+			t += "\n[center][color=gray]ESC/Backspace: Back[/color][/center]"
+
+			if feedback_text != "":
+				prompt_label.text = "[center][color=yellow]%s[/color][/center]\n%s" % [feedback_text, t]
+			else:
+				prompt_label.text = t
 		
 		ShopState.CONFIRM_BUY:
 			_set_pickaxes_visible(false)
@@ -252,6 +292,68 @@ func _buy_pickaxe(index: int):
 	else:
 		feedback_text = "they dont have enough money"
 		feedback_timer = 2.0
+
+func _stat_upgrade_price(base_price: int, level: int) -> int:
+	# Doubles each level: 400, 800, 1600...
+	return int(round(float(base_price) * pow(2.0, float(level))))
+
+func _buy_stat_upgrade(kind: String) -> void:
+	if player_nearby == null:
+		return
+
+	var level := 0
+	var base_price := 0
+	if kind == "cargo":
+		level = int(player_nearby.cargo_upgrade_level)
+		base_price = CARGO_UPGRADE_BASE_PRICE
+	elif kind == "oxygen":
+		level = int(player_nearby.oxygen_upgrade_level)
+		base_price = OXYGEN_UPGRADE_BASE_PRICE
+	elif kind == "speed":
+		level = int(player_nearby.speed_upgrade_level)
+		base_price = SPEED_UPGRADE_BASE_PRICE
+	else:
+		return
+
+	if level >= MAX_STAT_UPGRADE_LEVEL:
+		feedback_text = "Max level!"
+		feedback_timer = 1.2
+		return
+
+	var price := _stat_upgrade_price(base_price, level)
+	if player_nearby.money < price:
+		feedback_text = "Not enough money"
+		feedback_timer = 1.6
+		return
+
+	player_nearby.money -= price
+	if player_nearby.money_label:
+		player_nearby.money_label.text = "$" + str(player_nearby.money)
+
+	if kind == "cargo":
+		player_nearby.cargo_upgrade_level += 1
+		player_nearby.max_cargo += CARGO_UPGRADE_STEP
+		feedback_text = "+%d max cargo" % CARGO_UPGRADE_STEP
+	elif kind == "oxygen":
+		player_nearby.oxygen_upgrade_level += 1
+		player_nearby.max_battery += OXYGEN_UPGRADE_STEP
+		player_nearby.current_battery = player_nearby.max_battery
+		if player_nearby.oxygen_bar:
+			player_nearby.oxygen_bar.max_value = player_nearby.max_battery
+			player_nearby.oxygen_bar.value = player_nearby.current_battery
+		feedback_text = "+%d max oxygen" % int(OXYGEN_UPGRADE_STEP)
+	elif kind == "speed":
+		player_nearby.speed_upgrade_level += 1
+		player_nearby.speed += SPEED_UPGRADE_STEP
+		feedback_text = "+%d speed" % int(SPEED_UPGRADE_STEP)
+
+	feedback_timer = 1.6
+	if FileAccess.file_exists("res://buy_1.mp3"):
+		var asp = AudioStreamPlayer.new()
+		asp.stream = load("res://buy_1.mp3")
+		add_child(asp)
+		asp.play()
+		asp.finished.connect(asp.queue_free)
 
 func _on_body_entered(body):
 	if body.is_in_group("player"):
@@ -324,8 +426,15 @@ func _dev_reset_progress() -> void:
 	player_nearby.money = 0
 	if player_nearby.money_label:
 		player_nearby.money_label.text = "$0"
+	player_nearby.speed = 300.0
+	player_nearby.max_battery = 100.0
+	player_nearby.max_cargo = 10
+	player_nearby.cargo_upgrade_level = 0
+	player_nearby.oxygen_upgrade_level = 0
+	player_nearby.speed_upgrade_level = 0
 	player_nearby.current_battery = player_nearby.max_battery
 	if player_nearby.oxygen_bar:
+		player_nearby.oxygen_bar.max_value = player_nearby.max_battery
 		player_nearby.oxygen_bar.value = player_nearby.current_battery
 	player_nearby.pickaxe_level = 0
 	player_nearby.mine_time = player_nearby.PICKAXE_UPGRADES[0]["mine_time"]
