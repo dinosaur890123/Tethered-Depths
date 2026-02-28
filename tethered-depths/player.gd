@@ -19,11 +19,11 @@ var mining_sfx_player: AudioStreamPlayer
 # Upgrade tracking
 var pickaxe_level: int = 0
 const PICKAXE_UPGRADES = [
-	{"name": "Starter Pick", "price": 0,     "mine_time": 1.2,  "color": Color(0.6, 0.6, 0.6)},
-	{"name": "Stone Pick",   "price": 267,   "mine_time": 1.0,  "color": Color(0.75, 0.7, 0.65)},
-	{"name": "Copper Pick",  "price": 667,  "mine_time": 0.75, "color": Color(0.9, 0.5, 0.15)},
-	{"name": "Silver Pick",  "price": 1667,  "mine_time": 0.6,  "color": Color(0.8, 0.85, 0.95)},
-	{"name": "Gold Pick",    "price": 4667, "mine_time": 0.3, "color": Color(1.0, 0.85, 0.1)}
+	{"name": "Starter Pick", "price": 0,     "mine_time": 2.0,  "color": Color(0.6, 0.6, 0.6)},
+	{"name": "Stone Pick",   "price": 500,   "mine_time": 1.0,  "color": Color(0.75, 0.7, 0.65)},
+	{"name": "Copper Pick",  "price": 1000,  "mine_time": 0.9,  "color": Color(0.9, 0.5, 0.15)},
+	{"name": "Silver Pick",  "price": 5000,  "mine_time": 0.5,  "color": Color(0.8, 0.85, 0.95)},
+	{"name": "Gold Pick",    "price": 50000, "mine_time": 0.25, "color": Color(1.0, 0.85, 0.1)}
 ]
 
 @onready var mining_timer: Timer = $MiningTimer
@@ -76,12 +76,15 @@ func _ready():
 		oxygen_bar = hud.get_node_or_null("ProgressBar") as ProgressBar
 		if oxygen_bar:
 			oxygen_bar.visible = true
+			oxygen_bar.position = Vector2(980, 50)
+			oxygen_bar.size = Vector2(250, 30)
 			oxygen_bar.max_value = max_battery
 			oxygen_bar.value = current_battery
 			
 			var ox_label = oxygen_bar.get_node_or_null("Label") as Label
 			if ox_label:
 				ox_label.text = "Oxygen"
+				ox_label.position = Vector2(5, -25)
 	
 	# Mining sound player
 	mining_sfx_player = AudioStreamPlayer.new()
