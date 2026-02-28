@@ -71,42 +71,32 @@ func position_entities():
 		if "spawn_position" in player:
 			player.spawn_position = player.global_position
 
-	# 2. Shop & Trader — bottom flush with the grass surface
-	var shop = get_node_or_null("Shop")
-	if shop:
-		shop.global_position = Vector2(450, surface_y - (55.0 * self.scale.y))
+	# 2. House / Shop / Trader — snap bottoms to the grass surface (keep editor-set X)
+	var shop := get_node_or_null("Shop")
+	if shop is Node2D:
+		_align_node_bottom_to_surface(shop as Node2D, surface_y)
 
-	# House — mirrors the shop on the left side
-	var house = get_node_or_null("House")
-	if house:
-		house.global_position = Vector2(-400, surface_y - (55.0 * self.scale.y))
+	var house := get_node_or_null("House")
+	if house is Node2D:
+		_align_node_bottom_to_surface(house as Node2D, surface_y)
 
-	var trader = get_node_or_null("Trader")
-	if trader:
-		trader.global_position = Vector2(650, surface_y - (34.0 * self.scale.y))
+	var trader := get_node_or_null("Trader")
+	if trader is Node2D:
+		_align_node_bottom_to_surface(trader as Node2D, surface_y)
 
-	# 3. Signs — bottom flush with the grass surface
-	var signs = {"Signtutorial": -250, "Shopsign": 380, "Signprice": 850}
-	for s_name in signs:
-		var s_node = get_node_or_null(s_name)
-		if s_node and s_node is Sprite2D:
-			var h = s_node.texture.get_size().y * s_node.scale.y * self.scale.y
-			s_node.global_position = Vector2(signs[s_name], surface_y - (h / 2.0))
+	# 3. Signs — snap bottoms to the grass surface (keep editor-set X)
+	var sign_paths := ["Signtutorial", "Shopsign", "Signprice"]
+	for p in sign_paths:
+		var s_node := get_node_or_null(p)
+		if s_node is Node2D:
+			_align_node_bottom_to_surface(s_node as Node2D, surface_y)
 
-	# 4. Trees — bottom flush with the grass surface
-	# Use get_rect() + to_global() so the full scale chain is handled automatically
-	var tree_data = [
-		["Trees/Tree1", -1200.0],
-		["Trees/Tree2", -800.0],
-		["Tree3", 1100.0],
-		["Tree4", 1500.0],
-	]
-	for td in tree_data:
-		var tree = get_node_or_null(td[0]) as Sprite2D
-		if not tree or not tree.texture: continue
-		var rect = tree.get_rect()
-		var bottom_global_y = tree.to_global(Vector2(0.0, rect.end.y)).y
-		tree.global_position = Vector2(td[1], tree.global_position.y + (surface_y - bottom_global_y))
+	# 4. Trees — snap bottoms to the grass surface (keep editor-set X)
+	var tree_paths := ["Trees/Tree1", "Trees/Tree2", "Tree3", "Tree4"]
+	for p in tree_paths:
+		var tree := get_node_or_null(p)
+		if tree is Node2D:
+			_align_node_bottom_to_surface(tree as Node2D, surface_y)
 
 	# 5. Cobblestone backgrounds — align top edge exactly to the grass surface
 	var bg_under = get_node_or_null("Background Under")
@@ -116,6 +106,25 @@ func position_entities():
 			var rect = bg.get_rect()
 			var top_global_y = bg.to_global(Vector2(0.0, rect.position.y)).y
 			bg.global_position.y += surface_y - top_global_y
+
+# Keep editor-authored X/Y layout and only adjust Y to match the surface.
+# We avoid magic offsets by computing bounds from Sprite2D descendants.
+func _subtree_bottom_global_y(root: Node) -> float:
+	var bottom := -INF
+	if root is Sprite2D:
+		var s := root as Sprite2D
+		if s.texture:
+			var rect := s.get_rect()
+			bottom = max(bottom, s.to_global(Vector2(0.0, rect.end.y)).y)
+	for child in root.get_children():
+		bottom = max(bottom, _subtree_bottom_global_y(child))
+	return bottom
+
+func _align_node_bottom_to_surface(n: Node2D, surface_y: float) -> void:
+	var bottom := _subtree_bottom_global_y(n)
+	if bottom == -INF:
+		return
+	n.global_position.y += surface_y - bottom
 
 # Helper to find nodes that might be nested
 func find_node_by_name(root: Node, node_name: String) -> Node:
