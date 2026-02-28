@@ -106,6 +106,7 @@ const PICKAXE_UPGRADES = [
 @onready var mining_timer: Timer = $MiningTimer
 @onready var anim_sprite: AnimatedSprite2D = $AnimatedSprite2D
 var tilemap: TileMapLayer
+var hud: CanvasLayer
 var money_label: Label
 var oxygen_bar: ProgressBar
 var money: int = 0
@@ -160,7 +161,7 @@ func _ready():
 	tilemap = main.get_node_or_null("Dirt") as TileMapLayer
 	
 	# Find HUD nodes more robustly
-	var hud = main.get_node_or_null("HUD")
+	hud = main.get_node_or_null("HUD") as CanvasLayer
 	if hud:
 		money_label = hud.get_node_or_null("MoneyLabel") as Label
 		if money_label:
