@@ -11,6 +11,10 @@ var current_battery: float = 100.0
 var max_cargo: int = 10
 var current_cargo: int = 0
 
+# Mining sound (assign in Inspector, or drop `anvil.mp3` in project root)
+@export var mining_sfx: AudioStream
+var mining_sfx_player: AudioStreamPlayer
+
 # Upgrade tracking
 var pickaxe_level: int = 0
 const PICKAXE_UPGRADES = [
@@ -67,6 +71,14 @@ func _ready():
 	tilemap = get_parent().get_node("Dirt") as TileMapLayer
 	money_label = get_parent().get_node("HUD/MoneyLabel") as Label
 	money_label.text = "$0"
+
+	# SFX player for mining hits
+	mining_sfx_player = AudioStreamPlayer.new()
+	add_child(mining_sfx_player)
+	if mining_sfx == null and ResourceLoader.exists("res://anvil.mp3"):
+		mining_sfx = load("res://anvil.mp3") as AudioStream
+	if mining_sfx != null:
+		mining_sfx_player.stream = mining_sfx
 	
 	oxygen_bar = get_parent().get_node_or_null("HUD/ProgressBar") as ProgressBar
 	if oxygen_bar:
@@ -265,7 +277,18 @@ func _draw():
 func start_mining(tile_coords: Vector2i):
 	is_mining = true
 	target_tile_coords = tile_coords
+	_play_mining_sfx()
 	mining_timer.start(mine_time)
+
+func _play_mining_sfx() -> void:
+	if mining_sfx_player == null:
+		return
+	if mining_sfx_player.stream == null and mining_sfx != null:
+		mining_sfx_player.stream = mining_sfx
+	if mining_sfx_player.stream == null:
+		return
+	mining_sfx_player.stop()
+	mining_sfx_player.play()
 
 func cancel_mining():
 	mining_timer.stop()
