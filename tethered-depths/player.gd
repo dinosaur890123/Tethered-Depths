@@ -15,6 +15,7 @@ var current_cargo: int = 0
 @onready var anim_sprite: AnimatedSprite2D = $AnimatedSprite2D
 var tilemap: TileMapLayer
 var money_label: Label
+var oxygen_bar: ProgressBar
 var money: int = 0
 var is_mining: bool = false
 var target_tile_coords: Vector2i
@@ -50,6 +51,19 @@ func _ready():
 	tilemap = get_parent().get_node("Dirt") as TileMapLayer
 	money_label = get_parent().get_node("HUD/MoneyLabel") as Label
 	money_label.text = "$0"
+	
+	oxygen_bar = get_parent().get_node_or_null("HUD/ProgressBar") as ProgressBar
+	if oxygen_bar:
+		oxygen_bar.visible = true
+		oxygen_bar.position = Vector2(980, 50)
+		oxygen_bar.size = Vector2(250, 30)
+		oxygen_bar.max_value = max_battery
+		oxygen_bar.value = current_battery
+		var ox_label = oxygen_bar.get_node_or_null("Label") as Label
+		if ox_label:
+			ox_label.text = "Oxygen"
+			ox_label.position = Vector2(5, -25)
+	
 	mining_timer.timeout.connect(finish_mining)
 	add_to_group("player")
 	# Draw above the tilemap so highlights aren't buried under adjacent tiles
@@ -72,8 +86,25 @@ func _ready():
 		y += 26.0
 
 func _physics_process(delta):
-	# Battery drain disabled to prevent unexpected respawns
-	# (Previously: current_battery -= delta * 2.0; if current_battery <= 0: die_and_respawn())
+	# 1. Drain Battery (Oxygen) only when underground, regen when near surface
+	var pos_tile = tilemap.local_to_map(tilemap.to_local(global_position))
+	var tile_below = pos_tile + Vector2i(0, 1)
+	var on_grass = tilemap.get_cell_source_id(tile_below) == 1
+	var tile_at_feet = tilemap.get_cell_source_id(pos_tile) == 1
+	
+	# Consider "surface" as either standing on/near grass, or being generally high up
+	if (not on_grass and not tile_at_feet) and pos_tile.y > 0:
+		current_battery -= delta * 2.0
+	else:
+		# Rapidly refill if standing on grass, otherwise normal surface refill
+		var refill_rate = 60.0 if (on_grass or tile_at_feet) else 15.0
+		current_battery = min(max_battery, current_battery + delta * refill_rate)
+		
+	if oxygen_bar:
+		oxygen_bar.value = current_battery
+
+	if current_battery <= 0:
+		die_and_respawn()
 
 	# 2. Horizontal input — read early so wall-climb detection can use it
 	var h = Input.get_axis("Left", "Right")
@@ -251,9 +282,15 @@ func _roll_count() -> int:
 	return count
 
 func finish_mining():
+	# Check tile type before destroying
+	var is_grass = tilemap.get_cell_source_id(target_tile_coords) == 1
+	
 	# Destroy the block immediately
 	tilemap.set_cell(target_tile_coords, -1)
 	is_mining = false
+
+	if is_grass:
+		return
 
 	var tile_world_pos = tilemap.to_global(tilemap.map_to_local(target_tile_coords))
 
