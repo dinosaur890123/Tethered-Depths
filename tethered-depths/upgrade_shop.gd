@@ -102,7 +102,9 @@ func _apply_upgrade():
 	
 	player_nearby.money -= upg["price"]
 	player_nearby.pickaxe_level = next_level
-	player_nearby.mine_time = upg["mine_time"]
+	player_nearby.base_mine_time = upg["mine_time"]
+	if player_nearby.has_method("recompute_mine_time"):
+		player_nearby.recompute_mine_time()
 	
 	# Update HUD
 	player_nearby.money_label.text = "$" + str(player_nearby.money)

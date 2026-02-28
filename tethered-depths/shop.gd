@@ -18,10 +18,12 @@ var pending_upgrade_index: int = -1
 const CARGO_UPGRADE_STEP: int = 5
 const OXYGEN_UPGRADE_STEP: float = 25.0
 const SPEED_UPGRADE_STEP: float = 40.0
+const MINE_SPEED_UPGRADE_STEP_PCT: int = 10
 
 const CARGO_UPGRADE_BASE_PRICE: int = 400
 const OXYGEN_UPGRADE_BASE_PRICE: int = 600
 const SPEED_UPGRADE_BASE_PRICE: int = 800
+const MINE_SPEED_UPGRADE_BASE_PRICE: int = 1200
 
 const MAX_STAT_UPGRADE_LEVEL: int = 8
 
@@ -140,6 +142,8 @@ func _input(event):
 				_buy_stat_upgrade("oxygen")
 			elif event.keycode == KEY_3:
 				_buy_stat_upgrade("speed")
+			elif event.keycode == KEY_4:
+				_buy_stat_upgrade("mine")
 		elif current_state == ShopState.CONFIRM_BUY:
 			if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
 				_buy_pickaxe(pending_upgrade_index)
@@ -166,14 +170,14 @@ func _process(delta):
 
 	match current_state:
 		ShopState.PROMPT:
-			prompt_label.text = "[center]Press F to open shop[/center]"
+			prompt_label.text = _ui_header() + "[center]Press F to open shop[/center]"
 			prompt_label.visible = true
 			_set_pickaxes_visible(false)
 			if Input.is_action_just_pressed("sell"):
 				current_state = ShopState.MAIN_MENU
 		
 		ShopState.MAIN_MENU:
-			prompt_label.text = "[center]1: Sell Ores\n2: Buy Pickaxes\n3: Upgrades[/center]"
+			prompt_label.text = _ui_header() + "[center][b]SHOP[/b]\n\n1: Sell Ores\n2: Buy Pickaxes\n3: Upgrades[/center]"
 			_set_pickaxes_visible(false)
 		
 		ShopState.SELL_MENU:
@@ -183,7 +187,7 @@ func _process(delta):
 			else:
 				cargo_msg = "Press F to sell ores"
 			
-			prompt_label.text = "[center]%s[/center]" % cargo_msg
+			prompt_label.text = _ui_header() + "[center][b]SELL[/b]\n%s[/center]" % cargo_msg
 			_set_pickaxes_visible(false)
 			
 			if Input.is_action_just_pressed("sell"):
@@ -191,7 +195,7 @@ func _process(delta):
 				
 		ShopState.BUY_MENU:
 			_set_pickaxes_visible(true)
-			var upg_text = "[center]Buy Pickaxes:[/center]\n"
+			var upg_text = _ui_header() + "[center][b]BUY PICKAXES[/b][/center]\n"
 			for i in range(1, 5):
 				var upg = player_nearby.PICKAXE_UPGRADES[i]
 				var color_hex = upg["color"].to_html(false)
@@ -199,7 +203,7 @@ func _process(delta):
 				var status = ""
 				if player_nearby.pickaxe_level == i:
 					status = " (Owned)"
-				upg_text += "[center][color=#%s]%d: %s ($%d)%s[/color][/center]\n" % [color_hex, i, upg["name"], upg["price"], status]
+				upg_text += "[center][color=#%s]%d: %s  ($%d)%s[/color][/center]\n" % [color_hex, i, upg["name"], upg["price"], status]
 			
 			if feedback_text != "":
 				prompt_label.text = "[center][color=yellow]%s[/color][/center]\n%s" % [feedback_text, upg_text]
@@ -211,14 +215,17 @@ func _process(delta):
 			var cargo_lv := int(player_nearby.cargo_upgrade_level)
 			var oxy_lv := int(player_nearby.oxygen_upgrade_level)
 			var spd_lv := int(player_nearby.speed_upgrade_level)
+			var mine_lv := int(player_nearby.mining_speed_upgrade_level)
 			var cargo_price := _stat_upgrade_price(CARGO_UPGRADE_BASE_PRICE, cargo_lv)
 			var oxy_price := _stat_upgrade_price(OXYGEN_UPGRADE_BASE_PRICE, oxy_lv)
 			var spd_price := _stat_upgrade_price(SPEED_UPGRADE_BASE_PRICE, spd_lv)
+			var mine_price := _stat_upgrade_price(MINE_SPEED_UPGRADE_BASE_PRICE, mine_lv)
 
-			var t := "[center]Upgrades:[/center]\n"
-			t += "[center]1: Cargo Pack (+%d max cargo)  $%d  (Lv %d/%d)[/center]\n" % [CARGO_UPGRADE_STEP, cargo_price, cargo_lv, MAX_STAT_UPGRADE_LEVEL]
-			t += "[center]2: Oxygen Tank (+%d max oxygen) $%d  (Lv %d/%d)[/center]\n" % [int(OXYGEN_UPGRADE_STEP), oxy_price, oxy_lv, MAX_STAT_UPGRADE_LEVEL]
-			t += "[center]3: Boots (+%d speed)          $%d  (Lv %d/%d)[/center]\n" % [int(SPEED_UPGRADE_STEP), spd_price, spd_lv, MAX_STAT_UPGRADE_LEVEL]
+			var t := _ui_header() + "[center][b]UPGRADES[/b][/center]\n"
+			t += "[center]1: Cargo Pack   (+%d max cargo)      $%d  (Lv %d/%d)[/center]\n" % [CARGO_UPGRADE_STEP, cargo_price, cargo_lv, MAX_STAT_UPGRADE_LEVEL]
+			t += "[center]2: Oxygen Tank  (+%d max oxygen)     $%d  (Lv %d/%d)[/center]\n" % [int(OXYGEN_UPGRADE_STEP), oxy_price, oxy_lv, MAX_STAT_UPGRADE_LEVEL]
+			t += "[center]3: Boots        (+%d speed)          $%d  (Lv %d/%d)[/center]\n" % [int(SPEED_UPGRADE_STEP), spd_price, spd_lv, MAX_STAT_UPGRADE_LEVEL]
+			t += "[center]4: Drill Motor  (-%d%% mine time)     $%d  (Lv %d/%d)[/center]\n" % [MINE_SPEED_UPGRADE_STEP_PCT, mine_price, mine_lv, MAX_STAT_UPGRADE_LEVEL]
 			t += "\n[center][color=gray]ESC/Backspace: Back[/color][/center]"
 
 			if feedback_text != "":
@@ -231,12 +238,13 @@ func _process(delta):
 			var upg = player_nearby.PICKAXE_UPGRADES[pending_upgrade_index]
 			var old_upg = player_nearby.PICKAXE_UPGRADES[player_nearby.pickaxe_level]
 			
-			var old_speed = old_upg["mine_time"]
-			var new_speed = upg["mine_time"]
+			var mult := player_nearby.get_mine_time_mult() if player_nearby.has_method("get_mine_time_mult") else 1.0
+			var old_speed = float(old_upg["mine_time"]) * mult
+			var new_speed = float(upg["mine_time"]) * mult
 			var old_luck = old_upg["luck"]
 			var new_luck = upg["luck"]
 			
-			var confirm_text = "[center]Are you sure you want to buy [color=yellow]%s[/color]?[/center]\n" % upg["name"]
+			var confirm_text = _ui_header() + "[center]Are you sure you want to buy [color=yellow]%s[/color]?[/center]\n" % upg["name"]
 			confirm_text += "[center]Mine Time: %.2fs [color=green]→[/color] [color=green]%.2fs[/color][/center]\n" % [old_speed, new_speed]
 			if new_luck > old_luck:
 				confirm_text += "[center]Ore Luck: %.1fx [color=green]→[/color] [color=green]%.1fx[/color][/center]\n" % [old_luck, new_luck]
@@ -277,7 +285,9 @@ func _buy_pickaxe(index: int):
 	if player_nearby.money >= upg["price"]:
 		player_nearby.money -= upg["price"]
 		player_nearby.pickaxe_level = index
-		player_nearby.mine_time = upg["mine_time"]
+		player_nearby.base_mine_time = upg["mine_time"]
+		if player_nearby.has_method("recompute_mine_time"):
+			player_nearby.recompute_mine_time()
 		if player_nearby.money_label:
 			player_nearby.money_label.text = "$" + str(player_nearby.money)
 		feedback_text = "Bought " + upg["name"] + "!"
@@ -312,6 +322,9 @@ func _buy_stat_upgrade(kind: String) -> void:
 	elif kind == "speed":
 		level = int(player_nearby.speed_upgrade_level)
 		base_price = SPEED_UPGRADE_BASE_PRICE
+	elif kind == "mine":
+		level = int(player_nearby.mining_speed_upgrade_level)
+		base_price = MINE_SPEED_UPGRADE_BASE_PRICE
 	else:
 		return
 
@@ -346,6 +359,11 @@ func _buy_stat_upgrade(kind: String) -> void:
 		player_nearby.speed_upgrade_level += 1
 		player_nearby.speed += SPEED_UPGRADE_STEP
 		feedback_text = "+%d speed" % int(SPEED_UPGRADE_STEP)
+	elif kind == "mine":
+		player_nearby.mining_speed_upgrade_level += 1
+		if player_nearby.has_method("recompute_mine_time"):
+			player_nearby.recompute_mine_time()
+		feedback_text = "-%d%% mine time" % MINE_SPEED_UPGRADE_STEP_PCT
 
 	feedback_timer = 1.6
 	if FileAccess.file_exists("res://buy_1.mp3"):
@@ -354,6 +372,15 @@ func _buy_stat_upgrade(kind: String) -> void:
 		add_child(asp)
 		asp.play()
 		asp.finished.connect(asp.queue_free)
+
+
+func _ui_header() -> String:
+	if player_nearby == null:
+		return ""
+	var money := int(player_nearby.money)
+	var cargo := "%d/%d" % [int(player_nearby.current_cargo), int(player_nearby.max_cargo)]
+	var oxy := "%d/%d" % [int(player_nearby.current_battery), int(player_nearby.max_battery)]
+	return "[center][color=gray]$%d    Cargo %s    Oxygen %s[/color][/center]\n\n" % [money, cargo, oxy]
 
 func _on_body_entered(body):
 	if body.is_in_group("player"):
@@ -409,7 +436,9 @@ func _dev_set_pickaxe(level: int) -> void:
 		return
 	level = clamp(level, 0, player_nearby.PICKAXE_UPGRADES.size() - 1)
 	player_nearby.pickaxe_level = level
-	player_nearby.mine_time = player_nearby.PICKAXE_UPGRADES[level]["mine_time"]
+	player_nearby.base_mine_time = player_nearby.PICKAXE_UPGRADES[level]["mine_time"]
+	if player_nearby.has_method("recompute_mine_time"):
+		player_nearby.recompute_mine_time()
 	feedback_text = "Pickaxe set: %s" % player_nearby.PICKAXE_UPGRADES[level]["name"]
 	feedback_timer = 1.2
 
@@ -432,12 +461,15 @@ func _dev_reset_progress() -> void:
 	player_nearby.cargo_upgrade_level = 0
 	player_nearby.oxygen_upgrade_level = 0
 	player_nearby.speed_upgrade_level = 0
+	player_nearby.mining_speed_upgrade_level = 0
 	player_nearby.current_battery = player_nearby.max_battery
 	if player_nearby.oxygen_bar:
 		player_nearby.oxygen_bar.max_value = player_nearby.max_battery
 		player_nearby.oxygen_bar.value = player_nearby.current_battery
 	player_nearby.pickaxe_level = 0
-	player_nearby.mine_time = player_nearby.PICKAXE_UPGRADES[0]["mine_time"]
+	player_nearby.base_mine_time = player_nearby.PICKAXE_UPGRADES[0]["mine_time"]
+	if player_nearby.has_method("recompute_mine_time"):
+		player_nearby.recompute_mine_time()
 	player_nearby.current_cargo = 0
 	for ore in player_nearby.ORE_TABLE:
 		var nm: String = ore[0]

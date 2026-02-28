@@ -6,6 +6,7 @@ var jump_speed: float = 400.0
 var climb_speed: float = 150.0
 var gravity: float = 980.0
 var mine_time: float = 4.0 # Default for Starter Pick
+var base_mine_time: float = 4.0
 var max_battery: float = 100.0
 var current_battery: float = 100.0
 var max_cargo: int = 10
@@ -15,6 +16,10 @@ var current_cargo: int = 0
 var cargo_upgrade_level: int = 0
 var oxygen_upgrade_level: int = 0
 var speed_upgrade_level: int = 0
+var mining_speed_upgrade_level: int = 0
+
+const MINE_TIME_UPGRADE_FACTOR: float = 0.90  # 10% faster per level
+const MIN_MINE_TIME_MULT: float = 0.35
 
 # --- Grappling Hook ---
 var grapple_active: bool = false
@@ -147,6 +152,8 @@ var inventory_label: RichTextLabel
 var inventory_open: bool = false
 
 func _ready():
+	base_mine_time = mine_time
+	recompute_mine_time()
 	spawn_position = global_position
 	# Find TileMapLayer more robustly
 	var main = get_parent()
@@ -256,6 +263,12 @@ func _ready():
 		inventory_label.offset_top = 14.0
 		inventory_label.offset_bottom = -14.0
 		inventory_panel.add_child(inventory_label)
+
+func get_mine_time_mult() -> float:
+	return clamp(pow(MINE_TIME_UPGRADE_FACTOR, float(mining_speed_upgrade_level)), MIN_MINE_TIME_MULT, 1.0)
+
+func recompute_mine_time() -> void:
+	mine_time = max(0.05, base_mine_time * get_mine_time_mult())
 
 	# --- Minimap ---
 	var minimap_panel = hud.get_node_or_null("MinimapPanel") if hud else null
