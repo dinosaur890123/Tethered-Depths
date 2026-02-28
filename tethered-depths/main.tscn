@@ -234,3 +234,10 @@ position = Vector2(-64.28571, 178.57144)
 scale = Vector2(0.08, 0.08)
 texture = ExtResource("16_2cqfq")
 metadata/_edit_lock_ = true
+
+[node name="Shopsign" type="Sprite2D" parent="." unique_id=1948255597]
+z_index = 1
+position = Vector2(417.85715, 225)
+scale = Vector2(0.032434415, 0.036238156)
+texture = ExtResource("18_074og")
+metadata/_edit_lock_ = true
