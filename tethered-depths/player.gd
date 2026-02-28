@@ -11,16 +11,20 @@ var max_cargo: int = 10
 var current_cargo: int = 0
 
 @onready var mining_timer = $MiningTimer
+@onready var tilemap: TileMapLayer = get_parent().get_node("TileMapLayer")
 var is_mining: bool = false
 var target_tile_coords: Vector2i
 var spawn_position: Vector2
+
+# Max distance (in world pixels) the player can reach to mine a block
+var mine_range: float = 200.0
 
 func _ready():
 	spawn_position = global_position
 
 func _physics_process(delta):
 	# 1. Drain Battery
-	current_battery -= delta * 2.0 # Drains 2 units per second
+	current_battery -= delta * 2.0
 	if current_battery <= 0:
 		die_and_respawn()
 
@@ -40,28 +44,21 @@ func _physics_process(delta):
 
 	move_and_slide()
 
-	# 5. Detect mining from wall collisions (not floor/ceiling)
-	if not is_mining:
-		for i in get_slide_collision_count():
-			var collision = get_slide_collision(i)
-			if collision.get_collider() is TileMapLayer:
-				if abs(collision.get_normal().x) > abs(collision.get_normal().y):
-					start_mining(collision, collision.get_collider())
-					break
+	# 5. Mine the block under the mouse cursor when spacebar is pressed
+	if not is_mining and Input.is_action_just_pressed("mine"):
+		var mouse_global = get_global_mouse_position()
+		var hovered_tile = tilemap.local_to_map(tilemap.to_local(mouse_global))
+		var tile_center_global = tilemap.to_global(tilemap.map_to_local(hovered_tile))
+		var dist = global_position.distance_to(tile_center_global)
+		if dist <= mine_range and tilemap.get_cell_source_id(hovered_tile) != -1:
+			start_mining(hovered_tile)
 
-func start_mining(collision: KinematicCollision2D, tilemap: TileMapLayer):
+func start_mining(tile_coords: Vector2i):
 	is_mining = true
-	# Calculate which tile we hit by pushing slightly into the normal
-	var hit_pos = collision.get_position() - collision.get_normal() * 5
-	target_tile_coords = tilemap.local_to_map(hit_pos)
-	
-	# Check if there is actually a tile there
-	if tilemap.get_cell_source_id(target_tile_coords) != -1:
-		mining_timer.start(mine_time)
-		await mining_timer.timeout
-		finish_mining(tilemap)
-	else:
-		is_mining = false
+	target_tile_coords = tile_coords
+	mining_timer.start(mine_time)
+	await mining_timer.timeout
+	finish_mining()
 
 func die_and_respawn():
 	# Cancel any in-progress mining
@@ -78,7 +75,7 @@ func die_and_respawn():
 	velocity = Vector2.ZERO
 	print("Player died! Respawning at ", spawn_position)
 
-func finish_mining(tilemap: TileMapLayer):
+func finish_mining():
 	# Get tile data before destroying it to check for ores
 	var tile_data = tilemap.get_cell_tile_data(target_tile_coords)
 	if tile_data:
@@ -86,7 +83,7 @@ func finish_mining(tilemap: TileMapLayer):
 		if is_ore and current_cargo < max_cargo:
 			current_cargo += 1
 			print("Ore collected! Cargo: ", current_cargo, "/", max_cargo)
-			
+
 	# Destroy the tile
 	tilemap.set_cell(target_tile_coords, -1)
 	is_mining = false

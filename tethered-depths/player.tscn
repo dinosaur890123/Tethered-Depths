@@ -10,13 +10,14 @@ size = Vector2(81, 83)
 script = ExtResource("1_onrkg")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=1227820438]
-position = Vector2(330, 233)
 scale = Vector2(0.5, 0.5)
 texture = ExtResource("1_4flbx")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=386580826]
-position = Vector2(329.5, 232.5)
 shape = SubResource("RectangleShape2D_onrkg")
 
 [node name="MiningTimer" type="Timer" parent="." unique_id=712345678]
 one_shot = true
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=891234567]
+enabled = true
