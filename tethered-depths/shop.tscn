@@ -14,16 +14,17 @@ size = Vector2(128, 112)
 script = ExtResource("2_script")
 
 [node name="Hut" type="Sprite2D" parent="." unique_id=926663604]
+position = Vector2(0, 121)
 scale = Vector2(4, 4)
 texture = SubResource("HutTexture")
 offset = Vector2(0, -30)
 
 [node name="PromptLabel" type="RichTextLabel" parent="." unique_id=519603640]
 clip_contents = false
-offset_left = -150.0
-offset_top = -250.0
-offset_right = 150.0
-offset_bottom = -150.0
+offset_left = -147.0
+offset_top = -103.0
+offset_right = 153.0
+offset_bottom = -3.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/normal_font_size = 16
@@ -35,5 +36,5 @@ autowrap_mode = 0
 [node name="ShopZone" type="Area2D" parent="." unique_id=1511263675]
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ShopZone" unique_id=1448852176]
-position = Vector2(1, -122)
+position = Vector2(1, 0)
 shape = SubResource("ShopZoneShape")
