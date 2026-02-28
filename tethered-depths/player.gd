@@ -71,8 +71,8 @@ var walking_sfx_player: AudioStreamPlayer
 # Upgrade tracking
 var pickaxe_level: int = 0
 const PICKAXE_UPGRADES = [
-	{"name": "Starter Pick", "price": 0,     "mine_time": 2.5,  "luck": 1.0,  "color": Color(0.6, 0.6, 0.6)},
-	{"name": "Stone Pick",   "price": 500,   "mine_time": 1.6,  "luck": 1.1,  "color": Color(0.75, 0.7, 0.65)},
+	{"name": "Starter Pick", "price": 0,     "mine_time": 2,  "luck": 1.0,  "color": Color(0.6, 0.6, 0.6)},
+	{"name": "Stone Pick",   "price": 500,   "mine_time": 1.4,  "luck": 1.1,  "color": Color(0.75, 0.7, 0.65)},
 	{"name": "Copper Pick",  "price": 1000,  "mine_time": 1,  "luck": 1.2,  "color": Color(0.9, 0.5, 0.15)},
 	{"name": "Silver Pick",  "price": 5000,  "mine_time": 0.6,  "luck": 1.35, "color": Color(0.8, 0.85, 0.95)},
 	{"name": "Gold Pick",    "price": 50000, "mine_time": 0.3,  "luck": 1.55,  "color": Color(1.0, 0.85, 0.1)}
@@ -105,6 +105,7 @@ const ORE_TABLE = [
 	["Copper", 9, 15,  Color(0.90, 0.50, 0.15)],
 	["Silver", 22, 50,  Color(0.80, 0.85, 0.95)],
 	["Gold",   45, 200, Color(1.00, 0.85, 0.10)],
+	["Rainbow", 180, 2500, Color(1.00, 1.00, 1.00)],
 ]
 
 # Per-ore inventory counts
@@ -555,11 +556,14 @@ func finish_mining():
 		if randf() * chance_denom < 1.0:
 			var amount = min(_roll_count(), cargo_remaining)
 			cargo_remaining -= amount
+			var drop_color: Color = ore[3] as Color
+			if (ore[0] as String) == "Rainbow":
+				drop_color = Color.from_hsv(randf(), 0.95, 1.0, 1.0)
 			found.append({
 				"name":   ore[0] as String,
 				"amount": amount,
 				"value":  int(ore[2]),
-				"color":  ore[3] as Color,
+				"color":  drop_color,
 			})
 
 	if found.is_empty():
@@ -775,11 +779,14 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 		"Copper": tex_path = "res://Stones_ores_bars/copper_ore.png"
 		"Silver": tex_path = "res://Stones_ores_bars/silver_ore.png"
 		"Gold": tex_path = "res://Stones_ores_bars/gold_ore.png"
+		"Rainbow": tex_path = "res://Stones_ores_bars/gold_ore.png"
 		
 	var sprite = Sprite2D.new()
 	if tex_path != "" and FileAccess.file_exists(tex_path):
 		sprite.texture = load(tex_path)
 		sprite.scale = Vector2(2.5, 2.5)
+	if (ore_data.get("name", "") as String) == "Rainbow" and ore_data.has("color") and ore_data["color"] is Color:
+		sprite.modulate = ore_data["color"] as Color
 	fly_node.add_child(sprite)
 
 	var label := Label.new()
