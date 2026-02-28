@@ -238,7 +238,7 @@ func _process(delta):
 			var upg = player_nearby.PICKAXE_UPGRADES[pending_upgrade_index]
 			var old_upg = player_nearby.PICKAXE_UPGRADES[player_nearby.pickaxe_level]
 			
-			var mult := player_nearby.get_mine_time_mult() if player_nearby.has_method("get_mine_time_mult") else 1.0
+			var mult: float = float(player_nearby.get_mine_time_mult()) if player_nearby.has_method("get_mine_time_mult") else 1.0
 			var old_speed = float(old_upg["mine_time"]) * mult
 			var new_speed = float(upg["mine_time"]) * mult
 			var old_luck = old_upg["luck"]

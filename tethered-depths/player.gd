@@ -115,6 +115,7 @@ const PICKAXE_UPGRADES = [
 @onready var mining_timer: Timer = $MiningTimer
 @onready var anim_sprite: AnimatedSprite2D = $AnimatedSprite2D
 var tilemap: TileMapLayer
+var hud: CanvasLayer
 var money_label: Label
 var oxygen_bar: ProgressBar
 var money: int = 0
@@ -169,7 +170,7 @@ func _ready():
 	tilemap = main.get_node_or_null("Dirt") as TileMapLayer
 	
 	# Find HUD nodes more robustly
-	var hud = main.get_node_or_null("HUD")
+	hud = main.get_node_or_null("HUD") as CanvasLayer
 	if hud:
 		money_label = hud.get_node_or_null("MoneyLabel") as Label
 		if money_label:
@@ -719,15 +720,18 @@ func finish_mining():
 
 
 func _spawn_floating_text(msg: String, world_pos: Vector2, color: Color) -> void:
-	var hud = get_parent().get_node_or_null("HUD")
-	if not hud: return
+	var hud_node := hud
+	if not hud_node:
+		hud_node = get_parent().get_node_or_null("HUD") as CanvasLayer
+	if not hud_node:
+		return
 	var label := Label.new()
 	label.text = msg
 	label.modulate = color
 	label.add_theme_font_size_override("font_size", 16)
 	label.position = get_viewport().get_canvas_transform() * world_pos + Vector2(-30.0, -10.0)
 	label.z_index = 10
-	hud.add_child(label)
+	hud_node.add_child(label)
 
 	var tween = create_tween()
 	tween.tween_property(label, "position", label.position + Vector2(0.0, -45.0), 1.1)
@@ -849,7 +853,7 @@ func sleep() -> void:
 
 func _format_game_time(total_mins: float) -> String:
 	var m := int(total_mins) % 1440
-	var h := m / 60
+	var h: int = int(m / 60.0)
 	var mn := m % 60
 	var period := "AM" if h < 12 else "PM"
 	var h12 := h % 12
@@ -873,10 +877,12 @@ func _update_minimap() -> void:
 				continue
 			minimap_image.set_pixel(tx, ty, MINIMAP_TILE_COLORS.get(src, MINIMAP_EMPTY_COLOR))
 	# Player dot always at image center
+	var half_w: int = MINIMAP_W >> 1
+	var half_h: int = MINIMAP_H >> 1
 	for dx in range(-1, 2):
 		for dy in range(-1, 2):
-			var ix = clamp(MINIMAP_W / 2 + dx, 0, MINIMAP_W - 1)
-			var iy = clamp(MINIMAP_H / 2 + dy, 0, MINIMAP_H - 1)
+			var ix = clamp(half_w + dx, 0, MINIMAP_W - 1)
+			var iy = clamp(half_h + dy, 0, MINIMAP_H - 1)
 			minimap_image.set_pixel(ix, iy, MINIMAP_PLAYER_COLOR)
 	minimap_texture_rect.texture = ImageTexture.create_from_image(minimap_image)
 
@@ -903,8 +909,11 @@ func _update_low_battery_overlay() -> void:
 		low_oxygen_label.modulate = Color(1.0, 0.3, 0.3, alpha * fade_in)
 
 func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float) -> void:
-	var hud = get_parent().get_node_or_null("HUD")
-	if not hud: return
+	var hud_node := hud
+	if not hud_node:
+		hud_node = get_parent().get_node_or_null("HUD") as CanvasLayer
+	if not hud_node:
+		return
 	
 	var fly_node = Node2D.new()
 	fly_node.z_index = 10
@@ -942,7 +951,7 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 	var screen_end := get_viewport_rect().size * 0.5
 
 	fly_node.position = screen_start
-	hud.add_child(fly_node)
+	hud_node.add_child(fly_node)
 
 	var tween = create_tween()
 	if delay > 0.0:
@@ -1032,7 +1041,7 @@ func _setup_end_of_day_ui():
 	close_btn.pressed.connect(_close_end_of_day)
 	dashboard.add_child(close_btn)
 
-func trigger_end_of_day(from_death: bool = false):
+func trigger_end_of_day(_from_death: bool = false):
 	if is_end_of_day: return
 	is_end_of_day = true
 	

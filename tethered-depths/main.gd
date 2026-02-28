@@ -20,8 +20,8 @@ func _ready():
 func generate_world():
 	tilemap.clear()
 	print("Generating world...")
-
-	for x in range(-WIDTH/2, WIDTH/2):
+	var half_w: int = WIDTH >> 1
+	for x in range(-half_w, half_w):
 		for y in range(SURFACE_Y, DEPTH):
 			var cell_pos = Vector2i(x, y)
 			var roll = randf()
@@ -54,6 +54,7 @@ func position_entities():
 	var global_center = tilemap.to_global(surface_pos_local)
 	var tile_h_world = (128.0 * tilemap.scale.y * self.scale.y)
 	var surface_y = global_center.y - (tile_h_world / 2.0)
+
 
 	var player = get_node_or_null("Player")
 	if player:
@@ -97,7 +98,7 @@ func position_entities():
 	# 6. Cobblestone backgrounds — align top edge exactly to the grass surface
 	var bg_under = get_node_or_null("Background Under")
 	if bg_under:
-		var total_depth_world = DEPTH * (128.0 * tilemap.scale.y * self.scale.y)
+		var _total_depth_world = DEPTH * (128.0 * tilemap.scale.y * self.scale.y)
 		var original_bgs = bg_under.get_children().duplicate()
 		for bg in original_bgs:
 			if not (bg is Sprite2D) or not bg.texture: continue
