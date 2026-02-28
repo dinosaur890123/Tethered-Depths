@@ -3,8 +3,9 @@ extends Node2D
 @onready var prompt_label: RichTextLabel = $PromptLabel
 var player_nearby: Node = null
 
-enum ShopState { IDLE, PROMPT, MAIN_MENU, SELL_MENU, BUY_MENU }
+enum ShopState { IDLE, PROMPT, MAIN_MENU, SELL_MENU, BUY_MENU, CONFIRM_BUY }
 var current_state = ShopState.IDLE
+var pending_upgrade_index: int = -1
 
 var pickaxe_sprites: Array[Sprite2D] = []
 var feedback_timer: float = 0.0
@@ -22,8 +23,6 @@ func _ready():
 		if atlas_tex:
 			var at = AtlasTexture.new()
 			at.atlas = atlas_tex
-			# Pickaxe/tool region in Miner16Bit_WorldTiles_01.png
-			# Based on Miner16Bit_WorldTiles_01.png, tools are around 112, 112
 			at.region = Rect2(112, 112, 16, 16) 
 			s.texture = at
 		else:
@@ -31,7 +30,6 @@ func _ready():
 			
 		s.scale = Vector2(4.0, 4.0)
 		s.visible = false
-		# Position them in a row above the shop
 		s.position = Vector2(-120 + i * 80, -320)
 		add_child(s)
 		pickaxe_sprites.append(s)
@@ -49,10 +47,21 @@ func _input(event):
 				current_state = ShopState.BUY_MENU
 				feedback_text = ""
 		elif current_state == ShopState.BUY_MENU:
-			if event.keycode == KEY_1: _buy_pickaxe(1)
-			elif event.keycode == KEY_2: _buy_pickaxe(2)
-			elif event.keycode == KEY_3: _buy_pickaxe(3)
-			elif event.keycode == KEY_4: _buy_pickaxe(4)
+			if event.keycode == KEY_1:
+				_start_confirm_buy(1)
+			elif event.keycode == KEY_2:
+				_start_confirm_buy(2)
+			elif event.keycode == KEY_3:
+				_start_confirm_buy(3)
+			elif event.keycode == KEY_4:
+				_start_confirm_buy(4)
+		elif current_state == ShopState.CONFIRM_BUY:
+			if event.keycode == KEY_1 or event.keycode == KEY_Y:
+				_buy_pickaxe(pending_upgrade_index)
+				current_state = ShopState.BUY_MENU
+			elif event.keycode == KEY_2 or event.keycode == KEY_N or event.keycode == KEY_ESCAPE:
+				current_state = ShopState.BUY_MENU
+				feedback_text = ""
 		
 		# Allow going back to main menu
 		if event.keycode == KEY_ESCAPE or event.keycode == KEY_BACKSPACE:
@@ -83,19 +92,13 @@ func _process(delta):
 			_set_pickaxes_visible(false)
 		
 		ShopState.SELL_MENU:
-			var price_text = "\n[center]Prices:[/center]\n[center]"
-			for ore in player_nearby.ORE_TABLE:
-				var color_hex = ore[3].to_html(false)
-				price_text += "[color=#%s]%s: $%d[/color]  " % [color_hex, ore[0], ore[2]]
-			price_text += "[/center]"
-			
 			var cargo_msg = ""
 			if player_nearby.current_cargo <= 0:
 				cargo_msg = "No ore to sell"
 			else:
 				cargo_msg = "Press E to sell ores"
 			
-			prompt_label.text = "[center]%s[/center]%s" % [cargo_msg, price_text]
+			prompt_label.text = "[center]%s[/center]" % cargo_msg
 			_set_pickaxes_visible(false)
 			
 			if Input.is_action_just_pressed("sell"):
@@ -117,10 +120,31 @@ func _process(delta):
 				prompt_label.text = "[center][color=yellow]%s[/color][/center]\n%s" % [feedback_text, upg_text]
 			else:
 				prompt_label.text = upg_text
+		
+		ShopState.CONFIRM_BUY:
+			_set_pickaxes_visible(false)
+			var upg = player_nearby.PICKAXE_UPGRADES[pending_upgrade_index]
+			var old_speed = player_nearby.PICKAXE_UPGRADES[player_nearby.pickaxe_level]["mine_time"]
+			var new_speed = upg["mine_time"]
+			
+			var confirm_text = "[center]Are you sure you want to buy [color=yellow]%s[/color]?[/center]\n" % upg["name"]
+			confirm_text += "[center]Mine Time: %.2fs [color=green]→[/color] [color=green]%.2fs[/color][/center]\n" % [old_speed, new_speed]
+			confirm_text += "[center]Cost: $%d[/center]\n" % upg["price"]
+			confirm_text += "\n[center]1: Yes (Confirm) | 2: No (Cancel)[/center]"
+			
+			prompt_label.text = confirm_text
 
 func _set_pickaxes_visible(v: bool):
-	for s in pickaxe_sprites:
-		s.visible = v
+	for i in range(pickaxe_sprites.size()):
+		pickaxe_sprites[i].visible = v
+
+func _start_confirm_buy(index: int):
+	if player_nearby.pickaxe_level == index:
+		feedback_text = "Already owned!"
+		feedback_timer = 2.0
+		return
+	pending_upgrade_index = index
+	current_state = ShopState.CONFIRM_BUY
 
 func _buy_pickaxe(index: int):
 	var upg = player_nearby.PICKAXE_UPGRADES[index]
@@ -133,7 +157,6 @@ func _buy_pickaxe(index: int):
 		feedback_text = "Bought " + upg["name"] + "!"
 		feedback_timer = 2.0
 		
-		# Play sound if available
 		if FileAccess.file_exists("res://buy_1.mp3"):
 			var asp = AudioStreamPlayer.new()
 			asp.stream = load("res://buy_1.mp3")
