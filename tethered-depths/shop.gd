@@ -15,12 +15,23 @@ func _ready():
 	$ShopZone.body_entered.connect(_on_body_entered)
 	$ShopZone.body_exited.connect(_on_body_exited)
 	
-	# Create pickaxe sprites for visual selection
+	# Create pickaxe sprites for visual selection using the tileset atlas
+	var atlas_tex = load("res://Miner16Bit_AllFiles_v1/Miner16Bit_WorldTiles_01.png")
 	for i in range(4):
 		var s = Sprite2D.new()
-		s.texture = load("res://icon.svg")
-		s.scale = Vector2(0.4, 0.4)
+		if atlas_tex:
+			var at = AtlasTexture.new()
+			at.atlas = atlas_tex
+			# Pickaxe/tool region in Miner16Bit_WorldTiles_01.png
+			# Based on Miner16Bit_WorldTiles_01.png, tools are around 112, 112
+			at.region = Rect2(112, 112, 16, 16) 
+			s.texture = at
+		else:
+			s.texture = load("res://icon.svg")
+			
+		s.scale = Vector2(4.0, 4.0)
 		s.visible = false
+		# Position them in a row above the shop
 		s.position = Vector2(-120 + i * 80, -320)
 		add_child(s)
 		pickaxe_sprites.append(s)
@@ -117,7 +128,8 @@ func _buy_pickaxe(index: int):
 		player_nearby.money -= upg["price"]
 		player_nearby.pickaxe_level = index
 		player_nearby.mine_time = upg["mine_time"]
-		player_nearby.money_label.text = "$" + str(player_nearby.money)
+		if player_nearby.money_label:
+			player_nearby.money_label.text = "$" + str(player_nearby.money)
 		feedback_text = "Bought " + upg["name"] + "!"
 		feedback_timer = 2.0
 		
@@ -165,7 +177,8 @@ func _sell_ores():
 			player_nearby.ore_labels[nm].text = "%s: 0" % nm
 
 	player_nearby.money += total_earnings
-	player_nearby.money_label.text = "$" + str(player_nearby.money)
+	if player_nearby.money_label:
+		player_nearby.money_label.text = "$" + str(player_nearby.money)
 	player_nearby.current_cargo = 0
 	print("Sold ", total_ores_sold, " ores for $", total_earnings)
 	
