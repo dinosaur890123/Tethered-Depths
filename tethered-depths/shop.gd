@@ -5,9 +5,13 @@ var player_nearby: Node = null
 
 # Protect the ground under the shop from being mined.
 @export var foundation_half_width_tiles: int = 2 # total width = (half*2+1)
-@export var foundation_depth_tiles: int = 6
+@export var foundation_depth_tiles: int = 2
 
-enum ShopState { IDLE, PROMPT, MAIN_MENU, SELL_MENU, BUY_MENU, CONFIRM_BUY }
+# Developer menu unlock (press E 10x near shop)
+const DEV_TAP_TARGET: int = 10
+var _dev_tap_count: int = 0
+
+enum ShopState { IDLE, PROMPT, MAIN_MENU, SELL_MENU, BUY_MENU, CONFIRM_BUY, DEV_MENU }
 var current_state = ShopState.IDLE
 var pending_upgrade_index: int = -1
 
@@ -69,8 +73,37 @@ func _register_unbreakable_foundation_tiles() -> void:
 func _input(event):
 	if not player_nearby:
 		return
+
+	# Secret dev menu: tap E 10 times while near the shop.
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_E:
+		if current_state != ShopState.DEV_MENU:
+			_dev_tap_count += 1
+			if _dev_tap_count >= DEV_TAP_TARGET:
+				_dev_tap_count = 0
+				feedback_text = "Developer menu"
+				feedback_timer = 1.5
+				current_state = ShopState.DEV_MENU
+				return
 		
 	if event is InputEventKey and event.pressed and not event.echo:
+		if current_state == ShopState.DEV_MENU:
+			if event.keycode == KEY_1:
+				_dev_add_money(1000)
+			elif event.keycode == KEY_2:
+				_dev_fill_oxygen()
+			elif event.keycode == KEY_3:
+				_dev_add_ores(10)
+			elif event.keycode == KEY_4:
+				_dev_set_pickaxe(4)
+			elif event.keycode == KEY_5:
+				_dev_add_cargo_capacity(10)
+			elif event.keycode == KEY_6:
+				_dev_reset_progress()
+			elif event.keycode == KEY_ESCAPE or event.keycode == KEY_BACKSPACE:
+				current_state = ShopState.MAIN_MENU
+				feedback_text = ""
+			return
+
 		if current_state == ShopState.MAIN_MENU:
 			if event.keycode == KEY_1:
 				current_state = ShopState.SELL_MENU
@@ -172,6 +205,21 @@ func _process(delta):
 			
 			prompt_label.text = confirm_text
 
+		ShopState.DEV_MENU:
+			_set_pickaxes_visible(false)
+			var menu := "[center][b]DEV ADMIN[/b][/center]\n"
+			menu += "[center]1: +$1000[/center]\n"
+			menu += "[center]2: Fill Oxygen[/center]\n"
+			menu += "[center]3: +10 of each Ore[/center]\n"
+			menu += "[center]4: Set Pickaxe = Gold[/center]\n"
+			menu += "[center]5: +10 Cargo Capacity[/center]\n"
+			menu += "[center]6: Reset Progress[/center]\n"
+			menu += "\n[center]ESC/Backspace: Close[/center]"
+			if feedback_text != "":
+				prompt_label.text = "[center][color=yellow]%s[/color][/center]\n%s" % [feedback_text, menu]
+			else:
+				prompt_label.text = menu
+
 func _set_pickaxes_visible(v: bool):
 	for i in range(pickaxe_sprites.size()):
 		pickaxe_sprites[i].visible = v
@@ -209,14 +257,86 @@ func _on_body_entered(body):
 	if body.is_in_group("player"):
 		player_nearby = body
 		current_state = ShopState.PROMPT
+		_dev_tap_count = 0
 		prompt_label.visible = true
 
 func _on_body_exited(body):
 	if body.is_in_group("player"):
 		player_nearby = null
 		current_state = ShopState.IDLE
+		_dev_tap_count = 0
 		prompt_label.visible = false
 		_set_pickaxes_visible(false)
+
+func _dev_add_money(amount: int) -> void:
+	if player_nearby == null:
+		return
+	player_nearby.money += amount
+	if player_nearby.money_label:
+		player_nearby.money_label.text = "$" + str(player_nearby.money)
+	feedback_text = "+$%d" % amount
+	feedback_timer = 1.2
+
+func _dev_fill_oxygen() -> void:
+	if player_nearby == null:
+		return
+	player_nearby.current_battery = player_nearby.max_battery
+	if player_nearby.oxygen_bar:
+		player_nearby.oxygen_bar.value = player_nearby.current_battery
+	feedback_text = "Oxygen filled"
+	feedback_timer = 1.2
+
+func _dev_add_ores(amount_each: int) -> void:
+	if player_nearby == null:
+		return
+	for ore in player_nearby.ORE_TABLE:
+		var nm: String = ore[0]
+		player_nearby.ore_counts[nm] = int(player_nearby.ore_counts.get(nm, 0)) + amount_each
+		if player_nearby.ore_labels.has(nm):
+			player_nearby.ore_labels[nm].text = "%s: %d" % [nm, player_nearby.ore_counts[nm]]
+	# Keep cargo in sync (cap at max)
+	var total := 0
+	for ore in player_nearby.ORE_TABLE:
+		total += int(player_nearby.ore_counts.get(ore[0], 0))
+	player_nearby.current_cargo = min(player_nearby.max_cargo, total)
+	feedback_text = "+%d each ore" % amount_each
+	feedback_timer = 1.2
+
+func _dev_set_pickaxe(level: int) -> void:
+	if player_nearby == null:
+		return
+	level = clamp(level, 0, player_nearby.PICKAXE_UPGRADES.size() - 1)
+	player_nearby.pickaxe_level = level
+	player_nearby.mine_time = player_nearby.PICKAXE_UPGRADES[level]["mine_time"]
+	feedback_text = "Pickaxe set: %s" % player_nearby.PICKAXE_UPGRADES[level]["name"]
+	feedback_timer = 1.2
+
+func _dev_add_cargo_capacity(amount: int) -> void:
+	if player_nearby == null:
+		return
+	player_nearby.max_cargo += amount
+	feedback_text = "Max cargo: %d" % player_nearby.max_cargo
+	feedback_timer = 1.2
+
+func _dev_reset_progress() -> void:
+	if player_nearby == null:
+		return
+	player_nearby.money = 0
+	if player_nearby.money_label:
+		player_nearby.money_label.text = "$0"
+	player_nearby.current_battery = player_nearby.max_battery
+	if player_nearby.oxygen_bar:
+		player_nearby.oxygen_bar.value = player_nearby.current_battery
+	player_nearby.pickaxe_level = 0
+	player_nearby.mine_time = player_nearby.PICKAXE_UPGRADES[0]["mine_time"]
+	player_nearby.current_cargo = 0
+	for ore in player_nearby.ORE_TABLE:
+		var nm: String = ore[0]
+		player_nearby.ore_counts[nm] = 0
+		if player_nearby.ore_labels.has(nm):
+			player_nearby.ore_labels[nm].text = "%s: 0" % nm
+	feedback_text = "Reset done"
+	feedback_timer = 1.2
 
 func _sell_ores():
 	if player_nearby.current_cargo <= 0:

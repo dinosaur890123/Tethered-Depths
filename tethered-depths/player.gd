@@ -44,8 +44,12 @@ var is_wall_climbing: bool = false
 # Highlight state — updated every frame based on mouse position
 var highlighted_tile: Vector2i
 var highlight_valid: bool = false
+var highlight_unbreakable: bool = false
 # Tile size in world space: tileset is 128px, TileMapLayer scale is 0.5
 const TILE_WORLD_SIZE = 64.0
+
+const CANT_MINE_MSG_COOLDOWN := 0.45
+var _cant_mine_msg_cd: float = 0.0
 
 # Ore table: [name, 1-in-N drop chance, value per ore, display color]
 const ORE_TABLE = [
@@ -124,6 +128,9 @@ func _ready():
 
 func _physics_process(delta):
 	if not tilemap: return
+
+	if _cant_mine_msg_cd > 0.0:
+		_cant_mine_msg_cd = max(0.0, _cant_mine_msg_cd - delta)
 
 	# 1. Drain Battery (Oxygen)
 	var pos_tile = tilemap.local_to_map(tilemap.to_local(global_position))
@@ -210,11 +217,13 @@ func _update_highlight():
 		player_tile + Vector2i(0, -1),
 	]
 
-	if mouse_tile in adjacent_tiles and tilemap.get_cell_source_id(mouse_tile) != -1 and not _is_tile_unbreakable(mouse_tile):
+	if mouse_tile in adjacent_tiles and tilemap.get_cell_source_id(mouse_tile) != -1:
 		highlighted_tile = mouse_tile
 		highlight_valid = true
+		highlight_unbreakable = _is_tile_unbreakable(mouse_tile)
 	else:
 		highlight_valid = false
+		highlight_unbreakable = false
 
 func _update_animation():
 	var target_anim: StringName
@@ -248,8 +257,12 @@ func _draw():
 		var tile_center_local = to_local(tile_center_global)
 		var half = TILE_WORLD_SIZE / 2.0
 		var rect = Rect2(tile_center_local - Vector2(half, half), Vector2(TILE_WORLD_SIZE, TILE_WORLD_SIZE))
-		draw_rect(rect, Color(1.0, 1.0, 0.0, 0.45), true)
-		draw_rect(rect, Color(1.0, 0.85, 0.0, 1.0), false, 3.0)
+		if highlight_unbreakable:
+			draw_rect(rect, Color(0.0, 0.0, 0.0, 0.35), true)
+			draw_rect(rect, Color(0.9, 0.2, 0.2, 0.95), false, 3.0)
+		else:
+			draw_rect(rect, Color(1.0, 1.0, 0.0, 0.45), true)
+			draw_rect(rect, Color(1.0, 0.85, 0.0, 1.0), false, 3.0)
 
 	if is_mining:
 		var progress = 1.0 - (mining_timer.time_left / mine_time)
@@ -270,6 +283,10 @@ func _draw():
 
 func start_mining(tile_coords: Vector2i):
 	if _is_tile_unbreakable(tile_coords):
+		if _cant_mine_msg_cd <= 0.0:
+			_cant_mine_msg_cd = CANT_MINE_MSG_COOLDOWN
+			var msg_pos = tilemap.to_global(tilemap.map_to_local(tile_coords))
+			_spawn_floating_text("Can't mine this", msg_pos, Color(1.0, 0.7, 0.2, 0.95))
 		return
 	is_mining = true
 	target_tile_coords = tile_coords
