@@ -179,14 +179,18 @@ func _ready():
 		clock_label = hud.get_node_or_null("ClockLabel") as Label
 		if clock_label:
 			clock_label.text = _format_game_time(game_minutes)
-			# Move clock down to avoid overlap if needed, but the minimap moves down more
-			clock_label.position = Vector2(1060.0, 10.0)
 			
 			day_label = Label.new()
 			day_label.text = "Day " + str(day_count)
-			day_label.add_theme_font_size_override("font_size", 14)
-			day_label.position = Vector2(clock_label.position.x, clock_label.position.y + 25.0)
+			day_label.add_theme_font_size_override("font_size", 18)
+			day_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			# Position day_label at top, clock_label below it
+			day_label.position = Vector2(1060.0, 10.0)
+			day_label.size = Vector2(210, 30) # Match ClockLabel width
 			hud.add_child(day_label)
+
+			clock_label.position = Vector2(1060.0, 35.0)
+			clock_label.add_theme_font_size_override("font_size", 18)
 
 		# Move Minimap down
 		var minimap_panel = hud.get_node_or_null("MinimapPanel") as Panel
