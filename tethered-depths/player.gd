@@ -11,6 +11,11 @@ var current_battery: float = 100.0
 var max_cargo: int = 10
 var current_cargo: int = 0
 
+# Shop upgrades (repeatable)
+var cargo_upgrade_level: int = 0
+var oxygen_upgrade_level: int = 0
+var speed_upgrade_level: int = 0
+
 # --- Grappling Hook ---
 var grapple_active: bool = false
 var grapple_point: Vector2
