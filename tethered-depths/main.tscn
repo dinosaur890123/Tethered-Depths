@@ -4,7 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://dpv4ta56b7rmg" path="res://dirt.png" id="2_h2yge"]
 [ext_resource type="Texture2D" uid="uid://2e4giavjp67j" path="res://grass.png" id="3_h2yge"]
 [ext_resource type="Texture2D" uid="uid://bx88s3vjljx6p" path="res://ore.jpeg" id="4_1bvp3"]
-[ext_resource type="PackedScene" uid="uid://0ijrdji8yveo" path="res://shop.tscn" id="5_shop"]
+[ext_resource type="PackedScene" path="res://shop.tscn" id="5_shop"]
 [ext_resource type="Texture2D" uid="uid://bd8aiay1onsco" path="res://blocks/cobblestone.png" id="6_272bh"]
 [ext_resource type="Texture2D" uid="uid://csa4gx2cjg3fv" path="res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg" id="7_272bh"]
 
@@ -78,6 +78,7 @@ tile_map_data = PackedByteArray("AAAAAAUAAAAAAAAAAAACAAUAAAAAAAAAAAABAAUAAAAAAAA
 tile_set = SubResource("TileSet_h2yge")
 
 [node name="8BitPixelGraphicBlueSkyBackgroundWithCloudsVector" type="Sprite2D" parent="." unique_id=1491246907]
+z_index = -5
 position = Vector2(145, -219)
 texture = ExtResource("7_272bh")
 
