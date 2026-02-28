@@ -1,24 +1,22 @@
-[gd_scene load_steps=33 format=3 uid="uid://dica2iii3oqty"]
+[gd_scene format=3 uid="uid://dica2iii3oqty"]
 
 [ext_resource type="PackedScene" uid="uid://df0bh0htdbcx5" path="res://player.tscn" id="1_ig7tw"]
-[ext_resource type="Script" path="res://main.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://dxwkj6fq68dnb" path="res://main.gd" id="1_script"]
 [ext_resource type="Texture2D" uid="uid://dpv4ta56b7rmg" path="res://dirt.png" id="2_h2yge"]
 [ext_resource type="Texture2D" uid="uid://2e4giavjp67j" path="res://grass.png" id="3_h2yge"]
 [ext_resource type="Texture2D" uid="uid://bx88s3vjljx6p" path="res://ore.jpeg" id="4_1bvp3"]
-[ext_resource type="PackedScene" uid="uid://0ijrdji8yveo" path="res://shop.tscn" id="5_shop"]
+[ext_resource type="PackedScene" path="res://shop.tscn" id="5_shop"]
 [ext_resource type="Texture2D" uid="uid://bd8aiay1onsco" path="res://blocks/cobblestone.png" id="6_272bh"]
 [ext_resource type="Texture2D" uid="uid://csa4gx2cjg3fv" path="res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg" id="7_272bh"]
 [ext_resource type="Texture2D" uid="uid://d2pckowi7wx4e" path="res://trees/tree1.png" id="8_5vw27"]
 [ext_resource type="Texture2D" uid="uid://jxsq55icgv5s" path="res://trees/tree2.png" id="9_efxa6"]
 [ext_resource type="Texture2D" uid="uid://bc742ecv7axh5" path="res://blocks/deepslate.png" id="10_deep"]
 [ext_resource type="Texture2D" uid="uid://brygcidv5xlq7" path="res://trees/tree3.png" id="10_dg77c"]
-[ext_resource type="Texture2D" uid="uid://ckrxwand3qkiu" path="res://Stones_ores_bars/copper_node.png" id="11_cu"]
 [ext_resource type="Texture2D" uid="uid://b8ejsoft6l3ti" path="res://signprice.png" id="11_efxa6"]
 [ext_resource type="Texture2D" uid="uid://cn3u5c107fi7p" path="res://trees/tree4.png" id="11_ycdy4"]
-[ext_resource type="Texture2D" uid="uid://tggf2quxumt5" path="res://Stones_ores_bars/silver_node.png" id="12_ag"]
 [ext_resource type="Texture2D" uid="uid://b08ow73g6yw48" path="res://stonewallbackground.png" id="12_dg77c"]
-[ext_resource type="Texture2D" uid="uid://k2e3v7exan55" path="res://Stones_ores_bars/gold_node.png" id="13_au"]
-[ext_resource type="PackedScene" uid="uid://j4qhjgifve7e" path="res://trader.tscn" id="14_trader"]
+[ext_resource type="PackedScene" path="res://trader.tscn" id="14_trader"]
+[ext_resource type="PackedScene" path="res://house.tscn" id="15_house"]
 [ext_resource type="Texture2D" uid="uid://b4qtjr0p7e7o5" path="res://signtutorial.png" id="16_2cqfq"]
 [ext_resource type="Texture2D" uid="uid://1odjg1g6j6s7" path="res://shopsign.png" id="18_074og"]
 
@@ -54,24 +52,6 @@ texture_region_size = Vector2i(128, 128)
 0:0/0 = 0
 0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_cu"]
-resource_name = "CopperNode"
-texture = ExtResource("11_cu")
-0:0/0 = 0
-0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_ag"]
-resource_name = "SilverNode"
-texture = ExtResource("12_ag")
-0:0/0 = 0
-0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_au"]
-resource_name = "GoldNode"
-texture = ExtResource("13_au")
-0:0/0 = 0
-0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
-
 [sub_resource type="TileSet" id="TileSet_h2yge"]
 tile_size = Vector2i(128, 128)
 physics_layer_0/collision_layer = 1
@@ -80,9 +60,6 @@ sources/1 = SubResource("TileSetAtlasSource_1bvp3")
 sources/2 = SubResource("TileSetAtlasSource_lquwl")
 sources/3 = SubResource("TileSetAtlasSource_kek77")
 sources/4 = SubResource("TileSetAtlasSource_deep")
-sources/5 = SubResource("TileSetAtlasSource_cu")
-sources/6 = SubResource("TileSetAtlasSource_ag")
-sources/7 = SubResource("TileSetAtlasSource_au")
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_efxa6"]
 size = Vector2(2785.72, 46.4286)
@@ -90,24 +67,27 @@ size = Vector2(2785.72, 46.4286)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_4c57u"]
 size = Vector2(66.4282, 1693.57)
 
-[node name="Main" type="Node2D"]
+[node name="Main" type="Node2D" unique_id=35273369]
 scale = Vector2(1.4, 1.4)
 script = ExtResource("1_script")
 
-[node name="Player" parent="." instance=ExtResource("1_ig7tw")]
+[node name="Player" parent="." unique_id=1794003177 instance=ExtResource("1_ig7tw")]
 position = Vector2(-20, -98)
 
-[node name="Shop" parent="." instance=ExtResource("5_shop")]
+[node name="Shop" parent="." unique_id=2045602306 instance=ExtResource("5_shop")]
 z_index = 1
 position = Vector2(445, 202.286)
 metadata/_edit_lock_ = true
 
-[node name="Trader" parent="." instance=ExtResource("14_trader")]
+[node name="Trader" parent="." unique_id=1611299946 instance=ExtResource("14_trader")]
 position = Vector2(580, 202.286)
 
-[node name="HUD" type="CanvasLayer" parent="."]
+[node name="House" parent="." unique_id=759281187 instance=ExtResource("15_house")]
+position = Vector2(-400, 202.286)
 
-[node name="MoneyLabel" type="Label" parent="HUD"]
+[node name="HUD" type="CanvasLayer" parent="." unique_id=720617696]
+
+[node name="MoneyLabel" type="Label" parent="HUD" unique_id=1192165079]
 offset_left = 20.0
 offset_top = 20.0
 offset_right = 220.0
@@ -115,14 +95,14 @@ offset_bottom = 60.0
 theme_override_font_sizes/font_size = 32
 text = "$0"
 
-[node name="ProgressBar" type="ProgressBar" parent="HUD"]
+[node name="ProgressBar" type="ProgressBar" parent="HUD" unique_id=2115873587]
 offset_left = 322.0
 offset_top = -409.0
 offset_right = 579.0
 offset_bottom = -382.0
 step = 1.0
 
-[node name="Label" type="Label" parent="HUD/ProgressBar"]
+[node name="Label" type="Label" parent="HUD/ProgressBar" unique_id=1237033423]
 layout_mode = 0
 offset_left = 3.0
 offset_top = -35.0
@@ -131,123 +111,162 @@ offset_bottom = -12.0
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 text = "Oxygen"
 
-[node name="Dirt" type="TileMapLayer" parent="."]
+[node name="LowBatteryOverlay" type="ColorRect" parent="HUD" unique_id=1983484134]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(1, 0, 0, 0)
+
+[node name="ClockLabel" type="Label" parent="HUD" unique_id=515083714]
+offset_left = 1060.0
+offset_top = 10.0
+offset_right = 1270.0
+offset_bottom = 40.0
+theme_override_font_sizes/font_size = 18
+text = "7:00 AM"
+horizontal_alignment = 1
+
+[node name="MinimapPanel" type="Panel" parent="HUD" unique_id=1411892078]
+offset_left = 1060.0
+offset_top = 45.0
+offset_right = 1270.0
+offset_bottom = 205.0
+
+[node name="MinimapTexture" type="TextureRect" parent="HUD/MinimapPanel" unique_id=1178095621]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MinimapTimer" type="Timer" parent="HUD/MinimapPanel" unique_id=1064981776]
+wait_time = 0.5
+autostart = true
+
+[node name="Dirt" type="TileMapLayer" parent="." unique_id=271526084]
 scale = Vector2(0.5, 0.5)
 tile_set = SubResource("TileSet_h2yge")
 
-[node name="Signprice" type="Sprite2D" parent="."]
+[node name="Signprice" type="Sprite2D" parent="." unique_id=1155276801]
 position = Vector2(323.429, 207.643)
 scale = Vector2(0.0494169, 0.0505102)
 texture = ExtResource("11_efxa6")
+metadata/_edit_lock_ = true
 
-[node name="Background above" type="Node" parent="."]
+[node name="Background above" type="Node" parent="." unique_id=955485121]
 
-[node name="8BitPixelGraphicBlueSkyBackgroundWithCloudsVector" type="Sprite2D" parent="Background above"]
+[node name="8BitPixelGraphicBlueSkyBackgroundWithCloudsVector" type="Sprite2D" parent="Background above" unique_id=462694895]
 z_index = -5
 position = Vector2(203, -306.6)
 scale = Vector2(1.4, 1.4)
 texture = ExtResource("7_272bh")
 metadata/_edit_lock_ = true
 
-[node name="8BitPixelGraphicBlueSkyBackgroundWithCloudsVector2" type="Sprite2D" parent="Background above"]
+[node name="8BitPixelGraphicBlueSkyBackgroundWithCloudsVector2" type="Sprite2D" parent="Background above" unique_id=95606236]
 position = Vector2(2891, -306.6)
 scale = Vector2(1.4, 1.4)
 texture = ExtResource("7_272bh")
 metadata/_edit_lock_ = true
 
-[node name="8BitPixelGraphicBlueSkyBackgroundWithCloudsVector3" type="Sprite2D" parent="Background above"]
+[node name="8BitPixelGraphicBlueSkyBackgroundWithCloudsVector3" type="Sprite2D" parent="Background above" unique_id=1421213344]
 z_index = -5
 position = Vector2(-2485, -306.6)
 scale = Vector2(1.4, 1.4)
 texture = ExtResource("7_272bh")
 metadata/_edit_lock_ = true
 
-[node name="Trees" type="Node" parent="."]
+[node name="Trees" type="Node" parent="." unique_id=1823952571]
 
-[node name="Tree1" type="Sprite2D" parent="Trees"]
+[node name="Tree1" type="Sprite2D" parent="Trees" unique_id=227293930]
 position = Vector2(1638, 249)
 scale = Vector2(4.98125, 4.55417)
 texture = ExtResource("8_5vw27")
 metadata/_edit_lock_ = true
 
-[node name="Tree2" type="Sprite2D" parent="Trees"]
+[node name="Tree2" type="Sprite2D" parent="Trees" unique_id=1747900789]
 position = Vector2(-773, 235)
 scale = Vector2(4.39583, 5.14583)
 texture = ExtResource("9_efxa6")
 metadata/_edit_lock_ = true
 
-[node name="Background Under" type="Node" parent="."]
+[node name="Background Under" type="Node" parent="." unique_id=148604480]
 
-[node name="Stonewallbackground" type="Sprite2D" parent="Background Under"]
+[node name="Stonewallbackground4" type="Sprite2D" parent="Background Under" unique_id=1750699608]
+z_index = -5
+position = Vector2(-1645, 1942)
+scale = Vector2(0.350506, 0.341112)
+texture = ExtResource("12_dg77c")
+
+[node name="Stonewallbackground" type="Sprite2D" parent="Background Under" unique_id=312616991]
 z_index = -5
 position = Vector2(1497.75, 921.625)
 scale = Vector2(0.35, 0.35)
 texture = ExtResource("12_dg77c")
 metadata/_edit_lock_ = true
 
-[node name="Stonewallbackground2" type="Sprite2D" parent="Background Under"]
+[node name="Stonewallbackground2" type="Sprite2D" parent="Background Under" unique_id=280452947]
 z_index = -5
 position = Vector2(-73.2501, 921.625)
-scale = Vector2(0.35, 0.35)
+scale = Vector2(0.350641, 0.35)
 texture = ExtResource("12_dg77c")
-metadata/_edit_lock_ = true
 
-[node name="Stonewallbackground3" type="Sprite2D" parent="Background Under"]
+[node name="Stonewallbackground3" type="Sprite2D" parent="Background Under" unique_id=1629843755]
 z_index = -5
 position = Vector2(-1645.25, 921.625)
 scale = Vector2(0.35, 0.35)
 texture = ExtResource("12_dg77c")
-metadata/_edit_lock_ = true
 
-[node name="Vertical Borders" type="StaticBody2D" parent="."]
+[node name="Vertical Borders" type="StaticBody2D" parent="." unique_id=608768684]
 position = Vector2(132.857, -81.4286)
 scale = Vector2(0.999999, 0.999999)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Vertical Borders"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Vertical Borders" unique_id=436746478]
 position = Vector2(64.4644, -71.4286)
-scale = Vector2(1, 1)
 shape = SubResource("RectangleShape2D_efxa6")
 metadata/_edit_lock_ = true
 
-[node name="StaticBody2D2#CollisionShape2D2" type="CollisionShape2D" parent="Vertical Borders"]
-position = Vector2(64.2858, 1981.43)
-scale = Vector2(1, 1)
+[node name="StaticBody2D2#CollisionShape2D2" type="CollisionShape2D" parent="Vertical Borders" unique_id=1011529191]
+position = Vector2(64.2858, 8381.43)
 shape = SubResource("RectangleShape2D_efxa6")
 
-[node name="Side Borders" type="StaticBody2D" parent="."]
+[node name="Side Borders" type="StaticBody2D" parent="." unique_id=658447515]
 
-[node name="StaticBody2D#Left Border" type="CollisionShape2D" parent="Side Borders"]
+[node name="StaticBody2D#Left Border" type="CollisionShape2D" parent="Side Borders" unique_id=2062907820]
 position = Vector2(-609.286, 542.143)
-scale = Vector2(1, 1)
 shape = SubResource("RectangleShape2D_4c57u")
 metadata/_edit_lock_ = true
 
-[node name="StaticBody2D#Right Border" type="CollisionShape2D" parent="Side Borders"]
+[node name="StaticBody2D#Right Border" type="CollisionShape2D" parent="Side Borders" unique_id=260530894]
 position = Vector2(929.286, 502.143)
 scale = Vector2(0.999999, 0.999999)
 shape = SubResource("RectangleShape2D_4c57u")
 metadata/_edit_lock_ = true
 
-[node name="Signtutorial" type="Sprite2D" parent="."]
+[node name="Signtutorial" type="Sprite2D" parent="." unique_id=152401060]
 position = Vector2(-64.2857, 178.571)
 scale = Vector2(0.08, 0.08)
 texture = ExtResource("16_2cqfq")
 metadata/_edit_lock_ = true
 
-[node name="Shopsign" type="Sprite2D" parent="."]
+[node name="Shopsign" type="Sprite2D" parent="." unique_id=2068653807]
 z_index = 1
 position = Vector2(417.857, 225)
 scale = Vector2(0.0324344, 0.0362382)
 texture = ExtResource("18_074og")
 metadata/_edit_lock_ = true
 
-[node name="Tree3" type="Sprite2D" parent="."]
+[node name="Tree3" type="Sprite2D" parent="." unique_id=417302025]
 z_index = 1
 position = Vector2(935.714, 181.429)
 scale = Vector2(3.37128, 3.12202)
 texture = ExtResource("10_dg77c")
 
-[node name="Tree4" type="Sprite2D" parent="."]
+[node name="Tree4" type="Sprite2D" parent="." unique_id=1576017327]
 z_index = 1
 position = Vector2(899.286, 177.143)
 scale = Vector2(2.94271, 3.31845)
