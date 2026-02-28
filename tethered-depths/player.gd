@@ -32,7 +32,7 @@ var grapple_hover_invalid: bool = false
 var is_grapple_moving: bool = false
 var is_wall_stuck: bool = false
 const WALL_STICK_SLIDE_SPEED: float = 44.8  # half-tile/sec in global space
-const GRAPPLE_MAX_TILES: int = 4
+const GRAPPLE_MAX_TILES: int = 8
 
 # --- Minimap ---
 var minimap_texture_rect: TextureRect
@@ -68,6 +68,15 @@ var day_label: Label
 var daily_ores_collected: int = 0
 var daily_money_made: int = 0
 var times_died: int = 0
+
+# --- Inventory & Storage ---
+var selected_slot: int = 0
+var hotbar_slots: Array[Panel] = []
+var cargo_label: Label
+var grapple_line: Line2D
+
+# --- Luck Strategy ---
+var oxygen_luck_bonus: float = 1.0
 
 var end_day_layer: CanvasLayer
 var fade_rect: ColorRect
@@ -169,15 +178,63 @@ func _ready():
 		clock_label = hud.get_node_or_null("ClockLabel") as Label
 		if clock_label:
 			clock_label.text = _format_game_time(game_minutes)
+			# Move clock down to avoid overlap if needed, but the minimap moves down more
+			clock_label.position = Vector2(1060.0, 10.0)
 			
 			day_label = Label.new()
 			day_label.text = "Day " + str(day_count)
-			day_label.add_theme_font_size_override("font_size", 20)
-			day_label.position = Vector2(clock_label.position.x, 10.0)
-			clock_label.position.y = 35.0
+			day_label.add_theme_font_size_override("font_size", 14)
+			day_label.position = Vector2(clock_label.position.x, clock_label.position.y + 25.0)
 			hud.add_child(day_label)
 
-		oxygen_bar = hud.get_node_or_null("ProgressBar") as ProgressBar
+		# Move Minimap down
+		var minimap_panel = hud.get_node_or_null("MinimapPanel") as Panel
+		if minimap_panel:
+			minimap_panel.position.y = 70.0
+			
+			# Cargo label under minimap
+			cargo_label = Label.new()
+			cargo_label.text = "Cargo: 0/%d" % max_cargo
+			cargo_label.add_theme_font_size_override("font_size", 18)
+			cargo_label.position = Vector2(minimap_panel.position.x, minimap_panel.position.y + minimap_panel.size.y + 5.0)
+			hud.add_child(cargo_label)
+
+		# Hotbar (Minecraft-style)
+		var hotbar_container = HBoxContainer.new()
+		hotbar_container.set_anchors_preset(Control.PRESET_BOTTOM_CENTER)
+		hotbar_container.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		hotbar_container.offset_bottom = -10.0
+		hotbar_container.alignment = BoxContainer.ALIGNMENT_CENTER
+		hud.add_child(hotbar_container)
+		
+		for i in range(9):
+			var slot = Panel.new()
+			slot.custom_minimum_size = Vector2(50, 50)
+			var sb = StyleBoxFlat.new()
+			sb.bg_color = Color(0.2, 0.2, 0.2, 0.7)
+			sb.border_width_left = 2; sb.border_width_top = 2; sb.border_width_right = 2; sb.border_width_bottom = 2
+			sb.border_color = Color(0.4, 0.4, 0.4)
+			slot.add_theme_stylebox_override("panel", sb)
+			
+			if i == 0:
+				var icon = Sprite2D.new()
+				icon.texture = load("res://Stones_ores_bars/stone_1.png") # Placeholder for pickaxe
+				icon.position = Vector2(25, 25)
+				icon.scale = Vector2(0.5, 0.5)
+				slot.add_child(icon)
+				sb.border_color = Color(1, 1, 1) # Highlight first slot
+				
+			hotbar_container.add_child(slot)
+			hotbar_slots.append(slot)
+
+	# Grapple Line
+	grapple_line = Line2D.new()
+	grapple_line.width = 2.0
+	grapple_line.default_color = Color(0.7, 0.5, 0.3)
+	grapple_line.visible = false
+	get_parent().add_child.call_deferred(grapple_line)
+
+	# Mining sound player
 		if oxygen_bar:
 			oxygen_bar.visible = true
 			# Anchor to top-center so it stays centered on any screen size
@@ -899,6 +956,8 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 		ore_counts[nm] += amt
 		current_cargo   += amt
 		daily_ores_collected += amt
+		if cargo_label:
+			cargo_label.text = "Cargo: %d/%d" % [current_cargo, max_cargo]
 		if ore_labels.has(nm):
 			ore_labels[nm].text = "%s: %d" % [nm, ore_counts[nm]]
 			var flash = create_tween()
