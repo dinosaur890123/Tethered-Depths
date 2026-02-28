@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cejj4pr8eahri"]
 
-[ext_resource type="Texture2D" uid="uid://dtr8puclf7emu" path="res://house.png" id="2_metfq"]
+[ext_resource type="Texture2D" uid="uid://d06garmixo3e7" path="res://houseot2'.png" id="2_metfq"]
 [ext_resource type="Script" uid="uid://8jw26ymh0ayh" path="res://house.gd" id="2_script"]
 
 [sub_resource type="RectangleShape2D" id="HouseZoneShape"]
@@ -41,6 +41,7 @@ autowrap_mode = 0
 [node name="CollisionShape2D" type="CollisionShape2D" parent="HouseZone" unique_id=1043465083]
 shape = SubResource("HouseZoneShape")
 
-[node name="House" type="Sprite2D" parent="." unique_id=1369924357]
-scale = Vector2(0.11, 0.11)
+[node name="Houseot2\'" type="Sprite2D" parent="." unique_id=117136434]
+position = Vector2(0.99999994, 14.000011)
+scale = Vector2(0.06, 0.06)
 texture = ExtResource("2_metfq")
