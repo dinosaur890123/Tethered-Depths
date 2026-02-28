@@ -95,16 +95,42 @@ func position_entities():
 			var bottom_global_y = bg.to_global(Vector2(0.0, rect.end.y)).y
 			bg.global_position.y += surface_y - bottom_global_y
 
-	# 6. Cobblestone backgrounds — align top edge exactly to the grass surface
+	# 6. Cobblestone backgrounds — Tile to cover the entire depth and width
 	var bg_under = get_node_or_null("Background Under")
 	if bg_under:
-		var _total_depth_world = DEPTH * (128.0 * tilemap.scale.y * self.scale.y)
-		var original_bgs = bg_under.get_children().duplicate()
-		for bg in original_bgs:
-			if not (bg is Sprite2D) or not bg.texture: continue
-			var rect = bg.get_rect()
-			var top_global_y = bg.to_global(Vector2(0.0, rect.position.y)).y
-			bg.global_position.y += surface_y - top_global_y
+		var bg_tex = load("res://stonewallbackground.png")
+		if bg_tex:
+			# Clear old ones
+			for child in bg_under.get_children():
+				child.queue_free()
+			
+			var bg_scale = 0.35
+			var scaled_size = bg_tex.get_size() * bg_scale
+			
+			# Width covers -WIDTH/2 to WIDTH/2 tiles (tile size 64px)
+			var world_width = WIDTH * 64.0
+			var world_height = DEPTH * 64.0
+			
+			var start_x = -world_width / 2.0 - scaled_size.x
+			var end_x = world_width / 2.0 + scaled_size.x
+			var start_y = surface_y
+			var end_y = surface_y + world_height + scaled_size.y
+			
+			var x = start_x
+			while x < end_x:
+				var y = start_y
+				while y < end_y:
+					var bg = Sprite2D.new()
+					bg.texture = bg_tex
+					bg.scale = Vector2(bg_scale, bg_scale)
+					bg.z_index = -34
+					bg.centered = false
+					bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+					# Use floor and a 1px overlap to prevent sub-pixel seams
+					bg.global_position = Vector2(floor(x), floor(y))
+					bg_under.add_child(bg)
+					y += scaled_size.y - 1.0
+				x += scaled_size.x - 1.0
 
 # Keep editor-authored X/Y layout and only adjust Y to match the surface.
 # We avoid magic offsets by computing bounds from Sprite2D descendants.
