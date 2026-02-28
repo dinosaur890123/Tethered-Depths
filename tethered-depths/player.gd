@@ -5,7 +5,7 @@ var speed: float = 300.0
 var jump_speed: float = 400.0
 var climb_speed: float = 150.0
 var gravity: float = 980.0
-var mine_time: float = 1.2 # Default for Starter Pick
+var mine_time: float = 2.0 # Default for Starter Pick (Slowed down)
 var max_battery: float = 100.0
 var current_battery: float = 100.0
 var max_cargo: int = 10
@@ -49,10 +49,10 @@ const TILE_WORLD_SIZE = 64.0
 
 # Ore table: [name, 1-in-N drop chance, value per ore, display color]
 const ORE_TABLE = [
-	["Stone",  2,  2,   Color(0.75, 0.70, 0.65)],
-	["Copper", 10, 15,  Color(0.90, 0.50, 0.15)],
-	["Silver", 25, 50,  Color(0.80, 0.85, 0.95)],
-	["Gold",   50, 200, Color(1.00, 0.85, 0.10)],
+	["Stone",  1.8,  2,   Color(0.75, 0.70, 0.65)],
+	["Copper", 9, 15,  Color(0.90, 0.50, 0.15)],
+	["Silver", 22, 50,  Color(0.80, 0.85, 0.95)],
+	["Gold",   45, 200, Color(1.00, 0.85, 0.10)],
 ]
 
 # Per-ore inventory counts
