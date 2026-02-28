@@ -19,7 +19,7 @@
 [ext_resource type="Texture2D" uid="uid://k2e3v7exan55" path="res://Stones_ores_bars/gold_node.png" id="13_au"]
 [ext_resource type="PackedScene" path="res://trader.tscn" id="14_trader"]
 [ext_resource type="Texture2D" uid="uid://b4qtjr0p7e7o5" path="res://signtutorial.png" id="16_2cqfq"]
-[ext_resource type="Texture2D" uid="uid://1odjg1g6j6s7" path="res://shopsign.png" id="18_074og"]
+[ext_resource type="Script" path="res://unbreakable_foundation.gd" id="17_unbreakable_foundation"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_0xm2m"]
 resource_name = "Dirt"
@@ -230,6 +230,9 @@ shape = SubResource("RectangleShape2D_4c57u")
 metadata/_edit_lock_ = true
 
 [node name="Signtutorial" type="Sprite2D" parent="." unique_id=1799742691]
+script = ExtResource("17_unbreakable_foundation")
+half_width_tiles = 1
+depth_tiles = 2
 position = Vector2(-64.28571, 178.57144)
 scale = Vector2(0.08, 0.08)
 texture = ExtResource("16_2cqfq")
