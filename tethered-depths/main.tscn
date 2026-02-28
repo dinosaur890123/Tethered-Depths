@@ -6,6 +6,10 @@
 [ext_resource type="Texture2D" uid="uid://bx88s3vjljx6p" path="res://ore.jpeg" id="4_1bvp3"]
 [ext_resource type="PackedScene" uid="uid://0ijrdji8yveo" path="res://shop.tscn" id="5_shop"]
 [ext_resource type="Texture2D" uid="uid://bd8aiay1onsco" path="res://blocks/cobblestone.png" id="6_272bh"]
+[ext_resource type="Texture2D" uid="uid://bc742ecv7axh5" path="res://blocks/deepslate.png" id="10_deep"]
+[ext_resource type="Texture2D" uid="uid://ckrxwand3qkiu" path="res://Stones_ores_bars/copper_node.png" id="11_cu"]
+[ext_resource type="Texture2D" uid="uid://tggf2quxumt5" path="res://Stones_ores_bars/silver_node.png" id="12_ag"]
+[ext_resource type="Texture2D" uid="uid://k2e3v7exan55" path="res://Stones_ores_bars/gold_node.png" id="13_au"]
 [ext_resource type="Texture2D" uid="uid://csa4gx2cjg3fv" path="res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg" id="7_272bh"]
 [ext_resource type="Texture2D" uid="uid://d2pckowi7wx4e" path="res://trees/tree1.png" id="8_5vw27"]
 [ext_resource type="Texture2D" uid="uid://jxsq55icgv5s" path="res://trees/tree2.png" id="9_efxa6"]
@@ -30,8 +34,39 @@ texture = ExtResource("4_1bvp3")
 texture_region_size = Vector2i(512, 512)
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_kek77"]
+resource_name = "Cobblestone"
 texture = ExtResource("6_272bh")
 texture_region_size = Vector2i(128, 128)
+0:0/0 = 0
+0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_deep"]
+resource_name = "Deepslate"
+texture = ExtResource("10_deep")
+texture_region_size = Vector2i(128, 128)
+0:0/0 = 0
+0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_cu"]
+resource_name = "CopperNode"
+texture = ExtResource("11_cu")
+texture_region_size = Vector2i(16, 16)
+0:0/0 = 0
+0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_ag"]
+resource_name = "SilverNode"
+texture = ExtResource("12_ag")
+texture_region_size = Vector2i(16, 16)
+0:0/0 = 0
+0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_au"]
+resource_name = "GoldNode"
+texture = ExtResource("13_au")
+texture_region_size = Vector2i(16, 16)
+0:0/0 = 0
+0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
 
 [sub_resource type="TileSet" id="TileSet_h2yge"]
 tile_size = Vector2i(128, 128)
@@ -40,6 +75,10 @@ sources/0 = SubResource("TileSetAtlasSource_0xm2m")
 sources/1 = SubResource("TileSetAtlasSource_1bvp3")
 sources/2 = SubResource("TileSetAtlasSource_lquwl")
 sources/3 = SubResource("TileSetAtlasSource_kek77")
+sources/4 = SubResource("TileSetAtlasSource_deep")
+sources/5 = SubResource("TileSetAtlasSource_cu")
+sources/6 = SubResource("TileSetAtlasSource_ag")
+sources/7 = SubResource("TileSetAtlasSource_au")
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_4c57u"]
 size = Vector2(20, 404.90402)

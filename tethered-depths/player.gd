@@ -32,6 +32,12 @@ var highlight_valid: bool = false
 # Tile size in world space: tileset is 128px, TileMapLayer scale is 0.5
 const TILE_WORLD_SIZE = 64.0
 
+# TileSet source IDs (must match `main.tscn` TileSet sources/*)
+const TILE_GRASS := 1
+const TILE_COPPER_NODE := 5
+const TILE_SILVER_NODE := 6
+const TILE_GOLD_NODE := 7
+
 # Ore table: [name, 1-in-N drop chance, value per ore, display color]
 # Adjust values to match your spreadsheet
 const ORE_TABLE = [
@@ -292,7 +298,8 @@ func _roll_count() -> int:
 
 func finish_mining():
 	# Check tile type before destroying
-	var is_grass = tilemap.get_cell_source_id(target_tile_coords) == 1
+	var source_id := tilemap.get_cell_source_id(target_tile_coords)
+	var is_grass := source_id == TILE_GRASS
 	
 	# Destroy the block immediately
 	tilemap.set_cell(target_tile_coords, -1)
@@ -306,11 +313,44 @@ func finish_mining():
 	# Pre-calculate drops, respecting remaining cargo space
 	var found: Array[Dictionary] = []
 	var cargo_remaining = max_cargo - current_cargo
+	if cargo_remaining <= 0:
+		_spawn_floating_text("Cargo full", tile_world_pos, Color(1.0, 0.55, 0.55, 0.9))
+		return
+
+	# Ore nodes: strongly bias toward their matching ore, but still random/fun
+	var forced_ore_name: String = ""
+	match source_id:
+		TILE_COPPER_NODE:
+			forced_ore_name = "Copper"
+		TILE_SILVER_NODE:
+			forced_ore_name = "Silver"
+		TILE_GOLD_NODE:
+			forced_ore_name = "Gold"
+		_:
+			pass
+
+	if forced_ore_name != "":
+		# 85% of the time, the node yields its ore; 15% "empty vein"
+		if randf() < 0.85:
+			var meta: Dictionary = _ore_meta(forced_ore_name)
+			var amount: int = mini(_roll_count(), cargo_remaining)
+			cargo_remaining -= amount
+			found.append({
+				"name": forced_ore_name,
+				"amount": amount,
+				"value": int(meta.get("value", 0)),
+				"color": meta.get("color", Color(1, 1, 1, 1)) as Color,
+			})
+		else:
+			_spawn_floating_text("Empty vein", tile_world_pos, Color(0.7, 0.7, 0.7, 0.85))
 	for ore in ORE_TABLE:
 		if cargo_remaining <= 0:
 			break
+		# If this was an ore node, don't double-roll the same ore again
+		if forced_ore_name != "" and ore[0] == forced_ore_name:
+			continue
 		if randi() % int(ore[1]) == 0:
-			var amount = min(_roll_count(), cargo_remaining)
+			var amount: int = mini(_roll_count(), cargo_remaining)
 			cargo_remaining -= amount
 			found.append({
 				"name":   ore[0] as String,
@@ -328,6 +368,15 @@ func finish_mining():
 	for ore_data in found:
 		_spawn_ore_fly(ore_data, tile_world_pos, delay)
 		delay += 0.22
+
+func _ore_meta(ore_name: String) -> Dictionary:
+	for ore in ORE_TABLE:
+		if ore[0] == ore_name:
+			return {
+				"value": int(ore[2]),
+				"color": ore[3] as Color,
+			}
+	return {"value": 0, "color": Color(1, 1, 1, 1)}
 
 # Floating text that drifts upward and fades (used for "no ore" feedback)
 func _spawn_floating_text(msg: String, world_pos: Vector2, color: Color) -> void:
