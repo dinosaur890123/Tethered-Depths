@@ -11,6 +11,7 @@ var max_cargo: int = 10
 var current_cargo: int = 0
 
 @onready var mining_timer = $MiningTimer
+@onready var anim_sprite: AnimatedSprite2D = $AnimatedSprite2D
 var tilemap: TileMapLayer
 var money_label: Label
 var money: int = 0
@@ -20,8 +21,9 @@ var spawn_position: Vector2
 
 # Track which direction the player is facing so we know which block to target
 var facing_dir: int = 1  # 1 = right, -1 = left
+var is_walking: bool = false
 
-# Highlight state — updated every frame based on player position
+# Highlight state — updated every frame based on mouse position
 var highlighted_tile: Vector2i
 var highlight_valid: bool = false
 # Tile size in world space: tileset is 128px, TileMapLayer scale is 0.5
@@ -32,6 +34,7 @@ func _ready():
 	tilemap = get_parent().get_node("Dirt") as TileMapLayer
 	money_label = get_parent().get_node("HUD/MoneyLabel") as Label
 	money_label.text = "$0"
+	mining_timer.timeout.connect(finish_mining)
 
 func _physics_process(delta):
 	# 1. Drain Battery
@@ -44,59 +47,96 @@ func _physics_process(delta):
 		velocity.y += gravity * delta
 
 	# 3. Jump
-	if Input.is_action_just_pressed("ui_up") and is_on_floor():
+	if Input.is_action_just_pressed("Up") and is_on_floor():
 		velocity.y = -jump_speed
 
-	# 4. Horizontal movement — also tracks facing direction
-	var h = Input.get_axis("ui_left", "ui_right")
-	if not is_mining:
-		velocity.x = h * speed
-		if h != 0:
-			facing_dir = sign(h)
-	else:
-		velocity.x = 0.0
+	# 4. Horizontal movement — player can move freely even while mining
+	var h = Input.get_axis("Left", "Right")
+	velocity.x = h * speed
+	is_walking = h != 0
+	if h != 0:
+		facing_dir = sign(h)
 
 	move_and_slide()
 
-	# 5. Find the nearest adjacent block to highlight
+	# Cancel mining if the player has walked a tile away from the target block.
+	# Skip the check while airborne — jumping shouldn't interrupt mining.
+	if is_mining and is_on_floor():
+		var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
+		var adjacent_tiles = [
+			player_tile + Vector2i(1, 0),
+			player_tile + Vector2i(-1, 0),
+			player_tile + Vector2i(0, 1),
+			player_tile + Vector2i(0, -1),
+		]
+		if not (target_tile_coords in adjacent_tiles):
+			cancel_mining()
+
+	# 5. Find the adjacent block under the mouse cursor
 	_update_highlight()
+	_update_animation()
 	queue_redraw()
 
-	# 6. Mine the highlighted block when spacebar is pressed
-	if highlight_valid and Input.is_action_just_pressed("mine"):
-		start_mining(highlighted_tile)
+	# 6. Mouse-based mining: hold left mouse button over an adjacent block to mine it
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		if highlight_valid and not is_mining:
+			start_mining(highlighted_tile)
+	else:
+		# Mouse released — cancel and reset mining progress
+		if is_mining:
+			cancel_mining()
 
 func _update_highlight():
 	if is_mining:
-		highlight_valid = false
+		# Keep showing the block being mined; don't recalculate
 		return
 
-	# Find which tile the player is currently occupying
+	# Convert mouse position to tile coordinates
+	var mouse_world_pos = get_global_mouse_position()
+	var mouse_tile = tilemap.local_to_map(tilemap.to_local(mouse_world_pos))
+
+	# Find which tile the player occupies
 	var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 
-	# Check adjacent tiles in priority order:
-	#   1. The block directly in front (facing direction)
-	#   2. The block below (digging down)
-	#   3. The block behind
-	#   4. The block above
-	var candidates = [
-		player_tile + Vector2i(facing_dir, 0),
+	# Only allow mining tiles directly adjacent to the player
+	var adjacent_tiles = [
+		player_tile + Vector2i(1, 0),
+		player_tile + Vector2i(-1, 0),
 		player_tile + Vector2i(0, 1),
-		player_tile + Vector2i(-facing_dir, 0),
 		player_tile + Vector2i(0, -1),
 	]
 
-	for tile in candidates:
-		if tilemap.get_cell_source_id(tile) != -1:
-			highlighted_tile = tile
-			highlight_valid = true
-			return
+	if mouse_tile in adjacent_tiles and tilemap.get_cell_source_id(mouse_tile) != -1:
+		highlighted_tile = mouse_tile
+		highlight_valid = true
+	else:
+		highlight_valid = false
 
-	highlight_valid = false
+func _update_animation():
+	# Determine target animation using StringName to match Godot's internal type
+	var target_anim: StringName
+	if is_mining:
+		var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
+		target_anim = &"mine_down" if target_tile_coords.y > player_tile.y else &"mine_right"
+	elif is_walking:
+		target_anim = &"walk"
+	else:
+		target_anim = &"idle"
+
+	# Flip: when mining use target tile position, otherwise use movement direction
+	if is_mining:
+		var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
+		anim_sprite.flip_h = target_tile_coords.x < player_tile.x
+	else:
+		anim_sprite.flip_h = facing_dir == -1
+
+	# Only switch animation when it actually changes — prevents frame resets
+	if anim_sprite.animation != target_anim:
+		anim_sprite.play(target_anim)
 
 func _draw():
 	# Yellow hover highlight (when not mining)
-	if highlight_valid:
+	if highlight_valid and not is_mining:
 		var tile_center_global = tilemap.to_global(tilemap.map_to_local(highlighted_tile))
 		var tile_center_local = to_local(tile_center_global)
 		var half = TILE_WORLD_SIZE / 2.0
@@ -128,14 +168,16 @@ func start_mining(tile_coords: Vector2i):
 	is_mining = true
 	target_tile_coords = tile_coords
 	mining_timer.start(mine_time)
-	await mining_timer.timeout
-	finish_mining()
+
+func cancel_mining():
+	mining_timer.stop()
+	is_mining = false
 
 func die_and_respawn():
+	anim_sprite.play("death")
 	# Cancel any in-progress mining
 	if is_mining:
-		mining_timer.stop()
-		is_mining = false
+		cancel_mining()
 
 	# Reset stats — cargo is lost as a death penalty
 	current_battery = max_battery
