@@ -15,6 +15,7 @@
 [ext_resource type="Texture2D" uid="uid://tggf2quxumt5" path="res://Stones_ores_bars/silver_node.png" id="12_ag"]
 [ext_resource type="Texture2D" uid="uid://b08ow73g6yw48" path="res://stonewallbackground.png" id="12_dg77c"]
 [ext_resource type="Texture2D" uid="uid://k2e3v7exan55" path="res://Stones_ores_bars/gold_node.png" id="13_au"]
+[ext_resource type="Texture2D" uid="uid://b4qtjr0p7e7o5" path="res://signtutorial.png" id="16_2cqfq"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_0xm2m"]
 resource_name = "Dirt"
@@ -188,18 +189,23 @@ scale = Vector2(1.0000001, 1.0000001)
 shape = SubResource("RectangleShape2D_efxa6")
 
 [node name="StaticBody2D2#CollisionShape2D2" type="CollisionShape2D" parent="." unique_id=356277401]
-position = Vector2(23.57129, 1377.859)
+position = Vector2(217.85713, 1120.7144)
 scale = Vector2(1.0000004, 1.0000004)
 shape = SubResource("RectangleShape2D_efxa6")
 
 [node name="Side Borders" type="StaticBody2D" parent="." unique_id=532993636]
 
 [node name="StaticBody2D#Left Border" type="CollisionShape2D" parent="." unique_id=1623177840]
-position = Vector2(-1263.5715, 435.71436)
+position = Vector2(-609.2857, 542.1429)
 scale = Vector2(0.9999996, 0.9999996)
 shape = SubResource("RectangleShape2D_4c57u")
 
 [node name="StaticBody2D#Right Border" type="CollisionShape2D" parent="." unique_id=671127593]
-position = Vector2(1487.143, 494.28574)
+position = Vector2(929.28577, 502.1429)
 scale = Vector2(0.99999905, 0.99999905)
 shape = SubResource("RectangleShape2D_4c57u")
+
+[node name="Signtutorial" type="Sprite2D" parent="." unique_id=1799742691]
+position = Vector2(-64.28571, 178.57144)
+scale = Vector2(0.08, 0.08)
+texture = ExtResource("16_2cqfq")
