@@ -79,7 +79,7 @@ func position_entities():
 		if s_node is Node2D:
 			_align_node_bottom_to_surface(s_node as Node2D, surface_y)
 
-	var tree_paths := ["Trees/Tree1", "Trees/Tree2", "Trees/Tree3", "Trees/Tree4", "Trees/Tree5", "Trees/Tree6", "Trees/Tree7", "Trees/Tree8", "Trees/Tree9"]
+	var tree_paths := ["Trees/Tree1", "Trees/Tree2", "Trees/Tree3", "Trees/Tree4", "Trees/Tree5", "Trees/Tree6", "Trees/Tree7", "Trees/Tree8", "Trees/Tree9", "Trees/Tree10", "Trees/Tree11"]
 	for p in tree_paths:
 		var tree := get_node_or_null(p)
 		if tree is Node2D:
