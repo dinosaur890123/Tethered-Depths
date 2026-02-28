@@ -11,14 +11,16 @@
 [ext_resource type="Texture2D" uid="uid://d2pckowi7wx4e" path="res://trees/tree1.png" id="8_5vw27"]
 [ext_resource type="Texture2D" uid="uid://jxsq55icgv5s" path="res://trees/tree2.png" id="9_efxa6"]
 [ext_resource type="Texture2D" uid="uid://bc742ecv7axh5" path="res://blocks/deepslate.png" id="10_deep"]
+[ext_resource type="Texture2D" uid="uid://brygcidv5xlq7" path="res://trees/tree3.png" id="10_dg77c"]
 [ext_resource type="Texture2D" uid="uid://ckrxwand3qkiu" path="res://Stones_ores_bars/copper_node.png" id="11_cu"]
 [ext_resource type="Texture2D" uid="uid://b8ejsoft6l3ti" path="res://signprice.png" id="11_efxa6"]
+[ext_resource type="Texture2D" uid="uid://cn3u5c107fi7p" path="res://trees/tree4.png" id="11_ycdy4"]
 [ext_resource type="Texture2D" uid="uid://tggf2quxumt5" path="res://Stones_ores_bars/silver_node.png" id="12_ag"]
 [ext_resource type="Texture2D" uid="uid://b08ow73g6yw48" path="res://stonewallbackground.png" id="12_dg77c"]
 [ext_resource type="Texture2D" uid="uid://k2e3v7exan55" path="res://Stones_ores_bars/gold_node.png" id="13_au"]
 [ext_resource type="PackedScene" uid="uid://j4qhjgifve7e" path="res://trader.tscn" id="14_trader"]
 [ext_resource type="Texture2D" uid="uid://b4qtjr0p7e7o5" path="res://signtutorial.png" id="16_2cqfq"]
-[ext_resource type="Texture2D" uid="uid://1odjg1g6j6s7" path="res://shopsign.png" id="18_074og"]
+[ext_resource type="Script" path="res://unbreakable_foundation.gd" id="17_unbreakable_foundation"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_0xm2m"]
 resource_name = "Dirt"
@@ -154,6 +156,7 @@ texture = ExtResource("7_272bh")
 metadata/_edit_lock_ = true
 
 [node name="8BitPixelGraphicBlueSkyBackgroundWithCloudsVector3" type="Sprite2D" parent="Background above" unique_id=750230036]
+z_index = -5
 position = Vector2(-2485, -306.6)
 scale = Vector2(1.4, 1.4)
 texture = ExtResource("7_272bh")
@@ -226,6 +229,9 @@ shape = SubResource("RectangleShape2D_4c57u")
 metadata/_edit_lock_ = true
 
 [node name="Signtutorial" type="Sprite2D" parent="." unique_id=1799742691]
+script = ExtResource("17_unbreakable_foundation")
+half_width_tiles = 1
+depth_tiles = 2
 position = Vector2(-64.28571, 178.57144)
 scale = Vector2(0.08, 0.08)
 texture = ExtResource("16_2cqfq")
@@ -237,3 +243,15 @@ position = Vector2(417.85715, 225)
 scale = Vector2(0.032434415, 0.036238156)
 texture = ExtResource("18_074og")
 metadata/_edit_lock_ = true
+
+[node name="Tree3" type="Sprite2D" parent="." unique_id=1118407499]
+z_index = 1
+position = Vector2(935.7143, 181.42857)
+scale = Vector2(3.3712797, 3.1220233)
+texture = ExtResource("10_dg77c")
+
+[node name="Tree4" type="Sprite2D" parent="." unique_id=1665967448]
+z_index = 1
+position = Vector2(899.28577, 177.14287)
+scale = Vector2(2.942709, 3.3184526)
+texture = ExtResource("11_ycdy4")
