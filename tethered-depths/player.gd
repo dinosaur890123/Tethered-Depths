@@ -11,7 +11,7 @@ var max_cargo: int = 10
 var current_cargo: int = 0
 
 @onready var mining_timer = $MiningTimer
-@onready var tilemap: TileMapLayer = get_parent().get_node("TileMapLayer")
+@onready var tilemap: TileMapLayer = get_parent().get_node("Dirt")
 var is_mining: bool = false
 var target_tile_coords: Vector2i
 var spawn_position: Vector2
