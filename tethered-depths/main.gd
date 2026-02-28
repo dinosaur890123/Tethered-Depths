@@ -55,6 +55,7 @@ func position_entities():
 	var tile_h_world = (128.0 * tilemap.scale.y * self.scale.y)
 	var surface_y = global_center.y - (tile_h_world / 2.0)
 
+
 	var player = get_node_or_null("Player")
 	if player:
 		player.global_position = Vector2(0, surface_y - (32.0 * self.scale.y))
