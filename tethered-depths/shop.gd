@@ -34,9 +34,26 @@ func _on_body_exited(body):
 func _sell_ores():
 	if player_nearby.current_cargo <= 0:
 		return
-	var cargo = player_nearby.current_cargo
-	var earnings = cargo * 10
-	player_nearby.money += earnings
+	
+	var total_earnings = 0
+	
+	# Calculate earnings based on individual ore values from player's ORE_TABLE
+	for ore in player_nearby.ORE_TABLE:
+		var nm: String = ore[0]
+		var val: int = ore[2]
+		var count = player_nearby.ore_counts.get(nm, 0)
+		
+		total_earnings += count * val
+		
+		# Reset the count for this ore
+		player_nearby.ore_counts[nm] = 0
+		
+		# Update the HUD label for this ore
+		if player_nearby.ore_labels.has(nm):
+			player_nearby.ore_labels[nm].text = "%s: 0" % nm
+	
+	player_nearby.money += total_earnings
 	player_nearby.money_label.text = "$" + str(player_nearby.money)
 	player_nearby.current_cargo = 0
-	print("Sold ", cargo, " ores for $", earnings)
+	
+	print("Sold cargo for $", total_earnings)

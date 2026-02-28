@@ -332,8 +332,9 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 		var val: int      = ore_data["value"]
 		ore_counts[nm] += amt
 		current_cargo   += amt
-		money           += amt * val
-		money_label.text = "$" + str(money)
+		# Ores are kept in inventory, not immediately sold
+		# money           += amt * val
+		# money_label.text = "$" + str(money)
 		if ore_labels.has(nm):
 			ore_labels[nm].text = "%s: %d" % [nm, ore_counts[nm]]
 			# Quick flash on the HUD row to draw the eye
