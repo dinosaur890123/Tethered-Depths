@@ -3,6 +3,7 @@
 [ext_resource type="PackedScene" uid="uid://df0bh0htdbcx5" path="res://player.tscn" id="1_ig7tw"]
 [ext_resource type="Texture2D" uid="uid://dpv4ta56b7rmg" path="res://dirt.png" id="2_h2yge"]
 [ext_resource type="Texture2D" uid="uid://2e4giavjp67j" path="res://grass.png" id="3_h2yge"]
+[ext_resource type="Texture2D" uid="uid://bx88s3vjljx6p" path="res://ore.jpeg" id="4_1bvp3"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_0xm2m"]
 resource_name = "Dirt"
@@ -18,11 +19,16 @@ texture_region_size = Vector2i(128, 128)
 0:0/0 = 0
 0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
 
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_lquwl"]
+texture = ExtResource("4_1bvp3")
+texture_region_size = Vector2i(512, 512)
+
 [sub_resource type="TileSet" id="TileSet_h2yge"]
 tile_size = Vector2i(128, 128)
 physics_layer_0/collision_layer = 1
 sources/0 = SubResource("TileSetAtlasSource_0xm2m")
 sources/1 = SubResource("TileSetAtlasSource_1bvp3")
+sources/2 = SubResource("TileSetAtlasSource_lquwl")
 
 [node name="Main" type="Node2D" unique_id=2041820833]
 
