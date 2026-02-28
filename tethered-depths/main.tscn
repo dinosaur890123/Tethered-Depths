@@ -194,31 +194,78 @@ scale = Vector2(4.39583, 5.14583)
 texture = ExtResource("9_efxa6")
 metadata/_edit_lock_ = true
 
+[node name="Tree3" type="Sprite2D" parent="Trees" unique_id=417302025]
+z_index = 1
+position = Vector2(1309.9995, 254.0006)
+scale = Vector2(4.719792, 4.370828)
+texture = ExtResource("10_dg77c")
+
+[node name="Tree4" type="Sprite2D" parent="Trees" unique_id=1576017327]
+z_index = 1
+position = Vector2(1259.0004, 248.0002)
+scale = Vector2(4.119794, 4.6458297)
+texture = ExtResource("11_ycdy4")
+
 [node name="Background Under" type="Node" parent="." unique_id=148604480]
 
 [node name="Stonewallbackground4" type="Sprite2D" parent="Background Under" unique_id=1750699608]
-z_index = -5
+z_index = -34
 position = Vector2(-1645, 1942)
 scale = Vector2(0.350506, 0.341112)
 texture = ExtResource("12_dg77c")
 
 [node name="Stonewallbackground" type="Sprite2D" parent="Background Under" unique_id=312616991]
-z_index = -5
+z_index = -34
 position = Vector2(1497.75, 921.625)
 scale = Vector2(0.35, 0.35)
 texture = ExtResource("12_dg77c")
-metadata/_edit_lock_ = true
 
 [node name="Stonewallbackground2" type="Sprite2D" parent="Background Under" unique_id=280452947]
-z_index = -5
+z_index = -34
 position = Vector2(-73.2501, 921.625)
 scale = Vector2(0.350641, 0.35)
 texture = ExtResource("12_dg77c")
 
 [node name="Stonewallbackground3" type="Sprite2D" parent="Background Under" unique_id=1629843755]
-z_index = -5
+z_index = -34
 position = Vector2(-1645.25, 921.625)
 scale = Vector2(0.35, 0.35)
+texture = ExtResource("12_dg77c")
+
+[node name="Stonewallbackground5" type="Sprite2D" parent="Background Under" unique_id=975314831]
+z_index = -34
+position = Vector2(-55, 1920)
+scale = Vector2(0.358, 0.358)
+texture = ExtResource("12_dg77c")
+
+[node name="Stonewallbackground6" type="Sprite2D" parent="Background Under" unique_id=894455805]
+z_index = -34
+position = Vector2(1496, 1934.0002)
+scale = Vector2(0.351, 0.351)
+texture = ExtResource("12_dg77c")
+
+[node name="Stonewallbackground7" type="Sprite2D" parent="Background Under" unique_id=526888999]
+z_index = -34
+position = Vector2(-655.00006, 3044.0002)
+scale = Vector2(0.351, 0.351)
+texture = ExtResource("12_dg77c")
+
+[node name="Stonewallbackground8" type="Sprite2D" parent="Background Under" unique_id=776089841]
+z_index = -34
+position = Vector2(921.0003, 3044.0002)
+scale = Vector2(0.351, 0.351)
+texture = ExtResource("12_dg77c")
+
+[node name="Stonewallbackground9" type="Sprite2D" parent="Background Under" unique_id=519992318]
+z_index = -34
+position = Vector2(-658.00006, 4158)
+scale = Vector2(0.35, 0.35)
+texture = ExtResource("12_dg77c")
+
+[node name="Stonewallbackground10" type="Sprite2D" parent="Background Under" unique_id=60122669]
+z_index = -34
+position = Vector2(917.00006, 4155)
+scale = Vector2(0.351, 0.351)
 texture = ExtResource("12_dg77c")
 
 [node name="Vertical Borders" type="StaticBody2D" parent="." unique_id=608768684]
@@ -259,15 +306,3 @@ position = Vector2(417.857, 225)
 scale = Vector2(0.0324344, 0.0362382)
 texture = ExtResource("18_074og")
 metadata/_edit_lock_ = true
-
-[node name="Tree3" type="Sprite2D" parent="." unique_id=417302025]
-z_index = 1
-position = Vector2(935.714, 181.429)
-scale = Vector2(3.37128, 3.12202)
-texture = ExtResource("10_dg77c")
-
-[node name="Tree4" type="Sprite2D" parent="." unique_id=1576017327]
-z_index = 1
-position = Vector2(899.286, 177.143)
-scale = Vector2(2.94271, 3.31845)
-texture = ExtResource("11_ycdy4")
