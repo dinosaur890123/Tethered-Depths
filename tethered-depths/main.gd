@@ -16,6 +16,7 @@ func _ready():
 	randomize()
 	setup_noise()
 	generate_world()
+	position_entities()
 
 func setup_noise():
 	# Configure cave noise (Perlin-like for organic caves)
@@ -68,10 +69,22 @@ func generate_world():
 			
 	print("World generation complete. Total tiles: ", generated_count)
 
+func position_entities():
 	# Position player at surface
 	var player = get_node_or_null("Player")
 	if player:
-		player.global_position = tilemap.map_to_local(Vector2i(0, -1))
-		# If the player has a spawn_position variable, update it too
+		# map_to_local returns center of tile in tilemap's local space.
+		var surface_pos = tilemap.map_to_local(Vector2i(0, SURFACE_Y))
+		# Subtract half tile size to get to the top edge
+		surface_pos.y -= tilemap.tile_set.tile_size.y / 2.0
+		player.global_position = tilemap.to_global(surface_pos)
+		
 		if "spawn_position" in player:
 			player.spawn_position = player.global_position
+			
+	# Position Shop at surface, a bit to the right
+	var shop = get_node_or_null("Shop")
+	if shop:
+		var shop_pos = tilemap.map_to_local(Vector2i(5, SURFACE_Y))
+		shop_pos.y -= tilemap.tile_set.tile_size.y / 2.0
+		shop.global_position = tilemap.to_global(shop_pos)
