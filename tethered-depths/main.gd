@@ -34,14 +34,21 @@ func generate_world():
 			# Layering
 			if y == SURFACE_Y:
 				source_id = TILE_GRASS
-			elif y < 5:
-				source_id = TILE_DIRT
-			elif y < 25:
-				source_id = TILE_COBBLE if roll < 0.35 else TILE_DIRT
-			elif y < 40:
-				source_id = TILE_DEEPSLATE if roll < 0.4375 else TILE_COBBLE
-			else: # 40+ Deep Core
-				source_id = TILE_DEEPSLATE
+			elif y < 50:
+				# Near-surface: dirt 75%, cobble 25%
+				source_id = TILE_COBBLE if roll < 0.25 else TILE_DIRT
+			else:
+				# y=50→200: linear transition to dirt 50%, cobble 35%, deepslate 15%
+				# y>200: constant at those final ratios
+				var t = clamp(float(y - 50) / 150.0, 0.0, 1.0)
+				var deep_c = lerp(0.0, 0.15, t)
+				var cobble_c = lerp(0.25, 0.35, t)
+				if roll < deep_c:
+					source_id = TILE_DEEPSLATE
+				elif roll < deep_c + cobble_c:
+					source_id = TILE_COBBLE
+				else:
+					source_id = TILE_DIRT
 
 			# Tile variety (flips) — only for regular tiles
 			var alt_tile = 0
@@ -64,13 +71,51 @@ func position_entities():
 		if "spawn_position" in player:
 			player.spawn_position = player.global_position
 
-	# 2. Cobblestone backgrounds — align top edge to the grass surface
+	# 2. Shop & Trader — bottom flush with the grass surface
+	var shop = get_node_or_null("Shop")
+	if shop:
+		shop.global_position = Vector2(450, surface_y - (55.0 * self.scale.y))
+
+	# House — mirrors the shop on the left side
+	var house = get_node_or_null("House")
+	if house:
+		house.global_position = Vector2(-400, surface_y - (55.0 * self.scale.y))
+
+	var trader = get_node_or_null("Trader")
+	if trader:
+		trader.global_position = Vector2(650, surface_y - (34.0 * self.scale.y))
+
+	# 3. Signs — bottom flush with the grass surface
+	var signs = {"Signtutorial": -250, "Shopsign": 380, "Signprice": 850}
+	for s_name in signs:
+		var s_node = get_node_or_null(s_name)
+		if s_node and s_node is Sprite2D:
+			var h = s_node.texture.get_size().y * s_node.scale.y * self.scale.y
+			s_node.global_position = Vector2(signs[s_name], surface_y - (h / 2.0))
+
+	# 4. Trees — bottom flush with the grass surface
+	# Use get_rect() + to_global() so the full scale chain is handled automatically
+	var tree_data = [
+		["Trees/Tree1", -1200.0],
+		["Trees/Tree2", -800.0],
+		["Tree3", 1100.0],
+		["Tree4", 1500.0],
+	]
+	for td in tree_data:
+		var tree = get_node_or_null(td[0]) as Sprite2D
+		if not tree or not tree.texture: continue
+		var rect = tree.get_rect()
+		var bottom_global_y = tree.to_global(Vector2(0.0, rect.end.y)).y
+		tree.global_position = Vector2(td[1], tree.global_position.y + (surface_y - bottom_global_y))
+
+	# 5. Cobblestone backgrounds — align top edge exactly to the grass surface
 	var bg_under = get_node_or_null("Background Under")
 	if bg_under:
 		for bg in bg_under.get_children():
-			if bg is Sprite2D and bg.texture:
-				var h = bg.texture.get_size().y * bg.scale.y * self.scale.y
-				bg.global_position = Vector2(bg.global_position.x, surface_y + h / 2.0)
+			if not (bg is Sprite2D) or not bg.texture: continue
+			var rect = bg.get_rect()
+			var top_global_y = bg.to_global(Vector2(0.0, rect.position.y)).y
+			bg.global_position.y += surface_y - top_global_y
 
 # Helper to find nodes that might be nested
 func find_node_by_name(root: Node, node_name: String) -> Node:

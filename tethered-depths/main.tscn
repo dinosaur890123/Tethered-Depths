@@ -1,4 +1,4 @@
-[gd_scene load_steps=27 format=3 uid="uid://dica2iii3oqty"]
+[gd_scene load_steps=28 format=3 uid="uid://dica2iii3oqty"]
 
 [ext_resource type="PackedScene" uid="uid://df0bh0htdbcx5" path="res://player.tscn" id="1_ig7tw"]
 [ext_resource type="Script" path="res://main.gd" id="1_script"]
@@ -16,6 +16,7 @@
 [ext_resource type="Texture2D" uid="uid://cn3u5c107fi7p" path="res://trees/tree4.png" id="11_ycdy4"]
 [ext_resource type="Texture2D" uid="uid://b08ow73g6yw48" path="res://stonewallbackground.png" id="12_dg77c"]
 [ext_resource type="PackedScene" uid="uid://j4qhjgifve7e" path="res://trader.tscn" id="14_trader"]
+[ext_resource type="PackedScene" path="res://house.tscn" id="15_house"]
 [ext_resource type="Texture2D" uid="uid://b4qtjr0p7e7o5" path="res://signtutorial.png" id="16_2cqfq"]
 [ext_resource type="Texture2D" uid="uid://1odjg1g6j6s7" path="res://shopsign.png" id="18_074og"]
 
@@ -81,6 +82,9 @@ metadata/_edit_lock_ = true
 [node name="Trader" parent="." instance=ExtResource("14_trader")]
 position = Vector2(580, 202.286)
 
+[node name="House" parent="." instance=ExtResource("15_house")]
+position = Vector2(-400, 202.286)
+
 [node name="HUD" type="CanvasLayer" parent="."]
 
 [node name="MoneyLabel" type="Label" parent="HUD"]
@@ -115,11 +119,20 @@ anchor_bottom = 1.0
 mouse_filter = 2
 color = Color(1, 0, 0, 0)
 
-[node name="MinimapPanel" type="Panel" parent="HUD"]
+[node name="ClockLabel" type="Label" parent="HUD"]
 offset_left = 1060.0
 offset_top = 10.0
 offset_right = 1270.0
-offset_bottom = 170.0
+offset_bottom = 40.0
+theme_override_font_sizes/font_size = 18
+text = "7:00 AM"
+horizontal_alignment = 1
+
+[node name="MinimapPanel" type="Panel" parent="HUD"]
+offset_left = 1060.0
+offset_top = 45.0
+offset_right = 1270.0
+offset_bottom = 205.0
 
 [node name="MinimapTexture" type="TextureRect" parent="HUD/MinimapPanel"]
 layout_mode = 1

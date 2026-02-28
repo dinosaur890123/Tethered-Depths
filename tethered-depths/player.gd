@@ -18,6 +18,11 @@ var grapple_tile: Vector2i
 var grapple_force: float = 600.0
 var grapple_hover_tile: Vector2i
 var grapple_hover_valid: bool = false
+var grapple_hover_invalid: bool = false
+var is_grapple_moving: bool = false
+var is_wall_stuck: bool = false
+const WALL_STICK_SLIDE_SPEED: float = 44.8  # half-tile/sec in global space
+const GRAPPLE_MAX_TILES: int = 4
 
 # --- Minimap ---
 var minimap_texture_rect: TextureRect
@@ -37,9 +42,15 @@ const MINIMAP_PLAYER_COLOR = Color(1.0, 1.0, 1.0)
 
 # --- Low Battery Overlay ---
 var low_battery_overlay: ColorRect
+var low_oxygen_label: Label
+var low_oxygen_onset_time: float = -1.0  # tracks when warning first appeared
 const LOW_BATTERY_PULSE_MIN: float = 0.10
 const LOW_BATTERY_PULSE_MAX: float = 0.35
 const LOW_BATTERY_PULSE_SPEED: float = 2.5
+
+# --- Game Clock ---
+var game_minutes: float = 7.0 * 60.0  # Start at 7:00 AM
+var clock_label: Label
 
 # TileSet source IDs (matching main.gd)
 const TILE_DIRT := 0
@@ -108,7 +119,11 @@ func _ready():
 		money_label = hud.get_node_or_null("MoneyLabel") as Label
 		if money_label:
 			money_label.text = "$0"
-		
+
+		clock_label = hud.get_node_or_null("ClockLabel") as Label
+		if clock_label:
+			clock_label.text = _format_game_time(game_minutes)
+
 		oxygen_bar = hud.get_node_or_null("ProgressBar") as ProgressBar
 		if oxygen_bar:
 			oxygen_bar.visible = true
@@ -141,6 +156,25 @@ func _ready():
 		# --- Low Battery Overlay ---
 		low_battery_overlay = hud.get_node_or_null("LowBatteryOverlay") as ColorRect
 
+		# --- Low Oxygen Warning Label ---
+		var lbl_ox = Label.new()
+		lbl_ox.text = "LOW OXYGEN LEVELS"
+		lbl_ox.add_theme_font_size_override("font_size", 72)
+		lbl_ox.modulate = Color(1.0, 0.3, 0.3, 0.0)
+		lbl_ox.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lbl_ox.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lbl_ox.anchor_left = 0.5
+		lbl_ox.anchor_right = 0.5
+		lbl_ox.anchor_top = 0.5
+		lbl_ox.anchor_bottom = 0.5
+		lbl_ox.offset_left = -420.0
+		lbl_ox.offset_right = 420.0
+		lbl_ox.offset_top = -50.0
+		lbl_ox.offset_bottom = 50.0
+		lbl_ox.z_index = 5
+		hud.add_child(lbl_ox)
+		low_oxygen_label = lbl_ox
+
 	# --- Minimap ---
 	var minimap_panel = hud.get_node_or_null("MinimapPanel") if hud else null
 	if minimap_panel:
@@ -172,8 +206,16 @@ func _ready():
 			ore_labels[nm] = lbl
 			y += 26.0
 
+func _process(delta: float) -> void:
+	game_minutes += delta * 5.0  # 1 real second = 5 game minutes
+	if game_minutes >= 1440.0:
+		game_minutes -= 1440.0
+	if clock_label:
+		clock_label.text = _format_game_time(game_minutes)
+
 func _physics_process(delta):
 	if not tilemap: return
+	if is_grapple_moving: return  # Physics paused during grapple travel
 
 	# 1. Drain Battery (Oxygen)
 	var pos_tile = tilemap.local_to_map(tilemap.to_local(global_position))
@@ -199,6 +241,28 @@ func _physics_process(delta):
 	is_walking = h != 0
 	if h != 0:
 		facing_dir = sign(h)
+
+	# --- Wall Stick (post-grapple) ---
+	if is_wall_stuck:
+		if is_on_floor() or h != 0:
+			is_wall_stuck = false
+		else:
+			velocity.y = WALL_STICK_SLIDE_SPEED
+			velocity.x = 0.0
+			if Input.is_action_just_pressed("ui_accept"):
+				velocity.y = -jump_speed
+				is_wall_stuck = false
+			move_and_slide()
+			_update_highlight()
+			_update_grapple_hover()
+			_update_animation()
+			queue_redraw()
+			if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+				if highlight_valid and not is_mining:
+					start_mining(highlighted_tile)
+			else:
+				if is_mining: cancel_mining()
+			return
 
 	# 3. Wall climbing
 	var wall_normal = get_wall_normal()
@@ -297,14 +361,18 @@ func _update_animation():
 func _draw():
 	if not tilemap: return
 
-	# Grapple hover highlight (cyan)
-	if grapple_hover_valid and not grapple_active:
+	# Grapple hover highlight (cyan = valid, red = out of range / blocked)
+	if not grapple_active and (grapple_hover_valid or grapple_hover_invalid):
 		var tile_center_global = tilemap.to_global(tilemap.map_to_local(grapple_hover_tile))
 		var tile_center_local = to_local(tile_center_global)
 		var half = TILE_WORLD_SIZE / 2.0
 		var r = Rect2(tile_center_local - Vector2(half, half), Vector2(TILE_WORLD_SIZE, TILE_WORLD_SIZE))
-		draw_rect(r, Color(0.0, 1.0, 1.0, 0.25), true)
-		draw_rect(r, Color(0.0, 1.0, 1.0, 1.0), false, 2.5)
+		if grapple_hover_valid:
+			draw_rect(r, Color(0.0, 1.0, 1.0, 0.25), true)
+			draw_rect(r, Color(0.0, 1.0, 1.0, 1.0), false, 2.5)
+		else:
+			draw_rect(r, Color(1.0, 0.0, 0.0, 0.25), true)
+			draw_rect(r, Color(1.0, 0.0, 0.0, 1.0), false, 2.5)
 
 	if highlight_valid and not is_mining:
 		var tile_center_global = tilemap.to_global(tilemap.map_to_local(highlighted_tile))
@@ -367,6 +435,8 @@ func die_and_respawn():
 	if is_mining:
 		cancel_mining()
 	_release_grapple()
+	is_grapple_moving = false
+	is_wall_stuck = false
 
 	current_battery = max_battery
 	current_cargo = 0
@@ -406,9 +476,9 @@ func finish_mining():
 	# Block-specific luck bonus
 	var block_luck_mult = 1.0
 	if source_id == 3: # Cobblestone
-		block_luck_mult = 1.1
-	elif source_id == 4: # Deepslate
 		block_luck_mult = 1.5
+	elif source_id == 4: # Deepslate
+		block_luck_mult = 2.0
 
 	var found: Array[Dictionary] = []
 
@@ -498,38 +568,106 @@ func _input(event: InputEvent) -> void:
 				_update_minimap()
 
 func _update_grapple_hover() -> void:
-	if grapple_active or not tilemap:
-		grapple_hover_valid = false
-		return
+	grapple_hover_valid = false
+	grapple_hover_invalid = false
+	if grapple_active or not tilemap: return
 	var mouse_world = get_global_mouse_position()
 	var mouse_tile = tilemap.local_to_map(tilemap.to_local(mouse_world))
 	var src = tilemap.get_cell_source_id(mouse_tile)
-	grapple_hover_valid = src != -1 and src != TILE_GRASS
-	if grapple_hover_valid:
-		grapple_hover_tile = mouse_tile
+	if src == -1: return  # Air — nothing to show
+	grapple_hover_tile = mouse_tile
+	var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
+	var dist = Vector2(mouse_tile).distance_to(Vector2(player_tile))
+	if src == TILE_GRASS or dist > float(GRAPPLE_MAX_TILES) or not _has_los_to_tile(mouse_tile):
+		grapple_hover_invalid = true
+	else:
+		grapple_hover_valid = true
 
 func _try_fire_grapple() -> void:
-	if not tilemap: return
-	var from = global_position
-	var to = get_global_mouse_position()
-	var space = get_world_2d().direct_space_state
-	var query = PhysicsRayQueryParameters2D.create(from, to)
-	query.exclude = [get_rid()]
-	var result = space.intersect_ray(query)
-	if result and result.has("position"):
-		var hit_pos: Vector2 = result["position"]
-		var hit_normal: Vector2 = result.get("normal", Vector2.ZERO)
-		var step_back = (to - from).normalized() * 2.0
-		var hit_tile = tilemap.local_to_map(tilemap.to_local(hit_pos - step_back))
-		var src = tilemap.get_cell_source_id(hit_tile)
-		if src != -1 and src != TILE_GRASS:
-			# Teleport the player to just outside the hit face
-			global_position = hit_pos + hit_normal * 35.0
-			velocity = Vector2.ZERO
+	if not tilemap or is_grapple_moving: return
+	var mouse_world = get_global_mouse_position()
+	var mouse_tile = tilemap.local_to_map(tilemap.to_local(mouse_world))
+	var src = tilemap.get_cell_source_id(mouse_tile)
+	if src == -1 or src == TILE_GRASS: return
+	var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
+	if Vector2(mouse_tile).distance_to(Vector2(player_tile)) > float(GRAPPLE_MAX_TILES): return
+	if not _has_los_to_tile(mouse_tile): return
+	var tile_center = tilemap.to_global(tilemap.map_to_local(mouse_tile))
+	var to_player = global_position - tile_center
+	var sx = sign(to_player.x) if to_player.x != 0 else 1.0
+	var sy = sign(to_player.y) if to_player.y != 0 else 1.0
+	var candidates: Array[Vector2] = [
+		tile_center + Vector2(sx * 56.0, 0.0),     # preferred horizontal face
+		tile_center + Vector2(0.0, sy * 92.0),      # preferred vertical face
+		tile_center + Vector2(-sx * 56.0, 0.0),    # opposite horizontal
+		tile_center + Vector2(0.0, -sy * 92.0),    # opposite vertical
+	]
+	if abs(to_player.y) > abs(to_player.x):
+		candidates = [candidates[1], candidates[0], candidates[3], candidates[2]]
+	var target_pos := Vector2.ZERO
+	var found := false
+	for c in candidates:
+		var lt = tilemap.local_to_map(tilemap.to_local(c))
+		if tilemap.get_cell_source_id(lt) == -1:
+			target_pos = c
+			found = true
+			break
+	if not found: return
+	# If the landing spot is beside the block (horizontal face), the player sticks to the wall
+	var will_wall_stick = abs(target_pos.x - tile_center.x) > abs(target_pos.y - tile_center.y)
+	is_grapple_moving = true
+	velocity = Vector2.ZERO
+	var dist = global_position.distance_to(target_pos)
+	var duration = clamp(dist / 800.0, 0.08, 0.6)
+	var tw = create_tween()
+	tw.tween_property(self, "global_position", target_pos, duration) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func() -> void:
+		is_grapple_moving = false
+		if will_wall_stick:
+			is_wall_stuck = true
+	)
+
+func _has_los_to_tile(target_tile: Vector2i) -> bool:
+	var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
+	var dx = target_tile.x - player_tile.x
+	var dy = target_tile.y - player_tile.y
+	var steps = max(abs(dx), abs(dy))
+	if steps <= 1:
+		return true
+	for i in range(1, steps):  # skip endpoints — player is air, target is the block
+		var cx = player_tile.x + roundi(float(dx * i) / float(steps))
+		var cy = player_tile.y + roundi(float(dy * i) / float(steps))
+		if tilemap.get_cell_source_id(Vector2i(cx, cy)) != -1:
+			return false  # Solid tile in the way
+	return true
 
 func _release_grapple() -> void:
 	grapple_active = false
 	grapple_hover_valid = false
+	grapple_hover_invalid = false
+
+func sleep() -> void:
+	game_minutes = 7.0 * 60.0  # Reset to 7:00 AM
+	current_battery = max_battery
+	if oxygen_bar: oxygen_bar.value = current_battery
+	global_position = spawn_position
+	velocity = Vector2.ZERO
+	is_wall_stuck = false
+	_release_grapple()
+	is_grapple_moving = false
+	if is_mining: cancel_mining()
+	_update_low_battery_overlay()
+	if clock_label: clock_label.text = _format_game_time(game_minutes)
+
+func _format_game_time(total_mins: float) -> String:
+	var m := int(total_mins) % 1440
+	var h := m / 60
+	var mn := m % 60
+	var period := "AM" if h < 12 else "PM"
+	var h12 := h % 12
+	if h12 == 0: h12 = 12
+	return "%d:%02d %s" % [h12, mn, period]
 
 func _update_minimap() -> void:
 	if not tilemap or not minimap_image or not minimap_texture_rect: return
@@ -559,12 +697,23 @@ func _update_low_battery_overlay() -> void:
 	if not low_battery_overlay: return
 	if current_battery >= max_battery * 0.15:
 		low_battery_overlay.visible = false
+		low_oxygen_onset_time = -1.0
+		if low_oxygen_label:
+			low_oxygen_label.modulate.a = 0.0
 		return
+	# Record when the warning first fired
+	if low_oxygen_onset_time < 0.0:
+		low_oxygen_onset_time = Time.get_ticks_msec() / 1000.0
 	low_battery_overlay.visible = true
 	var t = Time.get_ticks_msec() / 1000.0
 	var alpha = lerp(LOW_BATTERY_PULSE_MIN, LOW_BATTERY_PULSE_MAX,
 		(sin(t * LOW_BATTERY_PULSE_SPEED) + 1.0) / 2.0)
-	low_battery_overlay.modulate = Color(1.0, 1.0, 1.0, alpha)
+	low_battery_overlay.color = Color(1.0, 0.0, 0.0, alpha)
+	if low_oxygen_label:
+		# Fade the label in over 2 seconds so it doesn't smash the player in the face
+		var elapsed = (Time.get_ticks_msec() / 1000.0) - low_oxygen_onset_time
+		var fade_in = clamp(elapsed / 2.0, 0.0, 1.0)
+		low_oxygen_label.modulate = Color(1.0, 0.3, 0.3, alpha * fade_in)
 
 func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float) -> void:
 	var hud = get_parent().get_node_or_null("HUD")
