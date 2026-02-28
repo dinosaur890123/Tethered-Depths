@@ -60,6 +60,14 @@ var ore_counts: Dictionary = {}
 # HUD label references keyed by ore name
 var ore_labels: Dictionary = {}
 
+func _is_tile_unbreakable(tile_coords: Vector2i) -> bool:
+	if tilemap == null:
+		return false
+	if not tilemap.has_meta("unbreakable_tiles"):
+		return false
+	var data = tilemap.get_meta("unbreakable_tiles")
+	return data is Dictionary and (data as Dictionary).has(tile_coords)
+
 func _ready():
 	spawn_position = global_position
 	# Find TileMapLayer more robustly
@@ -202,7 +210,7 @@ func _update_highlight():
 		player_tile + Vector2i(0, -1),
 	]
 
-	if mouse_tile in adjacent_tiles and tilemap.get_cell_source_id(mouse_tile) != -1:
+	if mouse_tile in adjacent_tiles and tilemap.get_cell_source_id(mouse_tile) != -1 and not _is_tile_unbreakable(mouse_tile):
 		highlighted_tile = mouse_tile
 		highlight_valid = true
 	else:
@@ -261,6 +269,8 @@ func _draw():
 		draw_rect(Rect2(bar_pos, Vector2(bar_w, bar_h)), Color(1.0, 1.0, 1.0, 0.5), false, 1.0)
 
 func start_mining(tile_coords: Vector2i):
+	if _is_tile_unbreakable(tile_coords):
+		return
 	is_mining = true
 	target_tile_coords = tile_coords
 	_play_mining_sfx()
@@ -306,6 +316,9 @@ func _roll_count() -> int:
 
 func finish_mining():
 	if not tilemap: return
+	if _is_tile_unbreakable(target_tile_coords):
+		is_mining = false
+		return
 	var is_grass = tilemap.get_cell_source_id(target_tile_coords) == 1
 	tilemap.set_cell(target_tile_coords, -1)
 	is_mining = false

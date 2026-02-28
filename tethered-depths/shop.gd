@@ -3,6 +3,10 @@ extends Node2D
 @onready var prompt_label: RichTextLabel = $PromptLabel
 var player_nearby: Node = null
 
+# Protect the ground under the shop from being mined.
+@export var foundation_half_width_tiles: int = 2 # total width = (half*2+1)
+@export var foundation_depth_tiles: int = 6
+
 enum ShopState { IDLE, PROMPT, MAIN_MENU, SELL_MENU, BUY_MENU, CONFIRM_BUY }
 var current_state = ShopState.IDLE
 var pending_upgrade_index: int = -1
@@ -15,6 +19,7 @@ func _ready():
 	prompt_label.visible = false
 	$ShopZone.body_entered.connect(_on_body_entered)
 	$ShopZone.body_exited.connect(_on_body_exited)
+	_register_unbreakable_foundation_tiles()
 	
 	# Create pickaxe sprites for visual selection using the tileset atlas
 	var atlas_tex = load("res://Miner16Bit_AllFiles_v1/Miner16Bit_WorldTiles_01.png")
@@ -33,6 +38,33 @@ func _ready():
 		s.position = Vector2(-120 + i * 80, -320)
 		add_child(s)
 		pickaxe_sprites.append(s)
+
+func _register_unbreakable_foundation_tiles() -> void:
+	var main := get_parent()
+	if main == null:
+		return
+	var tilemap := main.get_node_or_null("Dirt") as TileMapLayer
+	if tilemap == null:
+		return
+
+	# Compute a probe position slightly below the shop origin so we land inside the ground tile.
+	var origin_global := tilemap.to_global(tilemap.map_to_local(Vector2i(0, 0)))
+	var down_global := tilemap.to_global(tilemap.map_to_local(Vector2i(0, 1)))
+	var tile_step_y := down_global.y - origin_global.y
+	var probe_global := global_position + Vector2(0.0, tile_step_y * 0.5)
+	var anchor_tile: Vector2i = tilemap.local_to_map(tilemap.to_local(probe_global))
+
+	var unbreakable: Dictionary = {}
+	if tilemap.has_meta("unbreakable_tiles"):
+		var existing = tilemap.get_meta("unbreakable_tiles")
+		if existing is Dictionary:
+			unbreakable = existing
+
+	for x in range(anchor_tile.x - foundation_half_width_tiles, anchor_tile.x + foundation_half_width_tiles + 1):
+		for y in range(anchor_tile.y, anchor_tile.y + max(1, foundation_depth_tiles)):
+			unbreakable[Vector2i(x, y)] = true
+
+	tilemap.set_meta("unbreakable_tiles", unbreakable)
 
 func _input(event):
 	if not player_nearby:
