@@ -63,6 +63,11 @@ const DEFAULT_MINING_SFX_PATH: String = "res://anvil.mp3"
 @export var mining_sfx: AudioStream
 var mining_sfx_player: AudioStreamPlayer
 
+# Walking SFX (assign in Inspector, or place `walking.mp3` at res://walking.mp3)
+const DEFAULT_WALKING_SFX_PATH: String = "res://walking.mp3"
+@export var walking_sfx: AudioStream
+var walking_sfx_player: AudioStreamPlayer
+
 # Upgrade tracking
 var pickaxe_level: int = 0
 const PICKAXE_UPGRADES = [
@@ -152,6 +157,14 @@ func _ready():
 	if mining_sfx != null:
 		mining_sfx_player.stream = mining_sfx
 
+	# Walking sound player
+	walking_sfx_player = AudioStreamPlayer.new()
+	add_child(walking_sfx_player)
+	if walking_sfx == null and ResourceLoader.exists(DEFAULT_WALKING_SFX_PATH):
+		walking_sfx = load(DEFAULT_WALKING_SFX_PATH) as AudioStream
+	if walking_sfx != null:
+		walking_sfx_player.stream = walking_sfx
+
 	if hud:
 		# --- Low Battery Overlay ---
 		low_battery_overlay = hud.get_node_or_null("LowBatteryOverlay") as ColorRect
@@ -214,8 +227,12 @@ func _process(delta: float) -> void:
 		clock_label.text = _format_game_time(game_minutes)
 
 func _physics_process(delta):
-	if not tilemap: return
-	if is_grapple_moving: return  # Physics paused during grapple travel
+	if not tilemap:
+		_update_walking_sfx()
+		return
+	if is_grapple_moving:
+		_update_walking_sfx()
+		return  # Physics paused during grapple travel
 
 	# 1. Drain Battery (Oxygen)
 	var pos_tile = tilemap.local_to_map(tilemap.to_local(global_position))
@@ -256,6 +273,7 @@ func _physics_process(delta):
 			_update_highlight()
 			_update_grapple_hover()
 			_update_animation()
+			_update_walking_sfx()
 			queue_redraw()
 			if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 				if highlight_valid and not is_mining:
@@ -302,6 +320,7 @@ func _physics_process(delta):
 	_update_highlight()
 	_update_grapple_hover()
 	_update_animation()
+	_update_walking_sfx()
 	queue_redraw()
 
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
@@ -422,6 +441,31 @@ func _on_mining_sfx_finished() -> void:
 	if is_mining:
 		mining_sfx_player.play()
 
+func _update_walking_sfx() -> void:
+	if walking_sfx_player == null:
+		return
+	if walking_sfx_player.stream == null and walking_sfx != null:
+		walking_sfx_player.stream = walking_sfx
+	if walking_sfx_player.stream == null:
+		return
+
+	var should_play := is_walking and is_on_floor() and (not is_mining) and (not is_wall_climbing) and (not is_wall_stuck) and (not is_grapple_moving)
+
+	if should_play:
+		if not walking_sfx_player.finished.is_connected(_on_walking_sfx_finished):
+			walking_sfx_player.finished.connect(_on_walking_sfx_finished)
+		if not walking_sfx_player.playing:
+			walking_sfx_player.play()
+	else:
+		if walking_sfx_player.finished.is_connected(_on_walking_sfx_finished):
+			walking_sfx_player.finished.disconnect(_on_walking_sfx_finished)
+		if walking_sfx_player.playing:
+			walking_sfx_player.stop()
+
+func _on_walking_sfx_finished() -> void:
+	if is_walking and is_on_floor() and (not is_mining) and (not is_wall_climbing) and (not is_wall_stuck) and (not is_grapple_moving):
+		walking_sfx_player.play()
+
 func cancel_mining():
 	mining_timer.stop()
 	is_mining = false
@@ -429,6 +473,7 @@ func cancel_mining():
 		mining_sfx_player.finished.disconnect(_on_mining_sfx_finished)
 	if mining_sfx_player:
 		mining_sfx_player.stop()
+	_update_walking_sfx()
 
 func die_and_respawn():
 	anim_sprite.play("death")
@@ -448,6 +493,7 @@ func die_and_respawn():
 
 	global_position = spawn_position
 	velocity = Vector2.ZERO
+	_update_walking_sfx()
 
 func _roll_count() -> int:
 	var count = 1
@@ -659,6 +705,7 @@ func sleep() -> void:
 	if is_mining: cancel_mining()
 	_update_low_battery_overlay()
 	if clock_label: clock_label.text = _format_game_time(game_minutes)
+	_update_walking_sfx()
 
 func _format_game_time(total_mins: float) -> String:
 	var m := int(total_mins) % 1440
