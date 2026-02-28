@@ -358,6 +358,7 @@ func _sell_ores():
 			player_nearby.ore_labels[nm].text = "%s: 0" % nm
 
 	player_nearby.money += total_earnings
+	player_nearby.daily_money_made += total_earnings
 	if player_nearby.money_label:
 		player_nearby.money_label.text = "$" + str(player_nearby.money)
 	player_nearby.current_cargo = 0

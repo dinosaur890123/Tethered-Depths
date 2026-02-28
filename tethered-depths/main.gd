@@ -98,14 +98,33 @@ func position_entities():
 		if tree is Node2D:
 			_align_node_bottom_to_surface(tree as Node2D, surface_y)
 
-	# 5. Cobblestone backgrounds — align top edge exactly to the grass surface
+	# 5. Sky backgrounds — align bottom edge exactly to the grass surface
+	var bg_above = get_node_or_null("Background above")
+	if bg_above:
+		for bg in bg_above.get_children():
+			if not (bg is Sprite2D) or not bg.texture: continue
+			var rect = bg.get_rect()
+			var bottom_global_y = bg.to_global(Vector2(0.0, rect.end.y)).y
+			bg.global_position.y += surface_y - bottom_global_y
+
+	# 6. Cobblestone backgrounds — align top edge exactly to the grass surface
 	var bg_under = get_node_or_null("Background Under")
 	if bg_under:
-		for bg in bg_under.get_children():
+		var total_depth_world = DEPTH * (128.0 * tilemap.scale.y * self.scale.y)
+		var original_bgs = bg_under.get_children().duplicate()
+		for bg in original_bgs:
 			if not (bg is Sprite2D) or not bg.texture: continue
 			var rect = bg.get_rect()
 			var top_global_y = bg.to_global(Vector2(0.0, rect.position.y)).y
 			bg.global_position.y += surface_y - top_global_y
+			
+			var bg_height = rect.size.y * bg.global_scale.y
+			if bg_height <= 0: continue
+			var num_duplicates = int(ceil(total_depth_world / bg_height))
+			for i in range(1, num_duplicates + 1):
+				var dup = bg.duplicate() as Sprite2D
+				bg_under.add_child(dup)
+				dup.global_position.y = bg.global_position.y + (bg_height * i)
 
 # Keep editor-authored X/Y layout and only adjust Y to match the surface.
 # We avoid magic offsets by computing bounds from Sprite2D descendants.

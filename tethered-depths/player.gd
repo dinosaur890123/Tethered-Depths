@@ -52,6 +52,21 @@ const LOW_BATTERY_PULSE_SPEED: float = 2.5
 var game_minutes: float = 7.0 * 60.0  # Start at 7:00 AM
 var clock_label: Label
 
+# --- End of Day Stats & UI ---
+var day_count: int = 1
+var day_label: Label
+var daily_ores_collected: int = 0
+var daily_money_made: int = 0
+var times_died: int = 0
+
+var end_day_layer: CanvasLayer
+var fade_rect: ColorRect
+var dashboard: TextureRect
+var stats_label: RichTextLabel
+var close_btn: TextureButton
+
+var is_end_of_day: bool = false
+
 # TileSet source IDs (matching main.gd)
 const TILE_DIRT := 0
 const TILE_GRASS := 1
@@ -128,6 +143,13 @@ func _ready():
 		clock_label = hud.get_node_or_null("ClockLabel") as Label
 		if clock_label:
 			clock_label.text = _format_game_time(game_minutes)
+			
+			day_label = Label.new()
+			day_label.text = "Day " + str(day_count)
+			day_label.add_theme_font_size_override("font_size", 20)
+			day_label.position = Vector2(clock_label.position.x, 10.0)
+			clock_label.position.y = 35.0
+			hud.add_child(day_label)
 
 		oxygen_bar = hud.get_node_or_null("ProgressBar") as ProgressBar
 		if oxygen_bar:
@@ -219,17 +241,20 @@ func _ready():
 			ore_labels[nm] = lbl
 			y += 26.0
 
+	_setup_end_of_day_ui()
+
 func _process(delta: float) -> void:
+	if is_end_of_day: return
 	game_minutes += delta * 5.0  # 1 real second = 5 game minutes
 	if game_minutes >= 1440.0:
 		game_minutes -= 1440.0
+		trigger_end_of_day()
 	if clock_label:
 		clock_label.text = _format_game_time(game_minutes)
 
 func _physics_process(delta):
-	if not tilemap:
-		_update_walking_sfx()
-		return
+	if is_end_of_day: return
+	if not tilemap: return
 	if is_grapple_moving:
 		_update_walking_sfx()
 		return  # Physics paused during grapple travel
@@ -483,16 +508,8 @@ func die_and_respawn():
 	is_grapple_moving = false
 	is_wall_stuck = false
 
-	current_battery = max_battery
-	current_cargo = 0
-	for ore in ORE_TABLE:
-		var nm: String = ore[0]
-		ore_counts[nm] = 0
-		if ore_labels.has(nm):
-			ore_labels[nm].text = "%s: 0" % nm
-
-	global_position = spawn_position
-	velocity = Vector2.ZERO
+	times_died += 1
+	trigger_end_of_day(true)
 	_update_walking_sfx()
 
 func _roll_count() -> int:
@@ -589,6 +606,10 @@ func _spawn_floating_text(msg: String, world_pos: Vector2, color: Color) -> void
 	tween.tween_callback(label.queue_free)
 
 func _input(event: InputEvent) -> void:
+	if is_end_of_day:
+		if event is InputEventKey and event.keycode == KEY_SPACE and event.pressed:
+			_close_end_of_day()
+		return
 	if event is InputEventMouseButton and event.pressed:
 		match event.button_index:
 			MOUSE_BUTTON_RIGHT:
@@ -694,17 +715,7 @@ func _release_grapple() -> void:
 	grapple_hover_invalid = false
 
 func sleep() -> void:
-	game_minutes = 7.0 * 60.0  # Reset to 7:00 AM
-	current_battery = max_battery
-	if oxygen_bar: oxygen_bar.value = current_battery
-	global_position = spawn_position
-	velocity = Vector2.ZERO
-	is_wall_stuck = false
-	_release_grapple()
-	is_grapple_moving = false
-	if is_mining: cancel_mining()
-	_update_low_battery_overlay()
-	if clock_label: clock_label.text = _format_game_time(game_minutes)
+	trigger_end_of_day(false)
 	_update_walking_sfx()
 
 func _format_game_time(total_mins: float) -> String:
@@ -807,6 +818,7 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 		var amt: int      = ore_data["amount"]
 		ore_counts[nm] += amt
 		current_cargo   += amt
+		daily_ores_collected += amt
 		if ore_labels.has(nm):
 			ore_labels[nm].text = "%s: %d" % [nm, ore_counts[nm]]
 			var flash = create_tween()
@@ -814,3 +826,141 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 			flash.tween_property(ore_labels[nm], "modulate:a", 1.00, 0.18)
 		fly_node.queue_free()
 	)
+
+func _setup_end_of_day_ui():
+	end_day_layer = CanvasLayer.new()
+	end_day_layer.layer = 100
+	end_day_layer.visible = false
+	add_child(end_day_layer)
+
+	fade_rect = ColorRect.new()
+	fade_rect.color = Color(0, 0, 0, 0)
+	fade_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	end_day_layer.add_child(fade_rect)
+	
+	dashboard = TextureRect.new()
+	var tex = load("res://brown.jpg") as Texture2D
+	if tex:
+		dashboard.texture = tex
+	else:
+		var fallback_bg = ColorRect.new()
+		fallback_bg.color = Color(0.35, 0.2, 0.1)
+		fallback_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+		dashboard.add_child(fallback_bg)
+
+	dashboard.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	dashboard.anchor_left = 0.125
+	dashboard.anchor_right = 0.875
+	dashboard.anchor_top = 0.125
+	dashboard.anchor_bottom = 0.875
+	dashboard.modulate.a = 0.0
+	dashboard.mouse_filter = Control.MOUSE_FILTER_STOP
+	end_day_layer.add_child(dashboard)
+	
+	stats_label = RichTextLabel.new()
+	stats_label.bbcode_enabled = true
+	stats_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	stats_label.offset_left = 40.0
+	stats_label.offset_top = 40.0
+	stats_label.offset_right = -40.0
+	stats_label.offset_bottom = -40.0
+	stats_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dashboard.add_child(stats_label)
+	
+	close_btn = TextureButton.new()
+	var img = Image.create(40, 40, false, Image.FORMAT_RGBA8)
+	img.fill(Color(1, 0, 0))
+	for i in range(40):
+		img.set_pixel(i, i, Color(1, 1, 1))
+		img.set_pixel(i, 39 - i, Color(1, 1, 1))
+		if i > 0:
+			img.set_pixel(i, i - 1, Color(1, 1, 1))
+			img.set_pixel(i - 1, i, Color(1, 1, 1))
+			img.set_pixel(i, 39 - i + 1, Color(1, 1, 1))
+			img.set_pixel(i - 1, 39 - i, Color(1, 1, 1))
+	close_btn.texture_normal = ImageTexture.create_from_image(img)
+	close_btn.anchor_left = 1.0
+	close_btn.anchor_right = 1.0
+	close_btn.anchor_top = 0.0
+	close_btn.anchor_bottom = 0.0
+	close_btn.offset_left = -50.0
+	close_btn.offset_top = 10.0
+	close_btn.offset_right = -10.0
+	close_btn.offset_bottom = 50.0
+	close_btn.pressed.connect(_close_end_of_day)
+	dashboard.add_child(close_btn)
+
+func trigger_end_of_day(from_death: bool = false):
+	if is_end_of_day: return
+	is_end_of_day = true
+	
+	velocity = Vector2.ZERO
+	is_walking = false
+	is_mining = false
+	is_wall_climbing = false
+	if is_mining: cancel_mining()
+	_release_grapple()
+	
+	end_day_layer.visible = true
+	fade_rect.color.a = 0.0
+	dashboard.modulate.a = 0.0
+	fade_rect.mouse_filter = Control.MOUSE_FILTER_STOP
+	
+	var tw = create_tween()
+	tw.tween_property(fade_rect, "color:a", 1.0, 1.5)
+	tw.tween_interval(1.0)
+	tw.tween_callback(func():
+		var font_size = 48
+		var text = "[center][font_size=%d]" % font_size
+		text += "[color=white]End of Day %d[/color]\n\n" % day_count
+		text += "[font_size=32]"
+		text += "[color=orange]Ores Collected: %d[/color]\n\n" % daily_ores_collected
+		text += "[color=gold]Money Made: $%d[/color]\n\n" % daily_money_made
+		text += "[color=red]Times Died: %d[/color]\n" % times_died
+		text += "\n[color=gray][font_size=24]Press SPACE or Click X to continue...[/font_size][/color]"
+		text += "[/font_size][/font_size][/center]"
+		stats_label.text = text
+	)
+	tw.tween_property(dashboard, "modulate:a", 1.0, 0.5)
+
+func _close_end_of_day():
+	if not is_end_of_day: return
+	var tw = create_tween()
+	tw.tween_property(dashboard, "modulate:a", 0.0, 0.5)
+	tw.tween_property(fade_rect, "color:a", 0.0, 0.5)
+	tw.tween_callback(func():
+		end_day_layer.visible = false
+		fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		is_end_of_day = false
+		
+		daily_ores_collected = 0
+		daily_money_made = 0
+		
+		day_count += 1
+		if day_label:
+			day_label.text = "Day " + str(day_count)
+			
+		_respawn_and_reset_day()
+	)
+
+func _respawn_and_reset_day():
+	game_minutes = 7.0 * 60.0
+	current_battery = max_battery
+	current_cargo = 0
+	
+	for ore in ORE_TABLE:
+		var nm: String = ore[0]
+		ore_counts[nm] = 0
+		if ore_labels.has(nm):
+			ore_labels[nm].text = "%s: 0" % nm
+			
+	if oxygen_bar: oxygen_bar.value = current_battery
+	global_position = spawn_position
+	velocity = Vector2.ZERO
+	is_wall_stuck = false
+	_release_grapple()
+	is_grapple_moving = false
+	if is_mining: cancel_mining()
+	_update_low_battery_overlay()
+	if clock_label: clock_label.text = _format_game_time(game_minutes)
