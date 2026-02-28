@@ -85,16 +85,25 @@ func position_entities():
 
 	var house := get_node_or_null("House")
 	if house is Node2D:
+		house.z_index = 1
 		_align_node_bottom_to_surface(house as Node2D, surface_y)
+
+	var crate := get_node_or_null("Cratestorage")
+	if crate is Sprite2D:
+		crate.z_index = 1
+		crate.centered = true
+		_align_node_bottom_to_surface(crate as Node2D, surface_y)
 
 	var trader := get_node_or_null("Trader")
 	if trader is Node2D:
+		trader.z_index = 1
 		_align_node_bottom_to_surface(trader as Node2D, surface_y)
 
 	var sign_paths := ["Signtutorial", "Shopsign", "Signprice"]
 	for p in sign_paths:
 		var s_node := get_node_or_null(p)
 		if s_node is Node2D:
+			s_node.z_index = 1
 			_align_node_bottom_to_surface(s_node as Node2D, surface_y)
 
 	var tree_paths := ["Trees/Tree1", "Trees/Tree2", "Trees/Tree3", "Trees/Tree4", "Trees/Tree5", "Trees/Tree6", "Trees/Tree7", "Trees/Tree8", "Trees/Tree9", "Trees/Tree10", "Trees/Tree11"]

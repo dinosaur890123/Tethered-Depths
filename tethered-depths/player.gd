@@ -649,7 +649,23 @@ func die_and_respawn():
 	is_wall_stuck = false
 
 	times_died += 1
-	trigger_end_of_day(true)
+	
+	# Penalties: half money and +1 hour
+	money = int(money / 2)
+	if money_label:
+		money_label.text = "$" + str(money)
+	
+	game_minutes += 60.0
+	
+	# Reset state and respawn
+	current_battery = max_battery
+	if oxygen_bar:
+		oxygen_bar.value = current_battery
+	
+	global_position = spawn_position
+	velocity = Vector2.ZERO
+	
+	_update_low_battery_overlay()
 	_update_walking_sfx()
 
 func _roll_count() -> int:
