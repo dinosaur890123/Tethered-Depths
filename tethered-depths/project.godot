@@ -62,6 +62,10 @@ mine={
 ]
 }
 
+[autoload]
+
+MusicPlayer="*res://music_player.gd"
+
 [physics]
 
 3d/physics_engine="Jolt Physics"
