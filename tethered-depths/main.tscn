@@ -15,6 +15,7 @@
 [ext_resource type="Texture2D" uid="uid://tggf2quxumt5" path="res://Stones_ores_bars/silver_node.png" id="12_ag"]
 [ext_resource type="Texture2D" uid="uid://b08ow73g6yw48" path="res://stonewallbackground.png" id="12_dg77c"]
 [ext_resource type="Texture2D" uid="uid://k2e3v7exan55" path="res://Stones_ores_bars/gold_node.png" id="13_au"]
+[ext_resource type="PackedScene" path="res://trader.tscn" id="14_trader"]
 [ext_resource type="Texture2D" uid="uid://b4qtjr0p7e7o5" path="res://signtutorial.png" id="16_2cqfq"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_0xm2m"]
@@ -95,6 +96,9 @@ position = Vector2(-20, -98)
 z_index = 1
 position = Vector2(445, 202.28583)
 metadata/_edit_lock_ = true
+
+[node name="Trader" parent="." unique_id=1020304050 instance=ExtResource("14_trader")]
+position = Vector2(577.1429, 185.71428)
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=901234567]
 
