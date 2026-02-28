@@ -9,6 +9,7 @@
 [ext_resource type="Texture2D" uid="uid://csa4gx2cjg3fv" path="res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg" id="7_272bh"]
 [ext_resource type="Texture2D" uid="uid://d2pckowi7wx4e" path="res://trees/tree1.png" id="8_5vw27"]
 [ext_resource type="Texture2D" uid="uid://jxsq55icgv5s" path="res://trees/tree2.png" id="9_efxa6"]
+[ext_resource type="Texture2D" uid="uid://b8ejsoft6l3ti" path="res://signprice.png" id="11_efxa6"]
 [ext_resource type="Texture2D" uid="uid://b08ow73g6yw48" path="res://stonewallbackground.png" id="12_dg77c"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_0xm2m"]
@@ -148,6 +149,11 @@ shape = SubResource("RectangleShape2D_efxa6")
 position = Vector2(37.142876, 1063.5728)
 scale = Vector2(1.0000002, 1.0000002)
 shape = SubResource("RectangleShape2D_efxa6")
+
+[node name="Signprice" type="Sprite2D" parent="StaticBody2D2" unique_id=2112183604]
+position = Vector2(-1.4287109, 289.28613)
+scale = Vector2(0.05, 0.05)
+texture = ExtResource("11_efxa6")
 
 [node name="StaticBody2D" type="StaticBody2D" parent="." unique_id=532993636]
 
