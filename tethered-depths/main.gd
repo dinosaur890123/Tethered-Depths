@@ -29,9 +29,38 @@ func _ready():
 	var new_min_x = min_x - width * 5
 	var new_max_x = max_x + width * 5
 	var new_max_y = max_y + height * 5
+	
+	print("World Generation Stats:")
+	print("min_y: ", min_y, " max_y: ", max_y)
+	var generated = 0
+	var overwrote = 0
 
 	for x in range(new_min_x, new_max_x + 1):
 		for y in range(min_y, new_max_y + 1):
 			var cell_pos = Vector2i(x, y)
-			if tilemap.get_cell_source_id(cell_pos) == -1:
-				tilemap.set_cell(0, cell_pos, src_id, atlas_coords)
+			
+			# We want to randomize both empty cells AND existing cells below the top layer
+			if tilemap.get_cell_source_id(cell_pos) == -1 or y > min_y:
+				if tilemap.get_cell_source_id(cell_pos) == -1:
+					generated += 1
+				else:
+					overwrote += 1
+					
+				var chosen_src_id = 0 # Default to dirt (0)
+				
+				# Gradually increase the chance of cobblestone (3) the deeper we go
+				if y > min_y:
+					var depth = float(y - min_y)
+					# At depth 1, 5% chance. At depth 20+, 80% chance
+					var cobble_chance = min(depth * 0.04, 0.8) 
+					if randf() < cobble_chance:
+						chosen_src_id = 3
+				else:
+					# If it's the very top layer, we want it to remain grass/dirt
+					# Check if it was empty, if so make it grass (1) or dirt (0) based on your preference
+					# We will just use the original src_id for the top layer
+					chosen_src_id = src_id
+				
+				tilemap.set_cell(cell_pos, chosen_src_id, Vector2i(0, 0))
+				
+	print("Generated: ", generated, " Overwrote: ", overwrote)
