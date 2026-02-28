@@ -3,7 +3,7 @@ extends Node2D
 func _ready():
 	var tilemap := $TileMapLayer
 	# For Godot 4.x, use get_used_cells(0) or get_used_cells_by_id if needed
-	var used := tilemap.get_used_cells()
+	var used: Array = tilemap.get_used_cells()
 	if used.size() == 0:
 		return
 
