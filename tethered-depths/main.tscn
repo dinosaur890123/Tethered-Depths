@@ -231,6 +231,16 @@ position = Vector2(-1708, 218.00002)
 scale = Vector2(5.9916673, 5.9291663)
 texture = ExtResource("10_dg77c")
 
+[node name="Tree10" type="Sprite2D" parent="Trees" unique_id=1587886067]
+position = Vector2(1576.0001, 226)
+scale = Vector2(5.798957, 5.595832)
+texture = ExtResource("10_dg77c")
+
+[node name="Tree11" type="Sprite2D" parent="Trees" unique_id=1373907613]
+position = Vector2(1490, 240)
+scale = Vector2(5.3723946, 4.843751)
+texture = ExtResource("11_ycdy4")
+
 [node name="Background Under" type="Node" parent="." unique_id=148604480]
 
 [node name="Stonewallbackground4" type="Sprite2D" parent="Background Under" unique_id=1750699608]
