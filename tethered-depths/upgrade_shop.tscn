@@ -1,0 +1,39 @@
+[gd_scene format=3 uid="uid://c7x8b4m2o1p5q"]
+
+[ext_resource type="Texture2D" uid="uid://cl11voq0yjf3m" path="res://Miner16Bit_AllFiles_v1/Miner16Bit_WorldTiles_01.png" id="1_tiles"]
+[ext_resource type="Script" uid="uid://c7x8b4m2o1p5p" path="res://upgrade_shop.gd" id="2_script"]
+
+[sub_resource type="AtlasTexture" id="ForgeTexture"]
+atlas = ExtResource("1_tiles")
+region = Rect2(32, 101.75, 32.5, 27)
+
+[sub_resource type="RectangleShape2D" id="ShopZoneShape"]
+size = Vector2(128, 112)
+
+[node name="UpgradeShop" type="Node2D"]
+script = ExtResource("2_script")
+
+[node name="Building" type="Sprite2D" parent="."]
+scale = Vector2(4, 4)
+texture = SubResource("ForgeTexture")
+offset = Vector2(0, -30)
+
+[node name="PromptLabel" type="RichTextLabel" parent="."]
+clip_contents = false
+offset_left = -150.0
+offset_top = -280.0
+offset_right = 150.0
+offset_bottom = -130.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/normal_font_size = 14
+bbcode_enabled = true
+text = "[center]Hold E to Upgrade[/center]"
+scroll_active = false
+autowrap_mode = 0
+
+[node name="ShopZone" type="Area2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ShopZone"]
+position = Vector2(1, -122)
+shape = SubResource("ShopZoneShape")

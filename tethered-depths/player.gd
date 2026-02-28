@@ -11,6 +11,16 @@ var current_battery: float = 100.0
 var max_cargo: int = 10
 var current_cargo: int = 0
 
+# Upgrade tracking
+var pickaxe_level: int = 0
+const PICKAXE_UPGRADES = [
+	{"name": "Starter Pick", "price": 0,    "mine_time": 1.0, "color": Color(0.7, 0.7, 0.7)},
+	{"name": "Iron Pick",    "price": 250,  "mine_time": 0.8, "color": Color(0.8, 0.8, 0.9)},
+	{"name": "Steel Pick",   "price": 750,  "mine_time": 0.6, "color": Color(0.6, 0.7, 0.8)},
+	{"name": "Titanium Pick","price": 2000, "mine_time": 0.4, "color": Color(0.5, 0.9, 1.0)},
+	{"name": "Diamond Drill","price": 5000, "mine_time": 0.2, "color": Color(0.4, 1.0, 0.8)}
+]
+
 @onready var mining_timer = $MiningTimer
 @onready var anim_sprite: AnimatedSprite2D = $AnimatedSprite2D
 var tilemap: TileMapLayer
@@ -198,23 +208,17 @@ func _update_animation():
 	elif is_wall_climbing:
 		target_anim = &"climb"
 	elif is_walking:
-		# SpriteFrames has walk and idle swapped? 
-		# In player.tscn:
-		# "idle" animation contains Atl_walk_0..3
-		# "walk" animation contains Atl_idle_0..5
-		# We'll map them accordingly:
-		target_anim = &"walk" # This plays the 'idle' frames from the spritesheet
+		target_anim = &"walk" 
 	else:
-		target_anim = &"idle" # This plays the 'walk' frames from the spritesheet
+		target_anim = &"idle"
 
 	# Flip: when mining use target tile position, otherwise use movement direction
 	if is_mining:
 		var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 		anim_sprite.flip_h = target_tile_coords.x < player_tile.x
 	elif is_wall_climbing:
-		# When climbing, don't flip based on facing_dir, look at the wall
 		var wall_normal = get_wall_normal()
-		anim_sprite.flip_h = wall_normal.x > 0 # Flip if wall is to the left
+		anim_sprite.flip_h = wall_normal.x > 0 
 	else:
 		anim_sprite.flip_h = facing_dir == -1
 
