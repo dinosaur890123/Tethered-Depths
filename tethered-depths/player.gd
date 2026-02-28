@@ -5,11 +5,41 @@ var speed: float = 300.0
 var jump_speed: float = 400.0
 var climb_speed: float = 150.0
 var gravity: float = 980.0
-var mine_time: float = 2.0 # Default for Starter Pick (Slowed down)
+var mine_time: float = 4.0 # Default for Starter Pick
 var max_battery: float = 100.0
 var current_battery: float = 100.0
 var max_cargo: int = 10
 var current_cargo: int = 0
+
+# --- Grappling Hook ---
+var grapple_active: bool = false
+var grapple_point: Vector2
+var grapple_tile: Vector2i
+var grapple_force: float = 600.0
+var grapple_hover_tile: Vector2i
+var grapple_hover_valid: bool = false
+
+# --- Minimap ---
+var minimap_texture_rect: TextureRect
+var minimap_timer_node: Timer
+var minimap_image: Image
+var minimap_zoom: float = 9.0
+const MINIMAP_W: int = 120
+const MINIMAP_H: int = 150
+const MINIMAP_TILE_COLORS = {
+	0: Color(0.45, 0.30, 0.15),
+	1: Color(0.25, 0.65, 0.15),
+	3: Color(0.55, 0.55, 0.55),
+	4: Color(0.25, 0.25, 0.30),
+}
+const MINIMAP_EMPTY_COLOR = Color(0.05, 0.05, 0.05)
+const MINIMAP_PLAYER_COLOR = Color(1.0, 1.0, 1.0)
+
+# --- Low Battery Overlay ---
+var low_battery_overlay: ColorRect
+const LOW_BATTERY_PULSE_MIN: float = 0.10
+const LOW_BATTERY_PULSE_MAX: float = 0.35
+const LOW_BATTERY_PULSE_SPEED: float = 2.5
 
 # TileSet source IDs (matching main.gd)
 const TILE_DIRT := 0
@@ -25,11 +55,11 @@ var mining_sfx_player: AudioStreamPlayer
 # Upgrade tracking
 var pickaxe_level: int = 0
 const PICKAXE_UPGRADES = [
-	{"name": "Starter Pick", "price": 0,     "mine_time": 2.0,  "luck": 1.0,  "color": Color(0.6, 0.6, 0.6)},
-	{"name": "Stone Pick",   "price": 500,   "mine_time": 1.6,  "luck": 1.1,  "color": Color(0.75, 0.7, 0.65)},
-	{"name": "Copper Pick",  "price": 1000,  "mine_time": 1.2,  "luck": 1.2,  "color": Color(0.9, 0.5, 0.15)},
-	{"name": "Silver Pick",  "price": 5000,  "mine_time": 1.0,  "luck": 1.35, "color": Color(0.8, 0.85, 0.95)},
-	{"name": "Gold Pick",    "price": 50000, "mine_time": 0.7,  "luck": 1.5,  "color": Color(1.0, 0.85, 0.1)}
+	{"name": "Starter Pick", "price": 0,     "mine_time": 4.0,  "luck": 1.0,  "color": Color(0.6, 0.6, 0.6)},
+	{"name": "Stone Pick",   "price": 500,   "mine_time": 3.2,  "luck": 1.1,  "color": Color(0.75, 0.7, 0.65)},
+	{"name": "Copper Pick",  "price": 1000,  "mine_time": 2.4,  "luck": 1.2,  "color": Color(0.9, 0.5, 0.15)},
+	{"name": "Silver Pick",  "price": 5000,  "mine_time": 2.0,  "luck": 1.35, "color": Color(0.8, 0.85, 0.95)},
+	{"name": "Gold Pick",    "price": 50000, "mine_time": 1.4,  "luck": 1.5,  "color": Color(1.0, 0.85, 0.1)}
 ]
 
 @onready var mining_timer: Timer = $MiningTimer
@@ -82,15 +112,22 @@ func _ready():
 		oxygen_bar = hud.get_node_or_null("ProgressBar") as ProgressBar
 		if oxygen_bar:
 			oxygen_bar.visible = true
-			oxygen_bar.position = Vector2(980, 50)
-			oxygen_bar.size = Vector2(250, 30)
+			# Anchor to top-center so it stays centered on any screen size
+			oxygen_bar.anchor_left = 0.5
+			oxygen_bar.anchor_right = 0.5
+			oxygen_bar.anchor_top = 0.0
+			oxygen_bar.anchor_bottom = 0.0
+			oxygen_bar.offset_left = -125.0
+			oxygen_bar.offset_right = 125.0
+			oxygen_bar.offset_top = 20.0
+			oxygen_bar.offset_bottom = 50.0
 			oxygen_bar.max_value = max_battery
 			oxygen_bar.value = current_battery
 			
 			var ox_label = oxygen_bar.get_node_or_null("Label") as Label
 			if ox_label:
 				ox_label.text = "Oxygen"
-				ox_label.position = Vector2(5, -25)
+				ox_label.position = Vector2(85, -24)
 	
 	# Mining sound player
 	mining_sfx_player = AudioStreamPlayer.new()
@@ -99,6 +136,21 @@ func _ready():
 		mining_sfx = load(DEFAULT_MINING_SFX_PATH) as AudioStream
 	if mining_sfx != null:
 		mining_sfx_player.stream = mining_sfx
+
+	if hud:
+		# --- Low Battery Overlay ---
+		low_battery_overlay = hud.get_node_or_null("LowBatteryOverlay") as ColorRect
+
+	# --- Minimap ---
+	var minimap_panel = hud.get_node_or_null("MinimapPanel") if hud else null
+	if minimap_panel:
+		minimap_texture_rect = minimap_panel.get_node_or_null("MinimapTexture") as TextureRect
+		minimap_timer_node = minimap_panel.get_node_or_null("MinimapTimer") as Timer
+		if minimap_timer_node:
+			minimap_timer_node.timeout.connect(_update_minimap)
+			minimap_timer_node.start()
+	minimap_image = Image.create(MINIMAP_W, MINIMAP_H, false, Image.FORMAT_RGBA8)
+	_update_minimap()
 
 	mining_timer.timeout.connect(finish_mining)
 	add_to_group("player")
@@ -137,6 +189,7 @@ func _physics_process(delta):
 		
 	if oxygen_bar:
 		oxygen_bar.value = current_battery
+	_update_low_battery_overlay()
 
 	if current_battery <= 0:
 		die_and_respawn()
@@ -183,6 +236,7 @@ func _physics_process(delta):
 			cancel_mining()
 
 	_update_highlight()
+	_update_grapple_hover()
 	_update_animation()
 	queue_redraw()
 
@@ -242,7 +296,16 @@ func _update_animation():
 
 func _draw():
 	if not tilemap: return
-	
+
+	# Grapple hover highlight (cyan)
+	if grapple_hover_valid and not grapple_active:
+		var tile_center_global = tilemap.to_global(tilemap.map_to_local(grapple_hover_tile))
+		var tile_center_local = to_local(tile_center_global)
+		var half = TILE_WORLD_SIZE / 2.0
+		var r = Rect2(tile_center_local - Vector2(half, half), Vector2(TILE_WORLD_SIZE, TILE_WORLD_SIZE))
+		draw_rect(r, Color(0.0, 1.0, 1.0, 0.25), true)
+		draw_rect(r, Color(0.0, 1.0, 1.0, 1.0), false, 2.5)
+
 	if highlight_valid and not is_mining:
 		var tile_center_global = tilemap.to_global(tilemap.map_to_local(highlighted_tile))
 		var tile_center_local = to_local(tile_center_global)
@@ -281,17 +344,29 @@ func _play_mining_sfx() -> void:
 		mining_sfx_player.stream = mining_sfx
 	if mining_sfx_player.stream == null:
 		return
+	# Connect finished signal so the sound loops for the full mining duration
+	if not mining_sfx_player.finished.is_connected(_on_mining_sfx_finished):
+		mining_sfx_player.finished.connect(_on_mining_sfx_finished)
 	mining_sfx_player.stop()
 	mining_sfx_player.play()
+
+func _on_mining_sfx_finished() -> void:
+	if is_mining:
+		mining_sfx_player.play()
 
 func cancel_mining():
 	mining_timer.stop()
 	is_mining = false
+	if mining_sfx_player and mining_sfx_player.finished.is_connected(_on_mining_sfx_finished):
+		mining_sfx_player.finished.disconnect(_on_mining_sfx_finished)
+	if mining_sfx_player:
+		mining_sfx_player.stop()
 
 func die_and_respawn():
 	anim_sprite.play("death")
 	if is_mining:
 		cancel_mining()
+	_release_grapple()
 
 	current_battery = max_battery
 	current_cargo = 0
@@ -314,37 +389,36 @@ func _roll_count() -> int:
 
 func finish_mining():
 	if not tilemap: return
-	
-	# Identify block type before destroying it
+
 	var source_id = tilemap.get_cell_source_id(target_tile_coords)
 	var is_grass = (source_id == 1)
-	
-	# Destroy the block
-	tilemap.set_cell(target_tile_coords, -1)
 	is_mining = false
+
+	var tile_world_pos = tilemap.to_global(tilemap.map_to_local(target_tile_coords))
+	var cargo_remaining = max_cargo - current_cargo
+
+	# Regular block (dirt, cobble, deepslate, grass)
+	tilemap.set_cell(target_tile_coords, -1)
 
 	if is_grass:
 		return
 
-	# Block-specific luck bonus (compared to Dirt base)
+	# Block-specific luck bonus
 	var block_luck_mult = 1.0
 	if source_id == 3: # Cobblestone
 		block_luck_mult = 1.1
 	elif source_id == 4: # Deepslate
 		block_luck_mult = 1.5
 
-	var tile_world_pos = tilemap.to_global(tilemap.map_to_local(target_tile_coords))
 	var found: Array[Dictionary] = []
-	var cargo_remaining = max_cargo - current_cargo
-	
+
 	if cargo_remaining <= 0:
 		_spawn_floating_text("Cargo Full!", tile_world_pos, Color(1.0, 0.3, 0.3))
 		return
 
-	# Combined luck: Pickaxe Luck * Block Luck
 	var current_luck = PICKAXE_UPGRADES[pickaxe_level]["luck"] * block_luck_mult
 
-	# 75% (3/4) chance to drop at least one Stone when mining Dirt/Stone/Cobble/Deepslate
+	# 75% chance to drop at least one Stone from regular blocks
 	if source_id in [TILE_DIRT, TILE_COBBLE, TILE_DEEPSLATE] and randf() < 0.75:
 		var amount = min(_roll_count(), cargo_remaining)
 		if amount > 0:
@@ -359,11 +433,8 @@ func finish_mining():
 	for ore in ORE_TABLE:
 		if cargo_remaining <= 0:
 			break
-		# Skip Stone here since we handled it as a guaranteed drop above
 		if ore[0] == "Stone":
 			continue
-			
-		# Apply luck to the roll
 		var chance_denom = float(ore[1]) / current_luck
 		if randf() * chance_denom < 1.0:
 			var amount = min(_roll_count(), cargo_remaining)
@@ -384,6 +455,7 @@ func finish_mining():
 		_spawn_ore_fly(ore_data, tile_world_pos, delay)
 		delay += 0.22
 
+
 func _spawn_floating_text(msg: String, world_pos: Vector2, color: Color) -> void:
 	var hud = get_parent().get_node_or_null("HUD")
 	if not hud: return
@@ -399,6 +471,100 @@ func _spawn_floating_text(msg: String, world_pos: Vector2, color: Color) -> void
 	tween.tween_property(label, "position", label.position + Vector2(0.0, -45.0), 1.1)
 	tween.parallel().tween_property(label, "modulate:a", 0.0, 1.1)
 	tween.tween_callback(label.queue_free)
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		match event.button_index:
+			MOUSE_BUTTON_RIGHT:
+				if grapple_active:
+					_release_grapple()
+				else:
+					_try_fire_grapple()
+			MOUSE_BUTTON_WHEEL_UP:
+				minimap_zoom = clamp(minimap_zoom * 1.25, 0.5, 8.0)
+				_update_minimap()
+			MOUSE_BUTTON_WHEEL_DOWN:
+				minimap_zoom = clamp(minimap_zoom / 1.25, 0.5, 8.0)
+				_update_minimap()
+	if event is InputEventKey and event.pressed:
+		match event.keycode:
+			KEY_ESCAPE:
+				_release_grapple()
+			KEY_BRACKETRIGHT:  # ] = zoom in
+				minimap_zoom = clamp(minimap_zoom * 1.25, 0.5, 8.0)
+				_update_minimap()
+			KEY_BRACKETLEFT:   # [ = zoom out
+				minimap_zoom = clamp(minimap_zoom / 1.25, 0.5, 8.0)
+				_update_minimap()
+
+func _update_grapple_hover() -> void:
+	if grapple_active or not tilemap:
+		grapple_hover_valid = false
+		return
+	var mouse_world = get_global_mouse_position()
+	var mouse_tile = tilemap.local_to_map(tilemap.to_local(mouse_world))
+	var src = tilemap.get_cell_source_id(mouse_tile)
+	grapple_hover_valid = src != -1 and src != TILE_GRASS
+	if grapple_hover_valid:
+		grapple_hover_tile = mouse_tile
+
+func _try_fire_grapple() -> void:
+	if not tilemap: return
+	var from = global_position
+	var to = get_global_mouse_position()
+	var space = get_world_2d().direct_space_state
+	var query = PhysicsRayQueryParameters2D.create(from, to)
+	query.exclude = [get_rid()]
+	var result = space.intersect_ray(query)
+	if result and result.has("position"):
+		var hit_pos: Vector2 = result["position"]
+		var hit_normal: Vector2 = result.get("normal", Vector2.ZERO)
+		var step_back = (to - from).normalized() * 2.0
+		var hit_tile = tilemap.local_to_map(tilemap.to_local(hit_pos - step_back))
+		var src = tilemap.get_cell_source_id(hit_tile)
+		if src != -1 and src != TILE_GRASS:
+			# Teleport the player to just outside the hit face
+			global_position = hit_pos + hit_normal * 35.0
+			velocity = Vector2.ZERO
+
+func _release_grapple() -> void:
+	grapple_active = false
+	grapple_hover_valid = false
+
+func _update_minimap() -> void:
+	if not tilemap or not minimap_image or not minimap_texture_rect: return
+	var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
+	minimap_image.fill(MINIMAP_EMPTY_COLOR)
+	# Each pixel represents (1 / minimap_zoom) tiles; view is centered on the player
+	for tx in range(MINIMAP_W):
+		for ty in range(MINIMAP_H):
+			var world_x = player_tile.x + int((tx - MINIMAP_W / 2.0) / minimap_zoom)
+			var world_y = player_tile.y + int((ty - MINIMAP_H / 2.0) / minimap_zoom)
+			if world_y < 0:
+				minimap_image.set_pixel(tx, ty, Color(0.45, 0.72, 1.0))
+				continue
+			var src = tilemap.get_cell_source_id(Vector2i(world_x, world_y))
+			if src == -1:
+				continue
+			minimap_image.set_pixel(tx, ty, MINIMAP_TILE_COLORS.get(src, MINIMAP_EMPTY_COLOR))
+	# Player dot always at image center
+	for dx in range(-1, 2):
+		for dy in range(-1, 2):
+			var ix = clamp(MINIMAP_W / 2 + dx, 0, MINIMAP_W - 1)
+			var iy = clamp(MINIMAP_H / 2 + dy, 0, MINIMAP_H - 1)
+			minimap_image.set_pixel(ix, iy, MINIMAP_PLAYER_COLOR)
+	minimap_texture_rect.texture = ImageTexture.create_from_image(minimap_image)
+
+func _update_low_battery_overlay() -> void:
+	if not low_battery_overlay: return
+	if current_battery >= max_battery * 0.15:
+		low_battery_overlay.visible = false
+		return
+	low_battery_overlay.visible = true
+	var t = Time.get_ticks_msec() / 1000.0
+	var alpha = lerp(LOW_BATTERY_PULSE_MIN, LOW_BATTERY_PULSE_MAX,
+		(sin(t * LOW_BATTERY_PULSE_SPEED) + 1.0) / 2.0)
+	low_battery_overlay.modulate = Color(1.0, 1.0, 1.0, alpha)
 
 func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float) -> void:
 	var hud = get_parent().get_node_or_null("HUD")

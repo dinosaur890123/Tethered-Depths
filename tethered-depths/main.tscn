@@ -1,4 +1,4 @@
-[gd_scene load_steps=33 format=3 uid="uid://dica2iii3oqty"]
+[gd_scene load_steps=27 format=3 uid="uid://dica2iii3oqty"]
 
 [ext_resource type="PackedScene" uid="uid://df0bh0htdbcx5" path="res://player.tscn" id="1_ig7tw"]
 [ext_resource type="Script" path="res://main.gd" id="1_script"]
@@ -12,12 +12,9 @@
 [ext_resource type="Texture2D" uid="uid://jxsq55icgv5s" path="res://trees/tree2.png" id="9_efxa6"]
 [ext_resource type="Texture2D" uid="uid://bc742ecv7axh5" path="res://blocks/deepslate.png" id="10_deep"]
 [ext_resource type="Texture2D" uid="uid://brygcidv5xlq7" path="res://trees/tree3.png" id="10_dg77c"]
-[ext_resource type="Texture2D" uid="uid://ckrxwand3qkiu" path="res://Stones_ores_bars/copper_node.png" id="11_cu"]
 [ext_resource type="Texture2D" uid="uid://b8ejsoft6l3ti" path="res://signprice.png" id="11_efxa6"]
 [ext_resource type="Texture2D" uid="uid://cn3u5c107fi7p" path="res://trees/tree4.png" id="11_ycdy4"]
-[ext_resource type="Texture2D" uid="uid://tggf2quxumt5" path="res://Stones_ores_bars/silver_node.png" id="12_ag"]
 [ext_resource type="Texture2D" uid="uid://b08ow73g6yw48" path="res://stonewallbackground.png" id="12_dg77c"]
-[ext_resource type="Texture2D" uid="uid://k2e3v7exan55" path="res://Stones_ores_bars/gold_node.png" id="13_au"]
 [ext_resource type="PackedScene" uid="uid://j4qhjgifve7e" path="res://trader.tscn" id="14_trader"]
 [ext_resource type="Texture2D" uid="uid://b4qtjr0p7e7o5" path="res://signtutorial.png" id="16_2cqfq"]
 [ext_resource type="Texture2D" uid="uid://1odjg1g6j6s7" path="res://shopsign.png" id="18_074og"]
@@ -54,24 +51,6 @@ texture_region_size = Vector2i(128, 128)
 0:0/0 = 0
 0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_cu"]
-resource_name = "CopperNode"
-texture = ExtResource("11_cu")
-0:0/0 = 0
-0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_ag"]
-resource_name = "SilverNode"
-texture = ExtResource("12_ag")
-0:0/0 = 0
-0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_au"]
-resource_name = "GoldNode"
-texture = ExtResource("13_au")
-0:0/0 = 0
-0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
-
 [sub_resource type="TileSet" id="TileSet_h2yge"]
 tile_size = Vector2i(128, 128)
 physics_layer_0/collision_layer = 1
@@ -80,9 +59,6 @@ sources/1 = SubResource("TileSetAtlasSource_1bvp3")
 sources/2 = SubResource("TileSetAtlasSource_lquwl")
 sources/3 = SubResource("TileSetAtlasSource_kek77")
 sources/4 = SubResource("TileSetAtlasSource_deep")
-sources/5 = SubResource("TileSetAtlasSource_cu")
-sources/6 = SubResource("TileSetAtlasSource_ag")
-sources/7 = SubResource("TileSetAtlasSource_au")
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_efxa6"]
 size = Vector2(2785.72, 46.4286)
@@ -131,6 +107,34 @@ offset_bottom = -12.0
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 text = "Oxygen"
 
+[node name="LowBatteryOverlay" type="ColorRect" parent="HUD"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(1, 0, 0, 0)
+
+[node name="MinimapPanel" type="Panel" parent="HUD"]
+offset_left = 1060.0
+offset_top = 10.0
+offset_right = 1270.0
+offset_bottom = 170.0
+
+[node name="MinimapTexture" type="TextureRect" parent="HUD/MinimapPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MinimapTimer" type="Timer" parent="HUD/MinimapPanel"]
+wait_time = 0.5
+autostart = true
+
 [node name="Dirt" type="TileMapLayer" parent="."]
 scale = Vector2(0.5, 0.5)
 tile_set = SubResource("TileSet_h2yge")
@@ -178,6 +182,12 @@ metadata/_edit_lock_ = true
 
 [node name="Background Under" type="Node" parent="."]
 
+[node name="Stonewallbackground4" type="Sprite2D" parent="Background Under"]
+z_index = -5
+position = Vector2(-1645, 1942)
+scale = Vector2(0.350506, 0.341112)
+texture = ExtResource("12_dg77c")
+
 [node name="Stonewallbackground" type="Sprite2D" parent="Background Under"]
 z_index = -5
 position = Vector2(1497.75, 921.625)
@@ -188,16 +198,14 @@ metadata/_edit_lock_ = true
 [node name="Stonewallbackground2" type="Sprite2D" parent="Background Under"]
 z_index = -5
 position = Vector2(-73.2501, 921.625)
-scale = Vector2(0.35, 0.35)
+scale = Vector2(0.350641, 0.35)
 texture = ExtResource("12_dg77c")
-metadata/_edit_lock_ = true
 
 [node name="Stonewallbackground3" type="Sprite2D" parent="Background Under"]
 z_index = -5
 position = Vector2(-1645.25, 921.625)
 scale = Vector2(0.35, 0.35)
 texture = ExtResource("12_dg77c")
-metadata/_edit_lock_ = true
 
 [node name="Vertical Borders" type="StaticBody2D" parent="."]
 position = Vector2(132.857, -81.4286)
@@ -205,20 +213,17 @@ scale = Vector2(0.999999, 0.999999)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Vertical Borders"]
 position = Vector2(64.4644, -71.4286)
-scale = Vector2(1, 1)
 shape = SubResource("RectangleShape2D_efxa6")
 metadata/_edit_lock_ = true
 
 [node name="StaticBody2D2#CollisionShape2D2" type="CollisionShape2D" parent="Vertical Borders"]
-position = Vector2(64.2858, 1981.43)
-scale = Vector2(1, 1)
+position = Vector2(64.2858, 8381.43)
 shape = SubResource("RectangleShape2D_efxa6")
 
 [node name="Side Borders" type="StaticBody2D" parent="."]
 
 [node name="StaticBody2D#Left Border" type="CollisionShape2D" parent="Side Borders"]
 position = Vector2(-609.286, 542.143)
-scale = Vector2(1, 1)
 shape = SubResource("RectangleShape2D_4c57u")
 metadata/_edit_lock_ = true
 
