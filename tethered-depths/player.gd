@@ -5,7 +5,7 @@ var speed: float = 300.0
 var jump_speed: float = 400.0
 var climb_speed: float = 150.0
 var gravity: float = 980.0
-var mine_time: float = 1.0
+var mine_time: float = 1.2 # Default for Starter Pick
 var max_battery: float = 100.0
 var current_battery: float = 100.0
 var max_cargo: int = 10
@@ -21,7 +21,7 @@ const PICKAXE_UPGRADES = [
 	{"name": "Gold Pick",    "price": 50000, "mine_time": 0.25, "color": Color(1.0, 0.85, 0.1)}
 ]
 
-@onready var mining_timer = $MiningTimer
+@onready var mining_timer: Timer = $MiningTimer
 @onready var anim_sprite: AnimatedSprite2D = $AnimatedSprite2D
 var tilemap: TileMapLayer
 var money_label: Label
@@ -42,14 +42,7 @@ var highlight_valid: bool = false
 # Tile size in world space: tileset is 128px, TileMapLayer scale is 0.5
 const TILE_WORLD_SIZE = 64.0
 
-# TileSet source IDs (must match `main.tscn` TileSet sources/*)
-const TILE_GRASS := 1
-const TILE_COPPER_NODE := 5
-const TILE_SILVER_NODE := 6
-const TILE_GOLD_NODE := 7
-
 # Ore table: [name, 1-in-N drop chance, value per ore, display color]
-# Adjust values to match your spreadsheet
 const ORE_TABLE = [
 	["Stone",  2,  2,   Color(0.75, 0.70, 0.65)],
 	["Copper", 10, 15,  Color(0.90, 0.50, 0.15)],
@@ -64,55 +57,59 @@ var ore_labels: Dictionary = {}
 
 func _ready():
 	spawn_position = global_position
-	tilemap = get_parent().get_node("Dirt") as TileMapLayer
-	money_label = get_parent().get_node("HUD/MoneyLabel") as Label
-	money_label.text = "$0"
+	# Find TileMapLayer more robustly
+	var main = get_parent()
+	tilemap = main.get_node_or_null("Dirt") as TileMapLayer
 	
-	oxygen_bar = get_parent().get_node_or_null("HUD/ProgressBar") as ProgressBar
-	if oxygen_bar:
-		oxygen_bar.visible = true
-		oxygen_bar.position = Vector2(980, 50)
-		oxygen_bar.size = Vector2(250, 30)
-		oxygen_bar.max_value = max_battery
-		oxygen_bar.value = current_battery
-		var ox_label = oxygen_bar.get_node_or_null("Label") as Label
-		if ox_label:
-			ox_label.text = "Oxygen"
-			ox_label.position = Vector2(5, -25)
+	# Find HUD nodes more robustly
+	var hud = main.get_node_or_null("HUD")
+	if hud:
+		money_label = hud.get_node_or_null("MoneyLabel") as Label
+		if money_label:
+			money_label.text = "$0"
+		
+		oxygen_bar = hud.get_node_or_null("ProgressBar") as ProgressBar
+		if oxygen_bar:
+			oxygen_bar.visible = true
+			oxygen_bar.max_value = max_battery
+			oxygen_bar.value = current_battery
+			
+			var ox_label = oxygen_bar.get_node_or_null("Label") as Label
+			if ox_label:
+				ox_label.text = "Oxygen"
 	
 	mining_timer.timeout.connect(finish_mining)
 	add_to_group("player")
-	# Draw above the tilemap so highlights aren't buried under adjacent tiles
 	z_index = 1
 
-	# Initialise ore counts and build HUD labels below the money label
-	var hud = get_parent().get_node("HUD")
-	var y: float = 68.0
-	for ore in ORE_TABLE:
-		var nm: String = ore[0]
-		ore_counts[nm] = 0
+	# Initialise ore counts and build HUD labels
+	if hud:
+		var y: float = 68.0
+		for ore in ORE_TABLE:
+			var nm: String = ore[0]
+			ore_counts[nm] = 0
 
-		var lbl := Label.new()
-		lbl.text = "%s: 0" % nm
-		lbl.modulate = ore[3] as Color
-		lbl.add_theme_font_size_override("font_size", 20)
-		lbl.position = Vector2(20.0, y)
-		hud.add_child(lbl)
-		ore_labels[nm] = lbl
-		y += 26.0
+			var lbl := Label.new()
+			lbl.text = "%s: 0" % nm
+			lbl.modulate = ore[3] as Color
+			lbl.add_theme_font_size_override("font_size", 20)
+			lbl.position = Vector2(20.0, y)
+			hud.add_child(lbl)
+			ore_labels[nm] = lbl
+			y += 26.0
 
 func _physics_process(delta):
-	# 1. Drain Battery (Oxygen) only when underground, regen when near surface
+	if not tilemap: return
+
+	# 1. Drain Battery (Oxygen)
 	var pos_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 	var tile_below = pos_tile + Vector2i(0, 1)
 	var on_grass = tilemap.get_cell_source_id(tile_below) == 1
 	var tile_at_feet = tilemap.get_cell_source_id(pos_tile) == 1
 	
-	# Consider "surface" as either standing on/near grass, or being generally high up
 	if (not on_grass and not tile_at_feet) and pos_tile.y > 0:
 		current_battery -= delta * 2.0
 	else:
-		# Rapidly refill if standing on grass, otherwise normal surface refill
 		var refill_rate = 60.0 if (on_grass or tile_at_feet) else 15.0
 		current_battery = min(max_battery, current_battery + delta * refill_rate)
 		
@@ -122,13 +119,13 @@ func _physics_process(delta):
 	if current_battery <= 0:
 		die_and_respawn()
 
-	# 2. Horizontal input — read early so wall-climb detection can use it
+	# 2. Horizontal input
 	var h = Input.get_axis("Left", "Right")
 	is_walking = h != 0
 	if h != 0:
 		facing_dir = sign(h)
 
-	# 3. Wall climbing: player presses into a wall while not grounded
+	# 3. Wall climbing
 	var wall_normal = get_wall_normal()
 	is_wall_climbing = (
 		is_on_wall()
@@ -137,7 +134,7 @@ func _physics_process(delta):
 		and sign(h) == -sign(wall_normal.x)
 	)
 
-	# 4. Gravity — suppressed while clinging to a wall
+	# 4. Gravity
 	if not is_on_floor() and not is_wall_climbing:
 		velocity.y += gravity * delta
 
@@ -145,15 +142,13 @@ func _physics_process(delta):
 	if Input.is_action_just_pressed("ui_accept") and is_on_floor():
 		velocity.y = -jump_speed
 
-	# 6. Velocity — climb upward when on wall, otherwise normal horizontal
+	# 6. Velocity
 	velocity.x = h * speed
 	if is_wall_climbing:
 		velocity.y = -climb_speed
 
 	move_and_slide()
 
-	# Cancel mining if the player has walked a tile away from the target block.
-	# Skip the check while airborne — jumping shouldn't interrupt mining.
 	if is_mining and is_on_floor():
 		var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 		var adjacent_tiles = [
@@ -165,33 +160,25 @@ func _physics_process(delta):
 		if not (target_tile_coords in adjacent_tiles):
 			cancel_mining()
 
-	# 7. Find the adjacent block under the mouse cursor
 	_update_highlight()
 	_update_animation()
 	queue_redraw()
 
-	# 8. Mouse-based mining: hold left mouse button over an adjacent block to mine it
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		if highlight_valid and not is_mining:
 			start_mining(highlighted_tile)
 	else:
-		# Mouse released — cancel and reset mining progress
 		if is_mining:
 			cancel_mining()
 
 func _update_highlight():
-	if is_mining:
-		# Keep showing the block being mined; don't recalculate
+	if is_mining or not tilemap:
 		return
 
-	# Convert mouse position to tile coordinates
 	var mouse_world_pos = get_global_mouse_position()
 	var mouse_tile = tilemap.local_to_map(tilemap.to_local(mouse_world_pos))
-
-	# Find which tile the player occupies
 	var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 
-	# Only allow mining tiles directly adjacent to the player
 	var adjacent_tiles = [
 		player_tile + Vector2i(1, 0),
 		player_tile + Vector2i(-1, 0),
@@ -206,7 +193,6 @@ func _update_highlight():
 		highlight_valid = false
 
 func _update_animation():
-	# Determine target animation using StringName to match Godot's internal type
 	var target_anim: StringName
 	if is_mining:
 		var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
@@ -214,11 +200,10 @@ func _update_animation():
 	elif is_wall_climbing:
 		target_anim = &"climb"
 	elif is_walking:
-		target_anim = &"walk" 
+		target_anim = &"walk" # In SF_miner, walk and idle were swapped.
 	else:
 		target_anim = &"idle"
 
-	# Flip: when mining use target tile position, otherwise use movement direction
 	if is_mining:
 		var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 		anim_sprite.flip_h = target_tile_coords.x < player_tile.x
@@ -228,12 +213,12 @@ func _update_animation():
 	else:
 		anim_sprite.flip_h = facing_dir == -1
 
-	# Only switch animation when it actually changes — prevents frame resets
 	if anim_sprite.animation != target_anim:
 		anim_sprite.play(target_anim)
 
 func _draw():
-	# Yellow hover highlight (when not mining)
+	if not tilemap: return
+	
 	if highlight_valid and not is_mining:
 		var tile_center_global = tilemap.to_global(tilemap.map_to_local(highlighted_tile))
 		var tile_center_local = to_local(tile_center_global)
@@ -242,19 +227,16 @@ func _draw():
 		draw_rect(rect, Color(1.0, 1.0, 0.0, 0.45), true)
 		draw_rect(rect, Color(1.0, 0.85, 0.0, 1.0), false, 3.0)
 
-	# Orange highlight + progress bar on the block currently being mined
 	if is_mining:
 		var progress = 1.0 - (mining_timer.time_left / mine_time)
 		var tile_center_global = tilemap.to_global(tilemap.map_to_local(target_tile_coords))
 		var tile_center_local = to_local(tile_center_global)
 		var half = TILE_WORLD_SIZE / 2.0
 
-		# Orange border to mark the block being broken
 		var rect = Rect2(tile_center_local - Vector2(half, half), Vector2(TILE_WORLD_SIZE, TILE_WORLD_SIZE))
 		draw_rect(rect, Color(1.0, 0.5, 0.0, 0.3), true)
 		draw_rect(rect, Color(1.0, 0.5, 0.0, 0.9), false, 2.0)
 
-		# Progress bar drawn above the block
 		var bar_w = TILE_WORLD_SIZE
 		var bar_h = 6.0
 		var bar_pos = tile_center_local - Vector2(bar_w / 2.0, half + bar_h + 4.0)
@@ -273,11 +255,9 @@ func cancel_mining():
 
 func die_and_respawn():
 	anim_sprite.play("death")
-	# Cancel any in-progress mining
 	if is_mining:
 		cancel_mining()
 
-	# Reset stats — cargo is lost as a death penalty
 	current_battery = max_battery
 	current_cargo = 0
 	for ore in ORE_TABLE:
@@ -286,12 +266,9 @@ func die_and_respawn():
 		if ore_labels.has(nm):
 			ore_labels[nm].text = "%s: 0" % nm
 
-	# Teleport back to spawn
 	global_position = spawn_position
 	velocity = Vector2.ZERO
-	print("Player died! Respawning at ", spawn_position)
 
-# Cascading count roll: always get 1, then 1-in-2 for a 2nd, 1-in-3 for a 3rd, etc.
 func _roll_count() -> int:
 	var count = 1
 	var n = 2
@@ -301,11 +278,8 @@ func _roll_count() -> int:
 	return count
 
 func finish_mining():
-	# Check tile type before destroying
-	var source_id := tilemap.get_cell_source_id(target_tile_coords)
-	var is_grass := source_id == TILE_GRASS
-	
-	# Destroy the block immediately
+	if not tilemap: return
+	var is_grass = tilemap.get_cell_source_id(target_tile_coords) == 1
 	tilemap.set_cell(target_tile_coords, -1)
 	is_mining = false
 
@@ -313,48 +287,13 @@ func finish_mining():
 		return
 
 	var tile_world_pos = tilemap.to_global(tilemap.map_to_local(target_tile_coords))
-
-	# Pre-calculate drops, respecting remaining cargo space
 	var found: Array[Dictionary] = []
 	var cargo_remaining = max_cargo - current_cargo
-	if cargo_remaining <= 0:
-		_spawn_floating_text("Cargo full", tile_world_pos, Color(1.0, 0.55, 0.55, 0.9))
-		return
-
-	# Ore nodes: strongly bias toward their matching ore, but still random/fun
-	var forced_ore_name: String = ""
-	match source_id:
-		TILE_COPPER_NODE:
-			forced_ore_name = "Copper"
-		TILE_SILVER_NODE:
-			forced_ore_name = "Silver"
-		TILE_GOLD_NODE:
-			forced_ore_name = "Gold"
-		_:
-			pass
-
-	if forced_ore_name != "":
-		# 85% of the time, the node yields its ore; 15% "empty vein"
-		if randf() < 0.85:
-			var meta: Dictionary = _ore_meta(forced_ore_name)
-			var amount: int = mini(_roll_count(), cargo_remaining)
-			cargo_remaining -= amount
-			found.append({
-				"name": forced_ore_name,
-				"amount": amount,
-				"value": int(meta.get("value", 0)),
-				"color": meta.get("color", Color(1, 1, 1, 1)) as Color,
-			})
-		else:
-			_spawn_floating_text("Empty vein", tile_world_pos, Color(0.7, 0.7, 0.7, 0.85))
 	for ore in ORE_TABLE:
 		if cargo_remaining <= 0:
 			break
-		# If this was an ore node, don't double-roll the same ore again
-		if forced_ore_name != "" and ore[0] == forced_ore_name:
-			continue
 		if randi() % int(ore[1]) == 0:
-			var amount: int = mini(_roll_count(), cargo_remaining)
+			var amount = min(_roll_count(), cargo_remaining)
 			cargo_remaining -= amount
 			found.append({
 				"name":   ore[0] as String,
@@ -367,24 +306,14 @@ func finish_mining():
 		_spawn_floating_text("No ore...", tile_world_pos, Color(0.6, 0.6, 0.6, 0.85))
 		return
 
-	# Stagger each ore type's animation slightly so they don't all overlap
 	var delay := 0.0
 	for ore_data in found:
 		_spawn_ore_fly(ore_data, tile_world_pos, delay)
 		delay += 0.22
 
-func _ore_meta(ore_name: String) -> Dictionary:
-	for ore in ORE_TABLE:
-		if ore[0] == ore_name:
-			return {
-				"value": int(ore[2]),
-				"color": ore[3] as Color,
-			}
-	return {"value": 0, "color": Color(1, 1, 1, 1)}
-
-# Floating text that drifts upward and fades (used for "no ore" feedback)
 func _spawn_floating_text(msg: String, world_pos: Vector2, color: Color) -> void:
-	var hud = get_parent().get_node("HUD")
+	var hud = get_parent().get_node_or_null("HUD")
+	if not hud: return
 	var label := Label.new()
 	label.text = msg
 	label.modulate = color
@@ -398,9 +327,9 @@ func _spawn_floating_text(msg: String, world_pos: Vector2, color: Color) -> void
 	tween.parallel().tween_property(label, "modulate:a", 0.0, 1.1)
 	tween.tween_callback(label.queue_free)
 
-# "+N Type" label that pops up at the block then flies into the player
 func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float) -> void:
-	var hud = get_parent().get_node("HUD")
+	var hud = get_parent().get_node_or_null("HUD")
+	if not hud: return
 	
 	var fly_node = Node2D.new()
 	fly_node.z_index = 10
@@ -413,9 +342,8 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 		"Gold": tex_path = "res://Stones_ores_bars/gold_ore.png"
 		
 	var sprite = Sprite2D.new()
-	if tex_path != "":
+	if tex_path != "" and FileAccess.file_exists(tex_path):
 		sprite.texture = load(tex_path)
-		# Scale up the 16x16 sprites so they are more visible
 		sprite.scale = Vector2(2.5, 2.5)
 	fly_node.add_child(sprite)
 
@@ -427,8 +355,7 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 	fly_node.add_child(label)
 
 	var ct := get_viewport().get_canvas_transform()
-	var screen_start := ct * tile_world_pos + Vector2(0.0, 0.0)
-	# Player is always near the viewport centre because the camera follows them
+	var screen_start := ct * tile_world_pos
 	var screen_end := get_viewport_rect().size * 0.5
 
 	fly_node.position = screen_start
@@ -437,23 +364,16 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 	var tween = create_tween()
 	if delay > 0.0:
 		tween.tween_interval(delay)
-	# Brief upward pop before arcing toward the player
 	tween.tween_property(fly_node, "position", screen_start + Vector2(0.0, -30.0), 0.20)
 	tween.tween_property(fly_node, "position", screen_end, 0.45) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tween.tween_callback(func() -> void:
-		# Ore arrives — update inventory and HUD
 		var nm: String    = ore_data["name"]
 		var amt: int      = ore_data["amount"]
-		var _val: int     = ore_data["value"]
 		ore_counts[nm] += amt
 		current_cargo   += amt
-		# Ores are kept in inventory, not immediately sold
-		# money           += amt * _val
-		# money_label.text = "$" + str(money)
 		if ore_labels.has(nm):
 			ore_labels[nm].text = "%s: %d" % [nm, ore_counts[nm]]
-			# Quick flash on the HUD row to draw the eye
 			var flash = create_tween()
 			flash.tween_property(ore_labels[nm], "modulate:a", 0.15, 0.07)
 			flash.tween_property(ore_labels[nm], "modulate:a", 1.00, 0.18)

@@ -189,28 +189,13 @@ position = Vector2(64.464355, -71.4286)
 scale = Vector2(1.0000001, 1.0000001)
 shape = SubResource("RectangleShape2D_efxa6")
 
-<<<<<<< HEAD
-[node name="CollisionShape2D2" type="CollisionShape2D" parent="StaticBody2D2" unique_id=356277401]
-position = Vector2(23.57129, 1377.859)
-scale = Vector2(1.0000004, 1.0000004)
-=======
 [node name="CollisionShape2D2" type="CollisionShape2D" parent="Vertical Borders" unique_id=356277401]
 position = Vector2(37.142876, 1063.5728)
 scale = Vector2(1.0000002, 1.0000002)
->>>>>>> 66176f186db9cb51f2c8110a834b0436ca219e1a
 shape = SubResource("RectangleShape2D_efxa6")
 
 [node name="Side Borders" type="StaticBody2D" parent="." unique_id=532993636]
 
-<<<<<<< HEAD
-[node name="Left Border" type="CollisionShape2D" parent="StaticBody2D" unique_id=1623177840]
-position = Vector2(-1263.5715, 435.71436)
-scale = Vector2(0.9999996, 0.9999996)
-shape = SubResource("RectangleShape2D_4c57u")
-
-[node name="Right Border" type="CollisionShape2D" parent="StaticBody2D" unique_id=671127593]
-position = Vector2(1487.143, 494.28574)
-=======
 [node name="Left Border" type="CollisionShape2D" parent="Side Borders" unique_id=1623177840]
 position = Vector2(-619.2857, 429.6428)
 scale = Vector2(0.9999996, 0.9999996)
@@ -218,6 +203,5 @@ shape = SubResource("RectangleShape2D_4c57u")
 
 [node name="Right Border" type="CollisionShape2D" parent="Side Borders" unique_id=671127593]
 position = Vector2(939.28564, 527.1429)
->>>>>>> 66176f186db9cb51f2c8110a834b0436ca219e1a
 scale = Vector2(0.99999905, 0.99999905)
 shape = SubResource("RectangleShape2D_4c57u")
