@@ -21,9 +21,26 @@ func generate_world():
 	tilemap.clear()
 	print("Generating world...")
 	var half_w: int = WIDTH >> 1
+	var skip_tiles := {}
 	for x in range(-half_w, half_w):
 		for y in range(SURFACE_Y, DEPTH):
 			var cell_pos = Vector2i(x, y)
+			
+			# 5% chance for an air pocket (at least 2 adjacent blocks missing)
+			# Only below the surface grass
+			if y > SURFACE_Y and not cell_pos in skip_tiles:
+				if randf() < 0.05:
+					skip_tiles[cell_pos] = true
+					# Also skip one neighbor (down or right)
+					if randf() < 0.5:
+						skip_tiles[Vector2i(x + 1, y)] = true
+					else:
+						skip_tiles[Vector2i(x, y + 1)] = true
+					continue
+			
+			if cell_pos in skip_tiles:
+				continue
+				
 			var roll = randf()
 			var source_id := TILE_DIRT
 

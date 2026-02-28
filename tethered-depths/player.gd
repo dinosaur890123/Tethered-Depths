@@ -681,7 +681,7 @@ func finish_mining():
 	if source_id == 3: # Cobblestone
 		block_luck_mult = 1.5
 	elif source_id == 4: # Deepslate
-		block_luck_mult = 2.0
+		block_luck_mult = 2.3
 
 	var found: Array[Dictionary] = []
 
