@@ -1,35 +1,28 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene format=3 uid="uid://cejj4pr8eahri"]
 
-[ext_resource type="Texture2D" uid="uid://cl11voq0yjf3m" path="res://Miner16Bit_AllFiles_v1/Miner16Bit_WorldTiles_01.png" id="1_tiles"]
-[ext_resource type="Script" path="res://house.gd" id="2_script"]
-
-[sub_resource type="AtlasTexture" id="HutTexture"]
-atlas = ExtResource("1_tiles")
-region = Rect2(96, 101.75, 32.5, 27)
+[ext_resource type="Texture2D" uid="uid://dtr8puclf7emu" path="res://house.png" id="2_metfq"]
+[ext_resource type="Script" uid="uid://8jw26ymh0ayh" path="res://house.gd" id="2_script"]
 
 [sub_resource type="RectangleShape2D" id="HouseZoneShape"]
-size = Vector2(128, 112)
+size = Vector2(114, 112)
 
-[node name="House" type="Node2D"]
+[node name="House" type="Node2D" unique_id=1207200046]
 script = ExtResource("2_script")
 
-[node name="Hut" type="Sprite2D" parent="."]
-position = Vector2(0, 121)
-scale = Vector2(4, 4)
-texture = SubResource("HutTexture")
-offset = Vector2(0, -30)
-
-[node name="HouseLabel" type="Label" parent="."]
-position = Vector2(-60, -70)
+[node name="HouseLabel" type="Label" parent="." unique_id=1057314962]
+modulate = Color(1, 0.9, 0.3, 1)
 custom_minimum_size = Vector2(120, 28)
-theme_override_font_sizes/font_size = 18
+offset_left = -60.0
+offset_top = -70.0
+offset_right = -60.0
+offset_bottom = -70.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 3
-horizontal_alignment = 1
+theme_override_font_sizes/font_size = 18
 text = "HOUSE"
-modulate = Color(1, 0.9, 0.3, 1)
+horizontal_alignment = 1
 
-[node name="PromptLabel" type="RichTextLabel" parent="."]
+[node name="PromptLabel" type="RichTextLabel" parent="." unique_id=1852820553]
 clip_contents = false
 offset_left = -147.0
 offset_top = -103.0
@@ -43,8 +36,11 @@ text = "[center]Press E to sleep[/center]"
 scroll_active = false
 autowrap_mode = 0
 
-[node name="HouseZone" type="Area2D" parent="."]
+[node name="HouseZone" type="Area2D" parent="." unique_id=508879814]
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="HouseZone"]
-position = Vector2(1, 0)
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HouseZone" unique_id=1043465083]
 shape = SubResource("HouseZoneShape")
+
+[node name="House" type="Sprite2D" parent="." unique_id=1369924357]
+scale = Vector2(0.11, 0.11)
+texture = ExtResource("2_metfq")
