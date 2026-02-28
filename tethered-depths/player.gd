@@ -989,6 +989,8 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 	tween.tween_callback(func() -> void:
 		var nm: String    = ore_data["name"]
 		var amt: int      = ore_data["amount"]
+		if not ore_counts.has(nm):
+			ore_counts[nm] = 0
 		ore_counts[nm] += amt
 		current_cargo   += amt
 		daily_ores_collected += amt
