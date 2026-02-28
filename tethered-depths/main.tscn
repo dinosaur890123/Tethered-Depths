@@ -186,13 +186,11 @@ metadata/_edit_lock_ = true
 position = Vector2(1638, 249)
 scale = Vector2(4.98125, 4.55417)
 texture = ExtResource("8_5vw27")
-metadata/_edit_lock_ = true
 
 [node name="Tree2" type="Sprite2D" parent="Trees" unique_id=1747900789]
 position = Vector2(-773, 235)
 scale = Vector2(4.39583, 5.14583)
 texture = ExtResource("9_efxa6")
-metadata/_edit_lock_ = true
 
 [node name="Tree3" type="Sprite2D" parent="Trees" unique_id=417302025]
 z_index = 1
@@ -205,6 +203,31 @@ z_index = 1
 position = Vector2(1259.0004, 248.0002)
 scale = Vector2(4.119794, 4.6458297)
 texture = ExtResource("11_ycdy4")
+
+[node name="Tree5" type="Sprite2D" parent="Trees" unique_id=473198226]
+position = Vector2(-1181, 235.00002)
+scale = Vector2(4.932291, 5.166667)
+texture = ExtResource("9_efxa6")
+
+[node name="Tree6" type="Sprite2D" parent="Trees" unique_id=466686783]
+position = Vector2(-1129, 225.00002)
+scale = Vector2(4.973959, 5.645833)
+texture = ExtResource("10_dg77c")
+
+[node name="Tree7" type="Sprite2D" parent="Trees" unique_id=1259764897]
+position = Vector2(-1525, 231.99998)
+scale = Vector2(5.078125, 5.3125)
+texture = ExtResource("11_ycdy4")
+
+[node name="Tree8" type="Sprite2D" parent="Trees" unique_id=140021481]
+position = Vector2(-1103, 220.99998)
+scale = Vector2(4.9296875, 5.7916665)
+texture = ExtResource("8_5vw27")
+
+[node name="Tree9" type="Sprite2D" parent="Trees" unique_id=257045676]
+position = Vector2(-1708, 218.00002)
+scale = Vector2(5.9916673, 5.9291663)
+texture = ExtResource("10_dg77c")
 
 [node name="Background Under" type="Node" parent="." unique_id=148604480]
 
