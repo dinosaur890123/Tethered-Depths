@@ -304,26 +304,45 @@ func _spawn_floating_text(msg: String, world_pos: Vector2, color: Color) -> void
 # "+N Type" label that pops up at the block then flies into the player
 func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float) -> void:
 	var hud = get_parent().get_node("HUD")
+	
+	var fly_node = Node2D.new()
+	fly_node.z_index = 10
+	
+	var tex_path = ""
+	match ore_data["name"]:
+		"Stone": tex_path = "res://Stones_ores_bars/stone_1.png"
+		"Copper": tex_path = "res://Stones_ores_bars/copper_ore.png"
+		"Silver": tex_path = "res://Stones_ores_bars/silver_ore.png"
+		"Gold": tex_path = "res://Stones_ores_bars/gold_ore.png"
+		
+	var sprite = Sprite2D.new()
+	if tex_path != "":
+		sprite.texture = load(tex_path)
+		# Scale up the 16x16 sprites so they are more visible
+		sprite.scale = Vector2(2.5, 2.5)
+	fly_node.add_child(sprite)
+
 	var label := Label.new()
-	label.text = "+%d %s" % [ore_data["amount"], ore_data["name"]]
+	label.text = "+%d" % ore_data["amount"]
 	label.modulate = ore_data["color"]
 	label.add_theme_font_size_override("font_size", 18)
-	label.z_index = 10
+	label.position = Vector2(10.0, -10.0)
+	fly_node.add_child(label)
 
 	var ct := get_viewport().get_canvas_transform()
-	var screen_start := ct * tile_world_pos + Vector2(-36.0, -16.0)
+	var screen_start := ct * tile_world_pos + Vector2(0.0, 0.0)
 	# Player is always near the viewport centre because the camera follows them
 	var screen_end := get_viewport_rect().size * 0.5
 
-	label.position = screen_start
-	hud.add_child(label)
+	fly_node.position = screen_start
+	hud.add_child(fly_node)
 
 	var tween = create_tween()
 	if delay > 0.0:
 		tween.tween_interval(delay)
 	# Brief upward pop before arcing toward the player
-	tween.tween_property(label, "position", screen_start + Vector2(0.0, -20.0), 0.20)
-	tween.tween_property(label, "position", screen_end, 0.45) \
+	tween.tween_property(fly_node, "position", screen_start + Vector2(0.0, -30.0), 0.20)
+	tween.tween_property(fly_node, "position", screen_end, 0.45) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tween.tween_callback(func() -> void:
 		# Ore arrives — update inventory and HUD
@@ -341,5 +360,5 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 			var flash = create_tween()
 			flash.tween_property(ore_labels[nm], "modulate:a", 0.15, 0.07)
 			flash.tween_property(ore_labels[nm], "modulate:a", 1.00, 0.18)
-		label.queue_free()
+		fly_node.queue_free()
 	)
