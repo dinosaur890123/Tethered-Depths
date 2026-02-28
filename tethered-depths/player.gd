@@ -11,6 +11,10 @@ var current_cargo: int = 0
 @onready var mining_timer = $MiningTimer
 var is_mining: bool = false
 var target_tile_coords: Vector2i
+var spawn_position: Vector2
+
+func _ready():
+	spawn_position = global_position
 
 func _physics_process(delta):
 	# 1. Drain Battery
@@ -46,6 +50,21 @@ func start_mining(collision: KinematicCollision2D, tilemap: TileMapLayer):
 		finish_mining(tilemap)
 	else:
 		is_mining = false
+
+func die_and_respawn():
+	# Cancel any in-progress mining
+	if is_mining:
+		mining_timer.stop()
+		is_mining = false
+
+	# Reset stats — cargo is lost as a death penalty
+	current_battery = max_battery
+	current_cargo = 0
+
+	# Teleport back to spawn
+	global_position = spawn_position
+	velocity = Vector2.ZERO
+	print("Player died! Respawning at ", spawn_position)
 
 func finish_mining(tilemap: TileMapLayer):
 	# Get tile data before destroying it to check for ores

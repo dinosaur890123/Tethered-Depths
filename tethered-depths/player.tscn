@@ -17,3 +17,6 @@ texture = ExtResource("1_4flbx")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=386580826]
 position = Vector2(329.5, 232.5)
 shape = SubResource("RectangleShape2D_onrkg")
+
+[node name="MiningTimer" type="Timer" parent="." unique_id=712345678]
+one_shot = true
