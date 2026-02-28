@@ -1,6 +1,6 @@
-[gd_scene format=3 uid="uid://df0bh0htdbcx5"]
+[gd_scene load_steps=40 format=3 uid="uid://df0bh0htdbcx5"]
 
-[ext_resource type="Script" uid="uid://dpmtljulq0s6t" path="res://player.gd" id="1_onrkg"]
+[ext_resource type="Script" path="res://player.gd" id="1_onrkg"]
 [ext_resource type="Texture2D" uid="uid://b0kn3561xq1c8" path="res://Miner16Bit_AllFiles_v1/Miner_AllAnimations_SpriteSheet.png" id="2_sheet"]
 
 [sub_resource type="AtlasTexture" id="Atl_climb_0"]
@@ -289,22 +289,22 @@ animations = [{
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_onrkg"]
 size = Vector2(14, 46.5)
 
-[node name="Player" type="CharacterBody2D" unique_id=1551261113]
+[node name="Player" type="CharacterBody2D"]
 position = Vector2(2, 109)
 script = ExtResource("1_onrkg")
 
-[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1227820438]
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 scale = Vector2(4, 4)
 sprite_frames = SubResource("SF_miner")
 animation = &"walk"
 autoplay = "walk"
-frame_progress = 0.098819405
+frame_progress = 0.0988194
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=386580826]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(1, 8.25)
 shape = SubResource("RectangleShape2D_onrkg")
 
-[node name="MiningTimer" type="Timer" parent="." unique_id=712345678]
+[node name="MiningTimer" type="Timer" parent="."]
 one_shot = true
 
-[node name="Camera2D" type="Camera2D" parent="." unique_id=891234567]
+[node name="Camera2D" type="Camera2D" parent="."]
