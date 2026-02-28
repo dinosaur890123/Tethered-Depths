@@ -19,6 +19,12 @@ var spawn_position: Vector2
 # Max distance (in world pixels) the player can reach to mine a block
 var mine_range: float = 200.0
 
+# Highlight state — updated every frame
+var highlighted_tile: Vector2i
+var highlight_valid: bool = false
+# Tile size in world space: tileset is 128px, TileMapLayer scale is 0.5
+const TILE_WORLD_SIZE = 64.0
+
 func _ready():
 	spawn_position = global_position
 
@@ -44,14 +50,48 @@ func _physics_process(delta):
 
 	move_and_slide()
 
-	# 5. Mine the block under the mouse cursor when spacebar is pressed
-	if not is_mining and Input.is_action_just_pressed("mine"):
-		var mouse_global = get_global_mouse_position()
-		var hovered_tile = tilemap.local_to_map(tilemap.to_local(mouse_global))
-		var tile_center_global = tilemap.to_global(tilemap.map_to_local(hovered_tile))
-		var dist = global_position.distance_to(tile_center_global)
-		if dist <= mine_range and tilemap.get_cell_source_id(hovered_tile) != -1:
-			start_mining(hovered_tile)
+	# 5. Update which tile is highlighted under the mouse
+	var mouse_global = get_global_mouse_position()
+	var hovered_tile = tilemap.local_to_map(tilemap.to_local(mouse_global))
+	var tile_center_global = tilemap.to_global(tilemap.map_to_local(hovered_tile))
+	var dist = global_position.distance_to(tile_center_global)
+	highlight_valid = not is_mining and dist <= mine_range and tilemap.get_cell_source_id(hovered_tile) != -1
+	highlighted_tile = hovered_tile
+	queue_redraw()
+
+	# 6. Mine the highlighted block when spacebar is pressed
+	if highlight_valid and Input.is_action_just_pressed("mine"):
+		start_mining(highlighted_tile)
+
+func _draw():
+	# Yellow hover highlight (only when not mining)
+	if highlight_valid:
+		var tile_center_global = tilemap.to_global(tilemap.map_to_local(highlighted_tile))
+		var tile_center_local = to_local(tile_center_global)
+		var half = TILE_WORLD_SIZE / 2.0
+		var rect = Rect2(tile_center_local - Vector2(half, half), Vector2(TILE_WORLD_SIZE, TILE_WORLD_SIZE))
+		draw_rect(rect, Color(1.0, 1.0, 0.0, 0.25), true)
+		draw_rect(rect, Color(1.0, 1.0, 0.0, 0.9), false, 2.0)
+
+	# Orange highlight + progress bar on the block currently being mined
+	if is_mining:
+		var progress = 1.0 - (mining_timer.time_left / mine_time)
+		var tile_center_global = tilemap.to_global(tilemap.map_to_local(target_tile_coords))
+		var tile_center_local = to_local(tile_center_global)
+		var half = TILE_WORLD_SIZE / 2.0
+
+		# Orange border to mark the block being broken
+		var rect = Rect2(tile_center_local - Vector2(half, half), Vector2(TILE_WORLD_SIZE, TILE_WORLD_SIZE))
+		draw_rect(rect, Color(1.0, 0.5, 0.0, 0.3), true)
+		draw_rect(rect, Color(1.0, 0.5, 0.0, 0.9), false, 2.0)
+
+		# Progress bar drawn above the block
+		var bar_w = TILE_WORLD_SIZE
+		var bar_h = 6.0
+		var bar_pos = tile_center_local - Vector2(bar_w / 2.0, half + bar_h + 4.0)
+		draw_rect(Rect2(bar_pos, Vector2(bar_w, bar_h)), Color(0.15, 0.15, 0.15, 0.85), true)
+		draw_rect(Rect2(bar_pos, Vector2(bar_w * progress, bar_h)), Color(0.2, 0.85, 0.2, 0.9), true)
+		draw_rect(Rect2(bar_pos, Vector2(bar_w, bar_h)), Color(1.0, 1.0, 1.0, 0.5), false, 1.0)
 
 func start_mining(tile_coords: Vector2i):
 	is_mining = true
