@@ -31,12 +31,22 @@ var highlight_valid: bool = false
 # Tile size in world space: tileset is 128px, TileMapLayer scale is 0.5
 const TILE_WORLD_SIZE = 64.0
 
+# Ore table: [name, 1-in-N drop chance, value per ore]
+# Adjust values to match your spreadsheet
+const ORE_TABLE = [
+	["Stone",  2,  2  ],
+	["Copper", 10, 15 ],
+	["Silver", 25, 50 ],
+	["Gold",   50, 200],
+]
+
 func _ready():
 	spawn_position = global_position
 	tilemap = get_parent().get_node("Dirt") as TileMapLayer
 	money_label = get_parent().get_node("HUD/MoneyLabel") as Label
 	money_label.text = "$0"
 	mining_timer.timeout.connect(finish_mining)
+	add_to_group("player")
 	# Draw above the tilemap so highlights aren't buried under adjacent tiles
 	z_index = 1
 
@@ -207,15 +217,41 @@ func die_and_respawn():
 	velocity = Vector2.ZERO
 	print("Player died! Respawning at ", spawn_position)
 
-func finish_mining():
-	# Source 2 = ore tile
-	var src_id = tilemap.get_cell_source_id(target_tile_coords)
-	if src_id == 2 and current_cargo < max_cargo:
-		current_cargo += 1
-		money += 10
-		money_label.text = "$" + str(money)
-		print("Ore collected! Money: $", money, "  Cargo: ", current_cargo, "/", max_cargo)
+# Cascading count roll: always get 1, then 1-in-2 for a 2nd, 1-in-3 for a 3rd, etc.
+func _roll_count() -> int:
+	var count = 1
+	var n = 2
+	while n <= 10 and randi() % n == 0:
+		count += 1
+		n += 1
+	return count
 
+func finish_mining():
 	# Destroy the tile
 	tilemap.set_cell(target_tile_coords, -1)
 	is_mining = false
+
+	# Roll each ore type independently
+	var summary: Array[String] = []
+	for ore in ORE_TABLE:
+		var ore_name: String = ore[0]
+		var chance: int     = ore[1]
+		var value: int      = ore[2]
+
+		if randi() % chance == 0:
+			var rolled = _roll_count()
+			# Clamp to remaining cargo space
+			var space = max_cargo - current_cargo
+			if space <= 0:
+				break
+			var amount = min(rolled, space)
+			current_cargo += amount
+			var earned = amount * value
+			money += earned
+			summary.append("%dx %s ($%d)" % [amount, ore_name, earned])
+
+	if summary.size() > 0:
+		money_label.text = "$" + str(money)
+		print("Mined: ", ", ".join(summary), " | Cargo: ", current_cargo, "/", max_cargo)
+	else:
+		print("Nothing found. Cargo: ", current_cargo, "/", max_cargo)
