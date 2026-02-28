@@ -11,15 +11,15 @@ var max_cargo: int = 10
 var current_cargo: int = 0
 
 @onready var mining_timer = $MiningTimer
-@onready var tilemap: TileMapLayer = get_parent().get_node("TileMapLayer")
+@onready var tilemap: TileMapLayer = get_parent().get_node("Dirt")
 var is_mining: bool = false
 var target_tile_coords: Vector2i
 var spawn_position: Vector2
 
-# Max distance (in world pixels) the player can reach to mine a block
-var mine_range: float = 200.0
+# Track which direction the player is facing so we know which block to target
+var facing_dir: int = 1  # 1 = right, -1 = left
 
-# Highlight state — updated every frame
+# Highlight state — updated every frame based on player position
 var highlighted_tile: Vector2i
 var highlight_valid: bool = false
 # Tile size in world space: tileset is 128px, TileMapLayer scale is 0.5
@@ -42,29 +42,55 @@ func _physics_process(delta):
 	if Input.is_action_just_pressed("ui_up") and is_on_floor():
 		velocity.y = -jump_speed
 
-	# 4. Horizontal movement
+	# 4. Horizontal movement — also tracks facing direction
+	var h = Input.get_axis("ui_left", "ui_right")
 	if not is_mining:
-		velocity.x = Input.get_axis("ui_left", "ui_right") * speed
+		velocity.x = h * speed
+		if h != 0:
+			facing_dir = sign(h)
 	else:
 		velocity.x = 0.0
 
 	move_and_slide()
 
-	# 5. Update which tile is highlighted under the mouse
-	var mouse_global = get_global_mouse_position()
-	var hovered_tile = tilemap.local_to_map(tilemap.to_local(mouse_global))
-	var tile_center_global = tilemap.to_global(tilemap.map_to_local(hovered_tile))
-	var dist = global_position.distance_to(tile_center_global)
-	highlight_valid = not is_mining and dist <= mine_range and tilemap.get_cell_source_id(hovered_tile) != -1
-	highlighted_tile = hovered_tile
+	# 5. Find the nearest adjacent block to highlight
+	_update_highlight()
 	queue_redraw()
 
 	# 6. Mine the highlighted block when spacebar is pressed
 	if highlight_valid and Input.is_action_just_pressed("mine"):
 		start_mining(highlighted_tile)
 
+func _update_highlight():
+	if is_mining:
+		highlight_valid = false
+		return
+
+	# Find which tile the player is currently occupying
+	var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
+
+	# Check adjacent tiles in priority order:
+	#   1. The block directly in front (facing direction)
+	#   2. The block below (digging down)
+	#   3. The block behind
+	#   4. The block above
+	var candidates = [
+		player_tile + Vector2i(facing_dir, 0),
+		player_tile + Vector2i(0, 1),
+		player_tile + Vector2i(-facing_dir, 0),
+		player_tile + Vector2i(0, -1),
+	]
+
+	for tile in candidates:
+		if tilemap.get_cell_source_id(tile) != -1:
+			highlighted_tile = tile
+			highlight_valid = true
+			return
+
+	highlight_valid = false
+
 func _draw():
-	# Yellow hover highlight (only when not mining)
+	# Yellow hover highlight (when not mining)
 	if highlight_valid:
 		var tile_center_global = tilemap.to_global(tilemap.map_to_local(highlighted_tile))
 		var tile_center_local = to_local(tile_center_global)
