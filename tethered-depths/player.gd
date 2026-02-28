@@ -2,7 +2,9 @@ extends CharacterBody2D
 
 # Stats (Upgradable!)
 var speed: float = 150.0
-var mine_time: float = 1.0 
+var jump_speed: float = 400.0
+var gravity: float = 980.0
+var mine_time: float = 1.0
 var max_battery: float = 100.0
 var current_battery: float = 100.0
 var max_cargo: int = 10
@@ -22,20 +24,30 @@ func _physics_process(delta):
 	if current_battery <= 0:
 		die_and_respawn()
 
-	# 2. Movement
-	var direction = Vector2.ZERO
-	if not is_mining:
-		direction.x = Input.get_axis("ui_left", "ui_right")
-		direction.y = Input.get_axis("ui_up", "ui_down")
-	
-	velocity = direction * speed
-	var collision = move_and_collide(velocity * delta)
+	# 2. Gravity
+	if not is_on_floor():
+		velocity.y += gravity * delta
 
-	# 3. Detect Mining
-	if collision and not is_mining:
-		var collider = collision.get_collider()
-		if collider is TileMapLayer:
-			start_mining(collision, collider)
+	# 3. Jump
+	if Input.is_action_just_pressed("ui_accept") and is_on_floor():
+		velocity.y = -jump_speed
+
+	# 4. Horizontal movement
+	if not is_mining:
+		velocity.x = Input.get_axis("ui_left", "ui_right") * speed
+	else:
+		velocity.x = 0.0
+
+	move_and_slide()
+
+	# 5. Detect mining from wall collisions (not floor/ceiling)
+	if not is_mining:
+		for i in get_slide_collision_count():
+			var collision = get_slide_collision(i)
+			if collision.get_collider() is TileMapLayer:
+				if abs(collision.get_normal().x) > abs(collision.get_normal().y):
+					start_mining(collision, collision.get_collider())
+					break
 
 func start_mining(collision: KinematicCollision2D, tilemap: TileMapLayer):
 	is_mining = true
