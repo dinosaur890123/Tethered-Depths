@@ -3,6 +3,7 @@ extends CharacterBody2D
 # Stats (Upgradable!)
 var speed: float = 300.0
 var jump_speed: float = 400.0
+var climb_speed: float = 150.0
 var gravity: float = 980.0
 var mine_time: float = 1.0
 var max_battery: float = 100.0
@@ -22,6 +23,7 @@ var spawn_position: Vector2
 # Track which direction the player is facing so we know which block to target
 var facing_dir: int = 1  # 1 = right, -1 = left
 var is_walking: bool = false
+var is_wall_climbing: bool = false
 
 # Highlight state — updated every frame based on mouse position
 var highlighted_tile: Vector2i
@@ -42,20 +44,33 @@ func _physics_process(delta):
 	if current_battery <= 0:
 		die_and_respawn()
 
-	# 2. Gravity
-	if not is_on_floor():
-		velocity.y += gravity * delta
-
-	# 3. Jump
-	if Input.is_action_just_pressed("Up") and is_on_floor():
-		velocity.y = -jump_speed
-
-	# 4. Horizontal movement — player can move freely even while mining
+	# 2. Horizontal input — read early so wall-climb detection can use it
 	var h = Input.get_axis("Left", "Right")
-	velocity.x = h * speed
 	is_walking = h != 0
 	if h != 0:
 		facing_dir = sign(h)
+
+	# 3. Wall climbing: player presses into a wall while not grounded
+	var wall_normal = get_wall_normal()
+	is_wall_climbing = (
+		is_on_wall()
+		and h != 0
+		and wall_normal != Vector2.ZERO
+		and sign(h) == -sign(wall_normal.x)
+	)
+
+	# 4. Gravity — suppressed while clinging to a wall
+	if not is_on_floor() and not is_wall_climbing:
+		velocity.y += gravity * delta
+
+	# 5. Jump
+	if Input.is_action_just_pressed("ui_accept") and is_on_floor():
+		velocity.y = -jump_speed
+
+	# 6. Velocity — climb upward when on wall, otherwise normal horizontal
+	velocity.x = h * speed
+	if is_wall_climbing:
+		velocity.y = -climb_speed
 
 	move_and_slide()
 
@@ -72,12 +87,12 @@ func _physics_process(delta):
 		if not (target_tile_coords in adjacent_tiles):
 			cancel_mining()
 
-	# 5. Find the adjacent block under the mouse cursor
+	# 7. Find the adjacent block under the mouse cursor
 	_update_highlight()
 	_update_animation()
 	queue_redraw()
 
-	# 6. Mouse-based mining: hold left mouse button over an adjacent block to mine it
+	# 8. Mouse-based mining: hold left mouse button over an adjacent block to mine it
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		if highlight_valid and not is_mining:
 			start_mining(highlighted_tile)
@@ -118,6 +133,8 @@ func _update_animation():
 	if is_mining:
 		var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 		target_anim = &"mine_down" if target_tile_coords.y > player_tile.y else &"mine_right"
+	elif is_wall_climbing:
+		target_anim = &"climb"
 	elif is_walking:
 		target_anim = &"walk"
 	else:
