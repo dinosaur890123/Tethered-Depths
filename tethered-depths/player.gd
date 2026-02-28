@@ -37,6 +37,8 @@ func _ready():
 	money_label = get_parent().get_node("HUD/MoneyLabel") as Label
 	money_label.text = "$0"
 	mining_timer.timeout.connect(finish_mining)
+	# Draw above the tilemap so highlights aren't buried under adjacent tiles
+	z_index = 1
 
 func _physics_process(delta):
 	# 1. Drain Battery
@@ -158,8 +160,8 @@ func _draw():
 		var tile_center_local = to_local(tile_center_global)
 		var half = TILE_WORLD_SIZE / 2.0
 		var rect = Rect2(tile_center_local - Vector2(half, half), Vector2(TILE_WORLD_SIZE, TILE_WORLD_SIZE))
-		draw_rect(rect, Color(1.0, 1.0, 0.0, 0.25), true)
-		draw_rect(rect, Color(1.0, 1.0, 0.0, 0.9), false, 2.0)
+		draw_rect(rect, Color(1.0, 1.0, 0.0, 0.45), true)
+		draw_rect(rect, Color(1.0, 0.85, 0.0, 1.0), false, 3.0)
 
 	# Orange highlight + progress bar on the block currently being mined
 	if is_mining:

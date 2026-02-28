@@ -287,7 +287,7 @@ animations = [{
 }]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_onrkg"]
-size = Vector2(33, 46.5)
+size = Vector2(14, 46.5)
 
 [node name="Player" type="CharacterBody2D" unique_id=1551261113]
 script = ExtResource("1_onrkg")
@@ -297,10 +297,10 @@ scale = Vector2(4, 4)
 sprite_frames = SubResource("SF_miner")
 animation = &"walk"
 autoplay = "walk"
-frame_progress = 0.6291932
+frame_progress = 0.098819405
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=386580826]
-position = Vector2(3, 8.25)
+position = Vector2(1, 8.25)
 shape = SubResource("RectangleShape2D_onrkg")
 
 [node name="MiningTimer" type="Timer" parent="." unique_id=712345678]
