@@ -146,6 +146,11 @@ func _subtree_bottom_global_y(root: Node) -> float:
 	return bottom
 
 func _align_node_bottom_to_surface(n: Node2D, surface_y: float) -> void:
+	var anchor := n.get_node_or_null("GroundAnchor") as Node2D
+	if anchor != null:
+		n.global_position.y += surface_y - anchor.global_position.y
+		return
+
 	var bottom := _subtree_bottom_global_y(n)
 	if bottom == -INF:
 		return
