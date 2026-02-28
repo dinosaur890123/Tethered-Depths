@@ -11,6 +11,7 @@
 [ext_resource type="Texture2D" uid="uid://jxsq55icgv5s" path="res://trees/tree2.png" id="9_efxa6"]
 [ext_resource type="Texture2D" uid="uid://brygcidv5xlq7" path="res://trees/tree3.png" id="10_dg77c"]
 [ext_resource type="Texture2D" uid="uid://cn3u5c107fi7p" path="res://trees/tree4.png" id="11_ycdy4"]
+[ext_resource type="Texture2D" uid="uid://dyjhp7kir0hb3" path="res://cubic-grey-rock-stone-blocks-pattern-background-vector.jpg" id="12_dg77c"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_0xm2m"]
 resource_name = "Dirt"
@@ -114,3 +115,18 @@ texture = ExtResource("10_dg77c")
 position = Vector2(-174.2143, 193.14285)
 scale = Vector2(3.468006, 2.690476)
 texture = ExtResource("11_ycdy4")
+
+[node name="CubicGreyRockStoneBlocksPatternBackgroundVector" type="Sprite2D" parent="." unique_id=1344059692]
+z_index = -5
+position = Vector2(-109.285706, 750.7145)
+texture = ExtResource("12_dg77c")
+
+[node name="CubicGreyRockStoneBlocksPatternBackgroundVector2" type="Sprite2D" parent="." unique_id=570819645]
+z_index = -5
+position = Vector2(1304.2847, 750.7144)
+texture = ExtResource("12_dg77c")
+
+[node name="CubicGreyRockStoneBlocksPatternBackgroundVector3" type="Sprite2D" parent="." unique_id=1729677855]
+z_index = -5
+position = Vector2(-1522.8573, 750.714)
+texture = ExtResource("12_dg77c")
