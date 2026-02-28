@@ -395,6 +395,12 @@ func _buy_pickaxe(index: int):
 		player_nearby.base_mine_time = upg["mine_time"]
 		if player_nearby.has_method("recompute_mine_time"):
 			player_nearby.recompute_mine_time()
+		
+		# Update hotbar label if pickaxe slot is selected
+		if player_nearby.selected_slot == 0:
+			var label = player_nearby.hud.get_node_or_null("SelectedItemLabel") as Label
+			if label:
+				label.text = upg["name"]
 		if player_nearby.money_label:
 			player_nearby.money_label.text = "$" + str(player_nearby.money)
 		feedback_text = "Bought " + upg["name"] + "!"

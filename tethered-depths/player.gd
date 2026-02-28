@@ -204,22 +204,42 @@ func _ready():
 			cargo_label.position = Vector2(minimap_panel.position.x, minimap_panel.position.y + minimap_panel.size.y + 5.0)
 			hud.add_child(cargo_label)
 
-		# Hotbar (Minecraft-style)
+		# --- Hotbar (Minecraft-style) ---
+		var hotbar_bg = Panel.new()
+		hotbar_bg.custom_minimum_size = Vector2(520, 70)
+		var bg_sb = StyleBoxFlat.new()
+		bg_sb.bg_color = Color(0.1, 0.1, 0.1, 0.6)
+		bg_sb.corner_radius_top_left = 10; bg_sb.corner_radius_top_right = 10
+		bg_sb.border_width_top = 2; bg_sb.border_color = Color(0.3, 0.3, 0.3)
+		hotbar_bg.add_theme_stylebox_override("panel", bg_sb)
+		hotbar_bg.set_anchors_preset(Control.LayoutPreset.PRESET_BOTTOM_CENTER)
+		hotbar_bg.grow_horizontal = Control.GrowDirection.GROW_DIRECTION_BOTH
+		hotbar_bg.offset_bottom = 0
+		hotbar_bg.offset_top = -70
+		hud.add_child(hotbar_bg)
+
 		var hotbar_container = HBoxContainer.new()
-		hotbar_container.set_anchors_preset(Control.LayoutPreset.PRESET_BOTTOM_WIDE)
-		hotbar_container.grow_horizontal = Control.GrowDirection.GROW_DIRECTION_BOTH
-		hotbar_container.offset_bottom = -10.0
-		hotbar_container.alignment = BoxContainer.ALIGNMENT_CENTER
-		hud.add_child(hotbar_container)
+		hotbar_container.set_anchors_preset(Control.LayoutPreset.PRESET_FULL_RECT)
+		hotbar_container.alignment = BoxContainer.AlignmentMode.ALIGNMENT_CENTER
+		hotbar_container.set_theme_constant_override("separation", 8)
+		hotbar_bg.add_child(hotbar_container)
 		
 		for i in range(9):
 			var slot = Panel.new()
 			slot.custom_minimum_size = Vector2(50, 50)
 			var sb = StyleBoxFlat.new()
-			sb.bg_color = Color(0.2, 0.2, 0.2, 0.7)
+			sb.bg_color = Color(0.2, 0.2, 0.2, 0.8)
 			sb.border_width_left = 2; sb.border_width_top = 2; sb.border_width_right = 2; sb.border_width_bottom = 2
 			sb.border_color = Color(0.4, 0.4, 0.4)
 			slot.add_theme_stylebox_override("panel", sb)
+			
+			# Slot number
+			var num_label = Label.new()
+			num_label.text = str(i + 1)
+			num_label.add_theme_font_size_override("font_size", 12)
+			num_label.position = Vector2(5, 2)
+			num_label.modulate = Color(0.8, 0.8, 0.8, 0.8)
+			slot.add_child(num_label)
 			
 			if i == 0:
 				var icon = Sprite2D.new()
@@ -227,10 +247,24 @@ func _ready():
 				icon.position = Vector2(25, 25)
 				icon.scale = Vector2(0.5, 0.5)
 				slot.add_child(icon)
-				sb.border_color = Color(1, 1, 1) # Highlight first slot
+				sb.border_color = Color(1, 0.9, 0) # Gold highlight
+				sb.bg_color = Color(0.3, 0.3, 0.3, 0.9)
 				
 			hotbar_container.add_child(slot)
 			hotbar_slots.append(slot)
+
+		# Selected Item Name Label
+		var item_label = Label.new()
+		item_label.name = "SelectedItemLabel"
+		item_label.text = "Starter Pick"
+		item_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		item_label.set_anchors_preset(Control.LayoutPreset.PRESET_BOTTOM_CENTER)
+		item_label.offset_bottom = -75
+		item_label.grow_horizontal = Control.GrowDirection.GROW_DIRECTION_BOTH
+		item_label.add_theme_font_size_override("font_size", 20)
+		item_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		item_label.add_theme_constant_override("outline_size", 4)
+		hud.add_child(item_label)
 
 		oxygen_bar = hud.get_node_or_null("ProgressBar") as ProgressBar
 		if oxygen_bar:
@@ -1171,6 +1205,7 @@ func _select_hotbar_slot(index: int):
 	var old_slot = hotbar_slots[selected_slot]
 	var old_sb = old_slot.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
 	old_sb.border_color = Color(0.4, 0.4, 0.4)
+	old_sb.bg_color = Color(0.2, 0.2, 0.2, 0.8)
 	old_slot.add_theme_stylebox_override("panel", old_sb)
 	
 	selected_slot = index
@@ -1178,8 +1213,17 @@ func _select_hotbar_slot(index: int):
 	# Set new slot border
 	var new_slot = hotbar_slots[selected_slot]
 	var new_sb = new_slot.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
-	new_sb.border_color = Color(1, 1, 1)
+	new_sb.border_color = Color(1, 0.9, 0) # Gold highlight
+	new_sb.bg_color = Color(0.3, 0.3, 0.3, 0.9)
 	new_slot.add_theme_stylebox_override("panel", new_sb)
+	
+	# Update Selected Item Name
+	var label = hud.get_node_or_null("SelectedItemLabel") as Label
+	if label:
+		if selected_slot == 0:
+			label.text = PICKAXE_UPGRADES[pickaxe_level]["name"]
+		else:
+			label.text = "Empty Slot"
 
 func _toggle_inventory() -> void:
 	inventory_open = not inventory_open
