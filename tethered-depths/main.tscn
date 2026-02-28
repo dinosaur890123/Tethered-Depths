@@ -91,7 +91,8 @@ scale = Vector2(1.4, 1.4)
 position = Vector2(-20, -98)
 
 [node name="Shop" parent="." unique_id=1331454043 instance=ExtResource("5_shop")]
-position = Vector2(445, 323)
+z_index = 1
+position = Vector2(445, 202.28583)
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=901234567]
 
@@ -186,19 +187,19 @@ position = Vector2(64.464355, -71.4286)
 scale = Vector2(1.0000001, 1.0000001)
 shape = SubResource("RectangleShape2D_efxa6")
 
-[node name="CollisionShape2D2" type="CollisionShape2D" parent="Vertical Borders" unique_id=356277401]
-position = Vector2(37.142876, 1063.5728)
-scale = Vector2(1.0000002, 1.0000002)
+[node name="StaticBody2D2#CollisionShape2D2" type="CollisionShape2D" parent="." unique_id=356277401]
+position = Vector2(23.57129, 1377.859)
+scale = Vector2(1.0000004, 1.0000004)
 shape = SubResource("RectangleShape2D_efxa6")
 
 [node name="Side Borders" type="StaticBody2D" parent="." unique_id=532993636]
 
-[node name="Left Border" type="CollisionShape2D" parent="Side Borders" unique_id=1623177840]
-position = Vector2(-619.2857, 429.6428)
+[node name="StaticBody2D#Left Border" type="CollisionShape2D" parent="." unique_id=1623177840]
+position = Vector2(-1263.5715, 435.71436)
 scale = Vector2(0.9999996, 0.9999996)
 shape = SubResource("RectangleShape2D_4c57u")
 
-[node name="Right Border" type="CollisionShape2D" parent="Side Borders" unique_id=671127593]
-position = Vector2(939.28564, 527.1429)
+[node name="StaticBody2D#Right Border" type="CollisionShape2D" parent="." unique_id=671127593]
+position = Vector2(1487.143, 494.28574)
 scale = Vector2(0.99999905, 0.99999905)
 shape = SubResource("RectangleShape2D_4c57u")
