@@ -121,10 +121,10 @@ func _input(event):
 			elif event.keycode == KEY_4:
 				_start_confirm_buy(4)
 		elif current_state == ShopState.CONFIRM_BUY:
-			if event.keycode == KEY_1 or event.keycode == KEY_Y:
+			if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
 				_buy_pickaxe(pending_upgrade_index)
 				current_state = ShopState.BUY_MENU
-			elif event.keycode == KEY_2 or event.keycode == KEY_N or event.keycode == KEY_ESCAPE:
+			elif event.keycode == KEY_BACKSPACE or event.keycode == KEY_ESCAPE:
 				current_state = ShopState.BUY_MENU
 				feedback_text = ""
 		
@@ -201,7 +201,7 @@ func _process(delta):
 			if new_luck > old_luck:
 				confirm_text += "[center]Ore Luck: %.1fx [color=green]→[/color] [color=green]%.1fx[/color][/center]\n" % [old_luck, new_luck]
 			confirm_text += "[center]Cost: $%d[/center]\n" % upg["price"]
-			confirm_text += "\n[center]1: Yes (Confirm) | 2: No (Cancel)[/center]"
+			confirm_text += "\n[center][color=white]Return: Yes (Confirm) | Backspace: No (Cancel)[/color][/center]"
 			
 			prompt_label.text = confirm_text
 
