@@ -228,17 +228,9 @@ func _ready():
 			hotbar_container.add_child(slot)
 			hotbar_slots.append(slot)
 
-	# Grapple Line
-	grapple_line = Line2D.new()
-	grapple_line.width = 2.0
-	grapple_line.default_color = Color(0.7, 0.5, 0.3)
-	grapple_line.visible = false
-	get_parent().add_child.call_deferred(grapple_line)
-
-	# Mining sound player
+		oxygen_bar = hud.get_node_or_null("ProgressBar") as ProgressBar
 		if oxygen_bar:
 			oxygen_bar.visible = true
-			# Anchor to top-center so it stays centered on any screen size
 			oxygen_bar.anchor_left = 0.5
 			oxygen_bar.anchor_right = 0.5
 			oxygen_bar.anchor_top = 0.0
@@ -254,24 +246,7 @@ func _ready():
 			if ox_label:
 				ox_label.text = "Oxygen"
 				ox_label.position = Vector2(85, -24)
-	
-	# Mining sound player
-	mining_sfx_player = AudioStreamPlayer.new()
-	add_child(mining_sfx_player)
-	if mining_sfx == null and ResourceLoader.exists(DEFAULT_MINING_SFX_PATH):
-		mining_sfx = load(DEFAULT_MINING_SFX_PATH) as AudioStream
-	if mining_sfx != null:
-		mining_sfx_player.stream = mining_sfx
 
-	# Walking sound player
-	walking_sfx_player = AudioStreamPlayer.new()
-	add_child(walking_sfx_player)
-	if walking_sfx == null and ResourceLoader.exists(DEFAULT_WALKING_SFX_PATH):
-		walking_sfx = load(DEFAULT_WALKING_SFX_PATH) as AudioStream
-	if walking_sfx != null:
-		walking_sfx_player.stream = walking_sfx
-
-	if hud:
 		# --- Low Battery Overlay ---
 		low_battery_overlay = hud.get_node_or_null("LowBatteryOverlay") as ColorRect
 
@@ -322,29 +297,7 @@ func _ready():
 		inventory_label.offset_bottom = -14.0
 		inventory_panel.add_child(inventory_label)
 
-func get_mine_time_mult() -> float:
-	return clamp(pow(MINE_TIME_UPGRADE_FACTOR, float(mining_speed_upgrade_level)), MIN_MINE_TIME_MULT, 1.0)
-
-func recompute_mine_time() -> void:
-	mine_time = max(0.05, base_mine_time * get_mine_time_mult())
-
-	# --- Minimap ---
-	var minimap_panel = hud.get_node_or_null("MinimapPanel") if hud else null
-	if minimap_panel:
-		minimap_texture_rect = minimap_panel.get_node_or_null("MinimapTexture") as TextureRect
-		minimap_timer_node = minimap_panel.get_node_or_null("MinimapTimer") as Timer
-		if minimap_timer_node:
-			minimap_timer_node.timeout.connect(_update_minimap)
-			minimap_timer_node.start()
-	minimap_image = Image.create(MINIMAP_W, MINIMAP_H, false, Image.FORMAT_RGBA8)
-	_update_minimap()
-
-	mining_timer.timeout.connect(finish_mining)
-	add_to_group("player")
-	z_index = 1
-
-	# Initialise ore counts and build HUD labels
-	if hud:
+		# Initialise ore counts and build HUD labels
 		var y: float = 68.0
 		for ore in ORE_TABLE:
 			var nm: String = ore[0]
@@ -359,7 +312,54 @@ func recompute_mine_time() -> void:
 				ore_labels[nm] = lbl
 				y += 26.0
 
+		# --- Minimap ---
+		var minimap_panel = hud.get_node_or_null("MinimapPanel") as Panel
+		if minimap_panel:
+			minimap_texture_rect = minimap_panel.get_node_or_null("MinimapTexture") as TextureRect
+			minimap_timer_node = minimap_panel.get_node_or_null("MinimapTimer") as Timer
+			if minimap_timer_node:
+				if minimap_timer_node.timeout.is_connected(_update_minimap):
+					minimap_timer_node.timeout.disconnect(_update_minimap)
+				minimap_timer_node.timeout.connect(_update_minimap)
+				minimap_timer_node.start()
+		minimap_image = Image.create(MINIMAP_W, MINIMAP_H, false, Image.FORMAT_RGBA8)
+		_update_minimap()
+
+	# Grapple Line
+	grapple_line = Line2D.new()
+	grapple_line.width = 2.0
+	grapple_line.default_color = Color(0.7, 0.5, 0.3)
+	grapple_line.visible = false
+	get_parent().add_child.call_deferred(grapple_line)
+
+	# Mining sound player
+	mining_sfx_player = AudioStreamPlayer.new()
+	add_child(mining_sfx_player)
+	if mining_sfx == null and ResourceLoader.exists(DEFAULT_MINING_SFX_PATH):
+		mining_sfx = load(DEFAULT_MINING_SFX_PATH) as AudioStream
+	if mining_sfx != null:
+		mining_sfx_player.stream = mining_sfx
+
+	# Walking sound player
+	walking_sfx_player = AudioStreamPlayer.new()
+	add_child(walking_sfx_player)
+	if walking_sfx == null and ResourceLoader.exists(DEFAULT_WALKING_SFX_PATH):
+		walking_sfx = load(DEFAULT_WALKING_SFX_PATH) as AudioStream
+	if walking_sfx != null:
+		walking_sfx_player.stream = walking_sfx
+
+	mining_timer.timeout.connect(finish_mining)
+	add_to_group("player")
+	z_index = 1
+
 	_setup_end_of_day_ui()
+
+func get_mine_time_mult() -> float:
+	return clamp(pow(MINE_TIME_UPGRADE_FACTOR, float(mining_speed_upgrade_level)), MIN_MINE_TIME_MULT, 1.0)
+
+func recompute_mine_time() -> void:
+	mine_time = max(0.05, base_mine_time * get_mine_time_mult())
+
 
 func _process(delta: float) -> void:
 	if is_end_of_day: return
@@ -375,20 +375,25 @@ func _physics_process(delta):
 	if not tilemap: return
 	if is_grapple_moving:
 		_update_walking_sfx()
+		_update_grapple_line()
 		return  # Physics paused during grapple travel
+
+	# Oxygen-based Luck Strategy: Lower oxygen = higher luck bonus
+	# Bonus ranges from 1.0 (full tank) to 2.5 (empty tank)
+	oxygen_luck_bonus = 1.0 + (1.0 - (current_battery / max_battery)) * 1.5
 
 	# 1. Drain Battery (Oxygen)
 	var pos_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 	var tile_below = pos_tile + Vector2i(0, 1)
 	var on_grass = tilemap.get_cell_source_id(tile_below) == 1
 	var tile_at_feet = tilemap.get_cell_source_id(pos_tile) == 1
-	
+
 	if (not on_grass and not tile_at_feet) and pos_tile.y > 0:
 		current_battery -= delta * 2.0
 	else:
 		var refill_rate = 60.0 if (on_grass or tile_at_feet) else 15.0
 		current_battery = min(max_battery, current_battery + delta * refill_rate)
-		
+
 	if oxygen_bar:
 		oxygen_bar.value = current_battery
 	_update_low_battery_overlay()
@@ -404,14 +409,17 @@ func _physics_process(delta):
 
 	# --- Wall Stick (post-grapple) ---
 	if is_wall_stuck:
+		_update_grapple_line()
 		if is_on_floor() or h != 0:
 			is_wall_stuck = false
+			_release_grapple()
 		else:
 			velocity.y = WALL_STICK_SLIDE_SPEED
 			velocity.x = 0.0
 			if Input.is_action_just_pressed("ui_accept"):
 				velocity.y = -jump_speed
 				is_wall_stuck = false
+				_release_grapple()
 			move_and_slide()
 			_update_highlight()
 			_update_grapple_hover()
@@ -464,6 +472,7 @@ func _physics_process(delta):
 	_update_grapple_hover()
 	_update_animation()
 	_update_walking_sfx()
+	_update_grapple_line()
 	queue_redraw()
 
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
@@ -472,6 +481,16 @@ func _physics_process(delta):
 	else:
 		if is_mining:
 			cancel_mining()
+
+func _update_grapple_line():
+	if not grapple_line: return
+	if is_grapple_moving or is_wall_stuck:
+		grapple_line.visible = true
+		grapple_line.clear_points()
+		grapple_line.add_point(global_position)
+		grapple_line.add_point(grapple_point)
+	else:
+		grapple_line.visible = false
 
 func _update_highlight():
 	if is_mining or not tilemap:
@@ -667,7 +686,8 @@ func finish_mining():
 		_spawn_floating_text("Cargo Full!", tile_world_pos, Color(1.0, 0.3, 0.3))
 		return
 
-	var current_luck = PICKAXE_UPGRADES[pickaxe_level]["luck"] * block_luck_mult
+	# Apply oxygen-based luck bonus to current luck
+	var current_luck = PICKAXE_UPGRADES[pickaxe_level]["luck"] * block_luck_mult * oxygen_luck_bonus
 
 	# 75% chance to drop at least one Stone from regular blocks
 	if source_id in [TILE_DIRT, TILE_COBBLE, TILE_DEEPSLATE] and randf() < 0.75:
@@ -743,6 +763,12 @@ func _input(event: InputEvent) -> void:
 		if event is InputEventKey and event.keycode == KEY_SPACE and event.pressed:
 			_close_end_of_day()
 		return
+
+	# Hotbar selection 1-9
+	if event is InputEventKey and event.pressed:
+		if event.keycode >= KEY_1 and event.keycode <= KEY_9:
+			_select_hotbar_slot(event.keycode - KEY_1)
+
 	if event is InputEventMouseButton and event.pressed:
 		match event.button_index:
 			MOUSE_BUTTON_RIGHT:
@@ -813,6 +839,7 @@ func _try_fire_grapple() -> void:
 			found = true
 			break
 	if not found: return
+	grapple_point = target_pos
 	# If the landing spot is beside the block (horizontal face), the player sticks to the wall
 	var will_wall_stick = abs(target_pos.x - tile_center.x) > abs(target_pos.y - tile_center.y)
 	is_grapple_moving = true
@@ -1114,6 +1141,24 @@ func _respawn_and_reset_day():
 	if is_mining: cancel_mining()
 	_update_low_battery_overlay()
 	if clock_label: clock_label.text = _format_game_time(game_minutes)
+	if cargo_label: cargo_label.text = "Cargo: 0/%d" % max_cargo
+
+func _select_hotbar_slot(index: int):
+	if index < 0 or index >= hotbar_slots.size(): return
+	
+	# Reset old slot border
+	var old_slot = hotbar_slots[selected_slot]
+	var old_sb = old_slot.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
+	old_sb.border_color = Color(0.4, 0.4, 0.4)
+	old_slot.add_theme_stylebox_override("panel", old_sb)
+	
+	selected_slot = index
+	
+	# Set new slot border
+	var new_slot = hotbar_slots[selected_slot]
+	var new_sb = new_slot.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
+	new_sb.border_color = Color(1, 1, 1)
+	new_slot.add_theme_stylebox_override("panel", new_sb)
 
 func _toggle_inventory() -> void:
 	inventory_open = not inventory_open
