@@ -1,6 +1,6 @@
 extends Node2D
 
-@onready var prompt_label: Label = $PromptLabel
+@onready var prompt_label: RichTextLabel = $PromptLabel
 var player_nearby: Node = null
 var sell_hold_time: float = 1.0 # seconds to hold 'sell' action
 var sell_timer: float = 0.0
@@ -11,23 +11,20 @@ func _ready():
 	prompt_label.visible = false
 	$ShopZone.body_entered.connect(_on_body_entered)
 	$ShopZone.body_exited.connect(_on_body_exited)
-	await get_tree().physics_frame
-	var space = get_world_2d().direct_space_state
-	var query = PhysicsRayQueryParameters2D.create(
-		global_position + Vector2(0, -300),
-		global_position + Vector2(0, 600)
-	)
-	var result = space.intersect_ray(query)
-	if result:
-		global_position.y = result.position.y
 
 func _process(_delta):
 	if not player_nearby:
 		return
 
+	var price_text = "\n[center]Prices:[/center]\n[center]"
+	for ore in player_nearby.ORE_TABLE:
+		var color_hex = ore[3].to_html(false)
+		price_text += "[color=#%s]%s: $%d[/color]  " % [color_hex, ore[0], ore[2]]
+	price_text += "[/center]"
+
 	# If player has no cargo, inform them and don't start selling
 	if player_nearby.current_cargo <= 0:
-		prompt_label.text = "No ore to sell"
+		prompt_label.text = "[center]No ore to sell[/center]" + price_text
 		prompt_label.visible = true
 		sell_timer = 0.0
 		sell_progress = 0.0
@@ -40,7 +37,7 @@ func _process(_delta):
 		# Hold-to-sell behaviour
 		sell_timer += _delta
 		sell_progress = clamp(sell_timer / sell_hold_time, 0.0, 1.0)
-		prompt_label.text = "Press E to Interact"
+		prompt_label.text = "[center]Selling... " + str(int(sell_progress * 100)) + "%[/center]"
 		prompt_label.visible = true
 		is_selling = true
 		queue_redraw()
@@ -57,9 +54,18 @@ func _process(_delta):
 			sell_timer = 0.0
 			sell_progress = 0.0
 			is_selling = false
-		prompt_label.text = "Press E to start selling"
+		prompt_label.text = "[center]Hold E to sell ores[/center]" + price_text
 		prompt_label.visible = true
 		queue_redraw()
+
+func _draw():
+	if is_selling and player_nearby:
+		# Draw a small progress bar above the shop (centered)
+		var bar_width = 100.0
+		var bar_height = 10.0
+		var bar_pos = Vector2(-bar_width / 2.0, -180.0)
+		draw_rect(Rect2(bar_pos, Vector2(bar_width, bar_height)), Color(0, 0, 0, 0.5))
+		draw_rect(Rect2(bar_pos, Vector2(bar_width * sell_progress, bar_height)), Color(0, 1, 0, 0.7))
 
 func _on_body_entered(body):
 	if body.is_in_group("player"):

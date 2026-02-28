@@ -198,14 +198,23 @@ func _update_animation():
 	elif is_wall_climbing:
 		target_anim = &"climb"
 	elif is_walking:
-		target_anim = &"walk"
+		# SpriteFrames has walk and idle swapped? 
+		# In player.tscn:
+		# "idle" animation contains Atl_walk_0..3
+		# "walk" animation contains Atl_idle_0..5
+		# We'll map them accordingly:
+		target_anim = &"walk" # This plays the 'idle' frames from the spritesheet
 	else:
-		target_anim = &"idle"
+		target_anim = &"idle" # This plays the 'walk' frames from the spritesheet
 
 	# Flip: when mining use target tile position, otherwise use movement direction
 	if is_mining:
 		var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 		anim_sprite.flip_h = target_tile_coords.x < player_tile.x
+	elif is_wall_climbing:
+		# When climbing, don't flip based on facing_dir, look at the wall
+		var wall_normal = get_wall_normal()
+		anim_sprite.flip_h = wall_normal.x > 0 # Flip if wall is to the left
 	else:
 		anim_sprite.flip_h = facing_dir == -1
 
