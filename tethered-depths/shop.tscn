@@ -20,9 +20,11 @@ offset = Vector2(0, -30)
 
 [node name="PromptLabel" type="Label" parent="." unique_id=519603640]
 offset_left = -110.0
-offset_top = -265.0
+offset_top = -167.0
 offset_right = 110.0
-offset_bottom = -235.0
+offset_bottom = -137.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_font_sizes/font_size = 16
 text = "Press E to sell ores"
 horizontal_alignment = 1

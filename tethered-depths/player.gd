@@ -72,10 +72,8 @@ func _ready():
 		y += 26.0
 
 func _physics_process(delta):
-	# 1. Drain Battery
-	current_battery -= delta * 2.0
-	if current_battery <= 0:
-		die_and_respawn()
+	# Battery drain disabled to prevent unexpected respawns
+	# (Previously: current_battery -= delta * 2.0; if current_battery <= 0: die_and_respawn())
 
 	# 2. Horizontal input — read early so wall-climb detection can use it
 	var h = Input.get_axis("Left", "Right")
@@ -348,11 +346,11 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 		# Ore arrives — update inventory and HUD
 		var nm: String    = ore_data["name"]
 		var amt: int      = ore_data["amount"]
-		var val: int      = ore_data["value"]
+		var _val: int     = ore_data["value"]
 		ore_counts[nm] += amt
 		current_cargo   += amt
 		# Ores are kept in inventory, not immediately sold
-		# money           += amt * val
+		# money           += amt * _val
 		# money_label.text = "$" + str(money)
 		if ore_labels.has(nm):
 			ore_labels[nm].text = "%s: %d" % [nm, ore_counts[nm]]
