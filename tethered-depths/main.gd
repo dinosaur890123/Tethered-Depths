@@ -21,6 +21,9 @@ var high_depth: int = 0
 var discovered_ores: Dictionary = {} # ore_name -> bool
 var lifetime_ore_counts: Dictionary = {} # ore_name -> int
 
+var _save_dirty: bool = false
+var _autosave_timer: Timer
+
 @onready var main_menu: CanvasLayer = $MainMenu
 @onready var menu_root: Control = $MainMenu/Root
 @onready var settings_root: Control = $MainMenu/Settings
@@ -34,6 +37,7 @@ var lifetime_ore_counts: Dictionary = {} # ore_name -> int
 
 func _ready():
 	process_mode = PROCESS_MODE_ALWAYS
+	_setup_autosave()
 	get_tree().paused = true
 	main_menu.visible = true
 	menu_root.visible = true
@@ -85,6 +89,10 @@ func _ready():
 	# Connect player signals
 	var player = get_node_or_null("Player")
 	if player:
+		# Apply persisted ore collection to the in-run player so the Ore tab shows lifetime totals.
+		if ("lifetime_ore_counts" in player) and (lifetime_ore_counts is Dictionary) and lifetime_ore_counts.size() > 0:
+			player.lifetime_ore_counts = lifetime_ore_counts.duplicate(true)
+
 		if not player.has_signal("died"):
 			player.add_user_signal("died")
 		player.connect("died", _on_player_died)
@@ -93,6 +101,7 @@ func _ready():
 			player.add_user_signal("ore_collected")
 		player.connect("ore_collected", _on_ore_collected)
 
+<<<<<<< HEAD
 var _sky_is_sunset: bool = false
 const SUNSET_MINUTES = 17.0 * 60.0 # 5 PM
 
@@ -117,6 +126,39 @@ func _update_sky_texture(path: String) -> void:
 		for bg in bg_above.get_children():
 			if bg is Sprite2D:
 				bg.texture = tex
+				# Re-align bottom to surface
+				var rect = bg.get_rect()
+				var bottom_global_y = bg.to_global(Vector2(0.0, rect.end.y)).y
+				bg.global_position.y += _surface_y_cached - bottom_global_y
+
+=======
+func _setup_autosave() -> void:
+	if _autosave_timer != null:
+		return
+	_autosave_timer = Timer.new()
+	_autosave_timer.name = "AutosaveTimer"
+	_autosave_timer.wait_time = 3.0
+	_autosave_timer.one_shot = false
+	_autosave_timer.autostart = true
+	_autosave_timer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(_autosave_timer)
+	_autosave_timer.timeout.connect(_on_autosave_timeout)
+
+func _mark_save_dirty() -> void:
+	_save_dirty = true
+
+func _pull_player_progress() -> void:
+	var player = get_node_or_null("Player")
+	if player and ("lifetime_ore_counts" in player) and (player.lifetime_ore_counts is Dictionary):
+		lifetime_ore_counts = player.lifetime_ore_counts.duplicate(true)
+
+func _on_autosave_timeout() -> void:
+	if not _save_dirty:
+		return
+	_pull_player_progress()
+	save_game()
+	_save_dirty = false
+>>>>>>> 44ba12932f4b4a6eb9b0a4322d040f9a0669d64a
 
 func _input(event):
 
@@ -170,7 +212,12 @@ func _on_settings_back_pressed():
 	ore_root.visible = false
 
 func _on_exit_pressed():
+<<<<<<< HEAD
 	_update_pb_labels()
+=======
+	_pull_player_progress()
+	save_game()
+>>>>>>> 44ba12932f4b4a6eb9b0a4322d040f9a0669d64a
 	get_tree().quit()
 
 func _notification(what: int) -> void:
@@ -183,6 +230,8 @@ func _on_volume_changed(value: float):
 
 func _on_player_died():
 	_update_pb_labels() # Save records on death
+	_pull_player_progress()
+	save_game()
 	death_screen.visible = true
 	var label = death_screen.get_node("VBox/Label")
 	var overlay = death_screen.get_node("Overlay")
@@ -209,14 +258,20 @@ func _on_player_died():
 
 func _on_ore_collected(ore_name: String):
 	discovered_ores[ore_name] = true
+	_mark_save_dirty()
 
 func _update_pb_labels():
 	var player = get_node_or_null("Player")
 	if player:
 		high_money = max(high_money, player.money)
 		high_days = max(high_days, player.day_count)
+<<<<<<< HEAD
 		high_depth = max(high_depth, player.lifetime_max_depth)
 
+=======
+	_mark_save_dirty()
+	
+>>>>>>> 44ba12932f4b4a6eb9b0a4322d040f9a0669d64a
 	$MainMenu/PBTab/VBox/MoneyLabel.text = "Highest Money: $%d" % high_money
 	$MainMenu/PBTab/VBox/DaysLabel.text = "Most Days Survived: %d" % high_days
 	var depth_lbl := $MainMenu/PBTab/VBox/DepthLabel as Label

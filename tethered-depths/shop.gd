@@ -25,15 +25,15 @@ var pending_upgrade_index: int = -1
 
 const INTERACT_ACTION: StringName = &"sell" # Bound to F in project.godot
 
-const CARGO_UPGRADE_STEP: int = 5
-const OXYGEN_UPGRADE_STEP: float = 25.0
-const SPEED_UPGRADE_STEP: float = 40.0
-const MINE_SPEED_UPGRADE_STEP_PCT: int = 10
+const CARGO_UPGRADE_STEP: int = 10
+const OXYGEN_UPGRADE_STEP: float = 40.0
+const SPEED_UPGRADE_STEP: float = 55.0
+const MINE_SPEED_UPGRADE_STEP_PCT: int = 12
 
-const CARGO_UPGRADE_BASE_PRICE: int = 400
-const OXYGEN_UPGRADE_BASE_PRICE: int = 600
-const SPEED_UPGRADE_BASE_PRICE: int = 800
-const MINE_SPEED_UPGRADE_BASE_PRICE: int = 1200
+const CARGO_UPGRADE_BASE_PRICE: int = 300
+const OXYGEN_UPGRADE_BASE_PRICE: int = 500
+const SPEED_UPGRADE_BASE_PRICE: int = 650
+const MINE_SPEED_UPGRADE_BASE_PRICE: int = 900
 
 const MAX_STAT_UPGRADE_LEVEL: int = 8
 
@@ -598,8 +598,8 @@ func _buy_potion(potion_id: String) -> void:
 		asp.finished.connect(asp.queue_free)
 
 func _stat_upgrade_price(base_price: int, level: int) -> int:
-	# Doubles each level: 400, 800, 1600...
-	return int(round(float(base_price) * pow(2.0, float(level))))
+	# Gentler ramp than pure doubling so upgrades stay obtainable.
+	return int(round(float(base_price) * pow(1.75, float(level))))
 
 func _buy_stat_upgrade(kind: String) -> void:
 	if player_nearby == null:
@@ -767,8 +767,8 @@ func _dev_reset_progress() -> void:
 	if player_nearby.money_label:
 		player_nearby.money_label.text = "$0"
 	player_nearby.speed = 300.0
-	player_nearby.max_battery = 100.0
-	player_nearby.max_cargo = 10
+	player_nearby.max_battery = 120.0
+	player_nearby.max_cargo = 15
 	player_nearby.cargo_upgrade_level = 0
 	player_nearby.oxygen_upgrade_level = 0
 	player_nearby.speed_upgrade_level = 0

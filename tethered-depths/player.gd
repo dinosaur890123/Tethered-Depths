@@ -11,10 +11,14 @@ var climb_speed: float = 150.0
 var gravity: float = 980.0
 var mine_time: float = 1.8 # Default for Starter Pick
 var base_mine_time: float = 1.8
-var max_battery: float = 100.0
-var current_battery: float = 100.0
-var max_cargo: int = 10
+var max_battery: float = 120.0
+var current_battery: float = 120.0
+var max_cargo: int = 15
 var current_cargo: int = 0
+
+# Cargo warning state (prevents spam)
+var _cargo_warning_stage: int = 0 # 0 none, 1 nearly full, 2 almost full
+var _cargo_last_value: int = -1
 
 # Shop upgrades (repeatable)
 var cargo_upgrade_level: int = 0
@@ -22,8 +26,8 @@ var oxygen_upgrade_level: int = 0
 var speed_upgrade_level: int = 0
 var mining_speed_upgrade_level: int = 0
 
-const MINE_TIME_UPGRADE_FACTOR: float = 0.90  # 10% faster per level
-const MIN_MINE_TIME_MULT: float = 0.35
+const MINE_TIME_UPGRADE_FACTOR: float = 0.88  # ~12% faster per level
+const MIN_MINE_TIME_MULT: float = 0.30
 
 # --- Grappling Hook ---
 var grapple_active: bool = false
@@ -261,15 +265,15 @@ const MUTATED_DROP_DENOM: float = 999999.0  # kept for pricing/inventory; never 
 
 # Ore table: [name, 1-in-N drop chance, value per ore, display color]
 const ORE_TABLE = [
-	["Stone",  1.8,  2,   Color(0.75, 0.70, 0.65)],
-	["Copper", 9, 15,  Color(0.90, 0.50, 0.15)],
-	["Silver", 22, 50,  Color(0.80, 0.85, 0.95)],
-	["Gold",   45, 200, Color(1.00, 0.85, 0.10)],
-	["Mutated Stone",  MUTATED_DROP_DENOM,  8,   Color(0.80, 0.20, 0.95)],
-	["Mutated Copper", MUTATED_DROP_DENOM,  60,  Color(0.80, 0.20, 0.95)],
-	["Mutated Silver", MUTATED_DROP_DENOM,  200, Color(0.80, 0.20, 0.95)],
-	["Mutated Gold",   MUTATED_DROP_DENOM,  800, Color(0.80, 0.20, 0.95)],
-	["Rainbow", 180, 2500, Color(1.00, 1.00, 1.00)],
+	["Stone",  1.8,  3,   Color(0.75, 0.70, 0.65)],
+	["Copper", 9, 20,  Color(0.90, 0.50, 0.15)],
+	["Silver", 22, 75,  Color(0.80, 0.85, 0.95)],
+	["Gold",   45, 300, Color(1.00, 0.85, 0.10)],
+	["Mutated Stone",  MUTATED_DROP_DENOM,  12,   Color(0.80, 0.20, 0.95)],
+	["Mutated Copper", MUTATED_DROP_DENOM,  90,  Color(0.80, 0.20, 0.95)],
+	["Mutated Silver", MUTATED_DROP_DENOM,  320, Color(0.80, 0.20, 0.95)],
+	["Mutated Gold",   MUTATED_DROP_DENOM,  1200, Color(0.80, 0.20, 0.95)],
+	["Rainbow", 180, 3500, Color(1.00, 1.00, 1.00)],
 ]
 
 # Per-ore inventory counts
@@ -764,9 +768,34 @@ func recompute_mine_time() -> void:
 	mine_time = max(0.05, base_mine_time * get_mine_time_mult())
 
 
+func _tick_cargo_warnings() -> void:
+	# Only show warnings when cargo changes.
+	if _cargo_last_value == current_cargo and _cargo_last_value != -1:
+		return
+	_cargo_last_value = current_cargo
+	if max_cargo <= 0:
+		return
+	# Reset warning state once we've cleared enough space.
+	if current_cargo <= int(floor(float(max_cargo) * 0.65)):
+		_cargo_warning_stage = 0
+		return
+	var frac := float(current_cargo) / float(max_cargo)
+	# Update stage even while in menus, but only display in active gameplay.
+	var can_display := (not is_in_menu) and (not inventory_open) and (not is_end_of_day)
+	if frac >= 0.95 and _cargo_warning_stage < 2:
+		_cargo_warning_stage = 2
+		if can_display:
+			_spawn_floating_text("Cargo almost full!", global_position + Vector2(0, -70), Color(1.0, 0.6, 0.2))
+	elif frac >= 0.80 and _cargo_warning_stage < 1:
+		_cargo_warning_stage = 1
+		if can_display:
+			_spawn_floating_text("Cargo nearly full", global_position + Vector2(0, -70), Color(1.0, 0.85, 0.2))
+
+
 func _process(delta: float) -> void:
 	if is_end_of_day or not _is_gameplay_enabled():
 		return
+	_tick_cargo_warnings()
 	_update_depth_lighting()
 	game_minutes += delta * 5.0  # 1 real second = 5 game minutes
 
@@ -846,7 +875,7 @@ func _physics_process(delta):
 	var tile_at_feet = tilemap.get_cell_source_id(pos_tile) == 1
 
 	if (not on_grass and not tile_at_feet) and pos_tile.y > 0:
-		current_battery -= delta * 2.0
+		current_battery -= delta * 1.6
 	else:
 		var refill_rate = 60.0 if (on_grass or tile_at_feet) else 15.0
 		current_battery = min(max_battery, current_battery + delta * refill_rate)
@@ -1301,9 +1330,15 @@ func _update_daily_objectives_hud() -> void:
 			daily_objectives_rewarded = true
 			var reward := _compute_daily_reward()
 			money += reward
+			# Completion bonus: oxygen refill so the player can keep pushing deeper.
+			var oxy_bonus := max_battery * 0.25
+			current_battery = min(max_battery, current_battery + oxy_bonus)
+			if oxygen_bar:
+				oxygen_bar.value = current_battery
 			if money_label:
 				money_label.text = "$" + str(money)
 			_spawn_floating_text("TASKS COMPLETE! +$%d" % reward, global_position + Vector2(0, -80), Color(1.0, 0.9, 0.1))
+			_spawn_floating_text("Oxygen +25%", global_position + Vector2(0, -62), Color(0.55, 0.85, 1.0))
 			if objectives_toggle_btn:
 				objectives_toggle_btn.text = "✓ Daily Tasks"
 
@@ -1319,18 +1354,23 @@ func _compute_daily_reward() -> int:
 		var t := String(obj.get("type", ""))
 		match t:
 			"reach_depth":
-				total += int(obj.get("target", 0)) * 3
+				var target := int(obj.get("target", 0))
+				# Primary objective of the game: go deep.
+				# Big reward for reaching the target, plus a small bonus for overshooting.
+				total += target * 12
+				if daily_max_depth > target:
+					total += (daily_max_depth - target) * 4
 			"collect_mutated":
-				total += int(obj.get("target", 0)) * 300
+				total += int(obj.get("target", 0)) * 650
 			"collect_ore":
 				var ore_name := String(obj.get("ore", ""))
 				var target := int(obj.get("target", 0))
 				var unit := 0
 				match ore_name:
-					"Stone":  unit = 20
-					"Copper": unit = 60
-					"Silver": unit = 200
-					"Gold":   unit = 600
+					"Stone":  unit = 70
+					"Copper": unit = 220
+					"Silver": unit = 700
+					"Gold":   unit = 2000
 					_:        unit = 30
 				total += target * unit
 	return total
@@ -1386,7 +1426,7 @@ func finish_mining():
 			found.append({
 				"name":   "Stone",
 				"amount": amount,
-				"value":  2,
+				"value":  _get_ore_value("Stone"),
 				"color":  Color(0.75, 0.70, 0.65),
 			})
 
