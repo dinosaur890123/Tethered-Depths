@@ -187,6 +187,8 @@ func _input(event):
 				_dev_add_ores(10)
 			elif event.keycode == KEY_4:
 				_dev_set_pickaxe(4)
+			elif event.keycode == KEY_7:
+				_dev_set_admin_pickaxe()
 			elif event.keycode == KEY_5:
 				_dev_add_cargo_capacity(10)
 			elif event.keycode == KEY_6:
@@ -458,6 +460,7 @@ func _render_dev_menu_label() -> void:
 	menu += "[center]2: Fill Oxygen[/center]\n"
 	menu += "[center]3: +10 of each Ore[/center]\n"
 	menu += "[center]4: Set Pickaxe = Gold[/center]\n"
+	menu += "[center]7: Set Pickaxe = Admin (insta-mine)[/center]\n"
 	menu += "[center]5: +10 Cargo Capacity[/center]\n"
 	menu += "[center]6: Reset Progress[/center]\n"
 	menu += "\n[center]ESC/Backspace: Close[/center]"
@@ -648,6 +651,21 @@ func _dev_set_pickaxe(level: int) -> void:
 		player_nearby.recompute_mine_time()
 	feedback_text = "Pickaxe set: %s" % player_nearby.PICKAXE_UPGRADES[level]["name"]
 	feedback_timer = 1.2
+
+func _dev_set_admin_pickaxe() -> void:
+	if player_nearby == null:
+		return
+	var idx := -1
+	for i in range(player_nearby.PICKAXE_UPGRADES.size()):
+		var upg = player_nearby.PICKAXE_UPGRADES[i]
+		if upg is Dictionary and bool((upg as Dictionary).get("admin", false)):
+			idx = i
+			break
+	if idx >= 0:
+		_dev_set_pickaxe(idx)
+	else:
+		feedback_text = "No admin pickaxe found"
+		feedback_timer = 1.2
 
 func _dev_add_cargo_capacity(amount: int) -> void:
 	if player_nearby == null:
