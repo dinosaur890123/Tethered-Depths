@@ -134,13 +134,14 @@ func _on_volume_changed(value: float):
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Master"), linear_to_db(value / 100.0))
 
 func _on_player_died():
+	_update_pb_labels() # Save records on death
 	death_screen.visible = true
 	var label = death_screen.get_node("VBox/Label")
 	var overlay = death_screen.get_node("Overlay")
-	
+
 	overlay.modulate.a = 0.0
 	label.modulate.a = 0.0
-	
+
 	var tw = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	tw.tween_property(overlay, "modulate:a", 0.6, 0.5)
 	tw.parallel().tween_property(label, "modulate:a", 1.0, 0.5)
@@ -258,10 +259,7 @@ func load_game():
 		discovered_ores = config.get_value("collection", "discovered_ores", {})
 		lifetime_ore_counts = config.get_value("collection", "lifetime_ore_counts", {})
 
-func _on_player_died():
-	_update_pb_labels() # Save records on death
-	death_screen.visible = true
-
+func generate_world():
 	tilemap.clear()
 	if OS.is_debug_build():
 		print("Generating world...")

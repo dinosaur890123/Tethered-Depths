@@ -1115,7 +1115,7 @@ func _generate_daily_objectives() -> void:
 				base_amt = 5
 		var target_amt := base_amt + rng.randi_range(0, 2)
 		# Keep within what a player can realistically hold in a day.
-		var cap_limit := max(3, int(floor(float(max_cargo) * 0.75)))
+		var cap_limit: int = max(3, int(floor(float(max_cargo) * 0.75)))
 		target_amt = clampi(target_amt, 2, cap_limit)
 		daily_objectives.append({
 			"type": "collect_ore",
@@ -1417,18 +1417,6 @@ func _try_fire_grapple() -> void:
 
 func _has_los_to_tile(target_tile: Vector2i) -> bool:
 	var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
-
-		# Daily objective tracking
-		var base_nm := nm
-		if base_nm.begins_with("Mutated "):
-			daily_mutated_collected += amt
-			# do not count mutated toward normal ore quotas
-		else:
-			if not daily_ore_collected.has(base_nm):
-				daily_ore_collected[base_nm] = 0
-			daily_ore_collected[base_nm] = int(daily_ore_collected[base_nm]) + amt
-		_update_daily_objectives_hud()
-
 	var dx = target_tile.x - player_tile.x
 	var dy = target_tile.y - player_tile.y
 	var steps = max(abs(dx), abs(dy))
@@ -1570,6 +1558,16 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 		lifetime_ore_counts[nm] += amt
 		current_cargo   += amt
 		daily_ores_collected += amt
+		# Daily objective tracking
+		var base_nm := nm
+		if base_nm.begins_with("Mutated "):
+			daily_mutated_collected += amt
+			# do not count mutated toward normal ore quotas
+		else:
+			if not daily_ore_collected.has(base_nm):
+				daily_ore_collected[base_nm] = 0
+			daily_ore_collected[base_nm] = int(daily_ore_collected[base_nm]) + amt
+		_update_daily_objectives_hud()
 		ore_collected.emit(base_name)
 
 		if cargo_label:
@@ -1766,12 +1764,8 @@ func _select_hotbar_slot(index: int):
 	if label:
 		if index == 0:
 			label.text = ""
-		elif index < hotbar_item_ids.size():
-			var item_id = hotbar_item_ids[index]
-			label.text = item_id if item_id != "" else "Empty Slot"
 		else:
-			label.text = "Empty Slot"
-
+			var item_id := ""
 			var count := 0
 			if selected_slot >= 0 and selected_slot < hotbar_item_ids.size():
 				item_id = hotbar_item_ids[selected_slot]
