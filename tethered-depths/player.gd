@@ -166,6 +166,67 @@ var highlight_valid: bool = false
 # Tile size in world space: tileset is 128px, TileMapLayer scale is 0.5
 const TILE_WORLD_SIZE = 64.0
 
+# --- Block Break VFX ---
+const _BREAK_TEX_PATH_BY_SOURCE := {
+	TILE_DIRT: "res://dirt.png",
+	TILE_GRASS: "res://grass.png",
+	TILE_COBBLE: "res://blocks/cobblestone.png",
+	TILE_DEEPSLATE: "res://blocks/deepslate.png",
+}
+
+func _spawn_block_break_effect(tile_center_global: Vector2, source_id: int) -> void:
+	var tex_path: String = ""
+	if _BREAK_TEX_PATH_BY_SOURCE.has(source_id):
+		tex_path = _BREAK_TEX_PATH_BY_SOURCE[source_id]
+	if tex_path == "":
+		return
+	var tex := load(tex_path) as Texture2D
+	if tex == null:
+		return
+
+	var root := Node2D.new()
+	root.global_position = tile_center_global
+	root.z_index = 10
+	get_parent().add_child(root)
+
+	var tex_size := tex.get_size()
+	if tex_size.x <= 0 or tex_size.y <= 0:
+		root.queue_free()
+		return
+
+	# Texture (128px) -> world tile (64px) scale.
+	var base_scale := TILE_WORLD_SIZE / float(tex_size.x)
+	base_scale = clampf(base_scale, 0.05, 8.0)
+
+	var chunk_px := int(max(8.0, min(tex_size.x, tex_size.y) / 4.0))
+	var chunk_count := 7
+	var duration := 0.42
+
+	for i in range(chunk_count):
+		var s := Sprite2D.new()
+		s.texture = tex
+		s.region_enabled = true
+		var rx := randi_range(0, max(0, int(tex_size.x) - chunk_px))
+		var ry := randi_range(0, max(0, int(tex_size.y) - chunk_px))
+		s.region_rect = Rect2(rx, ry, chunk_px, chunk_px)
+		s.centered = true
+		s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		s.scale = Vector2.ONE * base_scale * randf_range(0.8, 1.05)
+		s.position = Vector2(randf_range(-10.0, 10.0), randf_range(-10.0, 10.0))
+		s.rotation = randf_range(-0.8, 0.8)
+		root.add_child(s)
+
+		var vel := Vector2(randf_range(-120.0, 120.0), randf_range(-220.0, -80.0))
+		var t := root.create_tween()
+		t.tween_property(s, "position", s.position + vel * duration, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		t.parallel().tween_property(s, "rotation", s.rotation + randf_range(-2.5, 2.5), duration)
+		t.parallel().tween_property(s, "modulate:a", 0.0, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+	# Clean up after the last tween finishes.
+	var cleanup := root.create_tween()
+	cleanup.tween_interval(duration + 0.05)
+	cleanup.tween_callback(root.queue_free)
+
 # --- Mutated Ores ---
 const MUTATED_CHANCE: float = 0.05
 const MUTATED_DROP_DENOM: float = 999999.0  # kept for pricing/inventory; never rolled directly
@@ -962,6 +1023,9 @@ func finish_mining():
 
 	var tile_world_pos = tilemap.to_global(tilemap.map_to_local(target_tile_coords))
 	var cargo_remaining = max_cargo - current_cargo
+
+	if source_id != -1:
+		_spawn_block_break_effect(tile_world_pos, int(source_id))
 
 	# Regular block (dirt, cobble, deepslate, grass)
 	tilemap.set_cell(target_tile_coords, -1)

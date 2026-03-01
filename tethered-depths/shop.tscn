@@ -12,6 +12,7 @@ size = Vector2(128, 112)
 
 [node name="Shop" type="Node2D"]
 script = ExtResource("2_script")
+enable_dev_menu = true
 
 [node name="Hut" type="Sprite2D" parent="."]
 position = Vector2(0, 121)
