@@ -23,11 +23,6 @@ var lifetime_ore_counts: Dictionary = {} # ore_name -> int
 @onready var main_menu: CanvasLayer = $MainMenu
 # ... (rest of onready vars)
 
-func _ready():
-	load_game() # Load previous progress
-	process_mode = PROCESS_MODE_ALWAYS
-	# ...
-
 @onready var menu_root: Control = $MainMenu/Root
 @onready var settings_root: Control = $MainMenu/Settings
 @onready var pb_root: Control = $MainMenu/PBTab
@@ -39,6 +34,7 @@ func _ready():
 @onready var restart_btn: Button = $MainMenu/Root/PanelContainer/VBox/RestartBtn
 
 func _ready():
+	load_game() # Load previous progress
 	process_mode = PROCESS_MODE_ALWAYS
 	get_tree().paused = true
 	main_menu.visible = true
