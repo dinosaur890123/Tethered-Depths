@@ -73,6 +73,14 @@ var daily_ores_collected: int = 0
 var daily_money_made: int = 0
 var times_died: int = 0
 
+# --- Daily Objectives ---
+var daily_objectives: Array[Dictionary] = []
+var daily_max_depth: int = 0
+var daily_mutated_collected: int = 0
+var daily_ore_collected: Dictionary = {} # base ore name -> count (non-mutated)
+var objectives_label: RichTextLabel
+var _last_objectives_hud_text: String = "__init__"
+
 # --- Inventory & Storage ---
 var selected_slot: int = 0
 var hotbar_slots: Array[Panel] = []
@@ -309,6 +317,17 @@ func _ready():
 
 			clock_label.position = Vector2(1060.0, 35.0)
 			clock_label.add_theme_font_size_override("font_size", 18)
+
+			# Daily objectives (top-right under the clock)
+			objectives_label = RichTextLabel.new()
+			objectives_label.bbcode_enabled = true
+			objectives_label.fit_content = true
+			objectives_label.scroll_active = false
+			objectives_label.mouse_filter = Control.MouseFilter.MOUSE_FILTER_IGNORE
+			objectives_label.position = Vector2(1060.0, 55.0)
+			objectives_label.size = Vector2(210, 110)
+			objectives_label.add_theme_font_size_override("normal_font_size", 14)
+			hud.add_child(objectives_label)
 
 		# Move Minimap down
 		var minimap_panel = hud.get_node_or_null("MinimapPanel") as Panel
@@ -557,6 +576,9 @@ func _ready():
 	add_to_group("player")
 	z_index = 1
 
+	_generate_daily_objectives()
+	_update_daily_objectives_hud()
+
 	_setup_end_of_day_ui()
 
 func _setup_depth_lighting() -> void:
@@ -696,6 +718,10 @@ func _physics_process(delta):
 
 	# 1. Drain Battery (Oxygen)
 	var pos_tile = tilemap.local_to_map(tilemap.to_local(global_position))
+	var depth_y: int = max(0, int(pos_tile.y))
+	if depth_y > daily_max_depth:
+		daily_max_depth = depth_y
+		_update_daily_objectives_hud()
 	var tile_below = pos_tile + Vector2i(0, 1)
 	var on_grass = tilemap.get_cell_source_id(tile_below) == 1
 	var tile_at_feet = tilemap.get_cell_source_id(pos_tile) == 1
@@ -1016,6 +1042,140 @@ func _roll_count() -> int:
 		n += 1
 	return count
 
+func _generate_daily_objectives() -> void:
+	# 2 objectives per day:
+	# - Always: reach a depth target
+	# - Plus: either collect mutated ore or collect a specific normal ore
+	daily_objectives.clear()
+	daily_max_depth = 0
+	daily_mutated_collected = 0
+	daily_ore_collected.clear()
+
+	# Difficulty should scale with player upgrades so objectives stay possible.
+	# Day count still nudges difficulty upward, but upgrades are the main driver.
+	var upgrade_score := 0
+	upgrade_score += int(oxygen_upgrade_level)
+	upgrade_score += int(speed_upgrade_level)
+	upgrade_score += int(mining_speed_upgrade_level)
+	upgrade_score += int(cargo_upgrade_level)
+	upgrade_score += int(floor(float(pickaxe_level) / 2.0))
+	# If the player hasn't upgraded much, don't let day_count run away.
+	var difficulty := clampi(min(day_count, 1 + upgrade_score), 1, 20)
+
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+
+	# Depth objective: grows primarily with upgrades.
+	# Targets are in tile Y coordinates (0 = surface).
+	var depth_target := 30 + difficulty * 18 + rng.randi_range(-12, 12)
+	# Oxygen upgrades make deeper runs more realistic.
+	depth_target += int(oxygen_upgrade_level) * 10
+	# Speed upgrades help reach targets faster.
+	depth_target += int(speed_upgrade_level) * 6
+	depth_target = clampi(depth_target, 25, 330)
+	daily_objectives.append({
+		"type": "reach_depth",
+		"target": depth_target,
+	})
+
+	# ~35% days ask for mutated, otherwise a normal ore quota.
+	# Mutated are rare (~5% of non-stone ore drops), so keep targets small.
+	if rng.randf() < 0.35:
+		var mutated_target := 1 + int(floor(float(difficulty - 1) / 6.0)) + rng.randi_range(0, 1)
+		# Mining speed + better pickaxes generally increase attempts, so allow slightly higher caps.
+		mutated_target += int(floor(float(mining_speed_upgrade_level) / 4.0))
+		mutated_target += int(floor(float(pickaxe_level) / 4.0))
+		# Cargo capacity limits how many total drops can be carried.
+		mutated_target = min(mutated_target, max(1, int(floor(float(max_cargo) / 5.0))))
+		mutated_target = clampi(mutated_target, 1, 4)
+		daily_objectives.append({
+			"type": "collect_mutated",
+			"target": mutated_target,
+		})
+	else:
+		var ore_options: Array[String] = ["Stone", "Copper"]
+		# Gate rarer ores until the player has some upgrade traction.
+		if difficulty >= 4:
+			ore_options.append("Silver")
+		if difficulty >= 7:
+			ore_options.append("Gold")
+		var ore_name: String = ore_options[rng.randi_range(0, ore_options.size() - 1)]
+		var base_amt := 0
+		match ore_name:
+			"Stone":
+				base_amt = 7 + difficulty * 2
+			"Copper":
+				base_amt = 4 + difficulty
+			"Silver":
+				base_amt = 2 + int(floor(float(difficulty) / 2.0))
+			"Gold":
+				base_amt = 1 + int(floor(float(difficulty) / 4.0))
+			_:
+				base_amt = 5
+		var target_amt := base_amt + rng.randi_range(0, 2)
+		# Keep within what a player can realistically hold in a day.
+		var cap_limit := max(3, int(floor(float(max_cargo) * 0.75)))
+		target_amt = clampi(target_amt, 2, cap_limit)
+		daily_objectives.append({
+			"type": "collect_ore",
+			"ore": ore_name,
+			"target": target_amt,
+		})
+
+func _objective_is_complete(obj: Dictionary) -> bool:
+	var t := String(obj.get("type", ""))
+	match t:
+		"reach_depth":
+			return daily_max_depth >= int(obj.get("target", 0))
+		"collect_mutated":
+			return daily_mutated_collected >= int(obj.get("target", 0))
+		"collect_ore":
+			var ore_name := String(obj.get("ore", ""))
+			return int(daily_ore_collected.get(ore_name, 0)) >= int(obj.get("target", 0))
+		_:
+			return false
+
+func _objective_line_text(obj: Dictionary) -> String:
+	var t := String(obj.get("type", ""))
+	match t:
+		"reach_depth":
+			var target := int(obj.get("target", 0))
+			return "Reach depth %d (%d/%d)" % [target, min(daily_max_depth, target), target]
+		"collect_mutated":
+			var target := int(obj.get("target", 0))
+			return "Collect mutated ore (%d/%d)" % [min(daily_mutated_collected, target), target]
+		"collect_ore":
+			var ore_name := String(obj.get("ore", ""))
+			var target := int(obj.get("target", 0))
+			var have := int(daily_ore_collected.get(ore_name, 0))
+			return "Collect %s (%d/%d)" % [ore_name, min(have, target), target]
+		_:
+			return ""
+
+func _update_daily_objectives_hud() -> void:
+	if objectives_label == null:
+		return
+	if daily_objectives.is_empty():
+		objectives_label.text = ""
+		_last_objectives_hud_text = ""
+		return
+
+	var lines: Array[String] = []
+	lines.append("[center][color=gray]Objectives[/color][/center]")
+	for obj in daily_objectives:
+		var ok := _objective_is_complete(obj)
+		var color := "green" if ok else "white"
+		var line := _objective_line_text(obj)
+		if line == "":
+			continue
+		lines.append("[center][color=%s]%s[/color][/center]" % [color, line])
+
+	var text := "\n".join(lines)
+	if text == _last_objectives_hud_text:
+		return
+	_last_objectives_hud_text = text
+	objectives_label.text = text
+
 func finish_mining():
 	if not tilemap: return
 	if mining_timer:
@@ -1256,6 +1416,18 @@ func _try_fire_grapple() -> void:
 
 func _has_los_to_tile(target_tile: Vector2i) -> bool:
 	var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
+
+		# Daily objective tracking
+		var base_nm := nm
+		if base_nm.begins_with("Mutated "):
+			daily_mutated_collected += amt
+			# do not count mutated toward normal ore quotas
+		else:
+			if not daily_ore_collected.has(base_nm):
+				daily_ore_collected[base_nm] = 0
+			daily_ore_collected[base_nm] = int(daily_ore_collected[base_nm]) + amt
+		_update_daily_objectives_hud()
+
 	var dx = target_tile.x - player_tile.x
 	var dy = target_tile.y - player_tile.y
 	var steps = max(abs(dx), abs(dy))
@@ -1502,6 +1674,16 @@ func trigger_end_of_day(_from_death: bool = false):
 		text += "[color=orange]Ores Collected: %d[/color]\n\n" % daily_ores_collected
 		text += "[color=gold]Money Made: $%d[/color]\n\n" % daily_money_made
 		text += "[color=red]Times Died: %d[/color]\n" % times_died
+
+		# Objectives summary
+		if not daily_objectives.is_empty():
+			text += "\n[color=cyan]Objectives[/color]\n"
+			for obj in daily_objectives:
+				var ok := _objective_is_complete(obj)
+				var mark := "[color=green]✓[/color]" if ok else "[color=red]✗[/color]"
+				var line := _objective_line_text(obj)
+				if line != "":
+					text += "%s %s\n" % [mark, line]
 		text += "\n[color=gray][font_size=24]Press SPACE or Click X to continue...[/font_size][/color]"
 		text += "[/font_size][/font_size][/center]"
 		stats_label.text = text
@@ -1532,6 +1714,9 @@ func _respawn_and_reset_day():
 	game_minutes = 7.0 * 60.0
 	current_battery = max_battery
 	current_cargo = 0
+	daily_max_depth = 0
+	daily_mutated_collected = 0
+	daily_ore_collected.clear()
 	
 	for ore in ORE_TABLE:
 		var nm: String = ore[0]
@@ -1545,6 +1730,9 @@ func _respawn_and_reset_day():
 
 
 	velocity = Vector2.ZERO
+
+	_generate_daily_objectives()
+	_update_daily_objectives_hud()
 	is_wall_stuck = false
 	_release_grapple()
 	is_grapple_moving = false
