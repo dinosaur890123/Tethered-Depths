@@ -422,13 +422,20 @@ func _setup_depth_lighting() -> void:
 	var main := get_parent()
 	if main == null:
 		return
-	depth_canvas_modulate = main.get_node_or_null("DepthCanvasModulate") as CanvasModulate
-	if depth_canvas_modulate == null:
+	# NOTE: Adding children to the parent from inside a child's `_ready()` can error
+	# with "Parent node is busy setting up children". Use deferred parenting.
+	var existing := main.get_node_or_null("DepthCanvasModulate") as CanvasModulate
+	if existing != null:
+		depth_canvas_modulate = existing
+	elif depth_canvas_modulate == null:
 		depth_canvas_modulate = CanvasModulate.new()
 		depth_canvas_modulate.name = "DepthCanvasModulate"
-		main.add_child(depth_canvas_modulate)
+	# Ensure the node is actually parented to `main` (it may exist but not be in-tree
+	# yet if a previous add failed).
+	if depth_canvas_modulate.get_parent() != main:
+		main.add_child.call_deferred(depth_canvas_modulate)
 		# Keep it near the top for clarity (render order isn't critical for CanvasModulate).
-		main.move_child(depth_canvas_modulate, 0)
+		main.move_child.call_deferred(depth_canvas_modulate, 0)
 	_update_depth_lighting()
 
 func _setup_flashlight() -> void:
