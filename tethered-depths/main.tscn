@@ -14,7 +14,7 @@
 [ext_resource type="Texture2D" uid="uid://brygcidv5xlq7" path="res://trees/tree3.png" id="10_dg77c"]
 [ext_resource type="Texture2D" uid="uid://b8ejsoft6l3ti" path="res://signprice.png" id="11_efxa6"]
 [ext_resource type="Texture2D" uid="uid://cn3u5c107fi7p" path="res://trees/tree4.png" id="11_ycdy4"]
-[ext_resource type="PackedScene" path="res://trader.tscn" id="14_trader"]
+[ext_resource type="PackedScene" uid="uid://j4qhjgifve7e" path="res://trader.tscn" id="14_trader"]
 [ext_resource type="PackedScene" uid="uid://cejj4pr8eahri" path="res://house.tscn" id="15_house"]
 [ext_resource type="Texture2D" uid="uid://b4qtjr0p7e7o5" path="res://signtutorial.png" id="16_2cqfq"]
 [ext_resource type="Texture2D" uid="uid://1odjg1g6j6s7" path="res://shopsign.png" id="18_074og"]
@@ -287,7 +287,7 @@ position = Vector2(-306.42856, 237.85713)
 scale = Vector2(0.036428567, 0.029999997)
 texture = ExtResource("18_82xsv")
 
-[node name="Stonewallbackground" type="Sprite2D" parent="." unique_id=1905388532]
-position = Vector2(-218.57143, 659.2857)
+[node name="Rockwallbackground" type="Sprite2D" parent="." unique_id=1905388532]
+position = Vector2(2305.7144, 718.5714)
 scale = Vector2(0.25, 0.25)
 texture = ExtResource("20_82xsv")

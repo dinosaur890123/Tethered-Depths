@@ -588,11 +588,10 @@ func _update_animation():
 	elif is_wall_climbing:
 		target_anim = &"climb"
 	elif is_walking:
-		# Animation 'walk' contains the walk frames
 		target_anim = &"walk" 
 	else:
-		# Animation 'idle' contains the idle frames
 		target_anim = &"idle"
+
 
 	if is_mining:
 		var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
@@ -1233,7 +1232,18 @@ func _respawn_and_reset_day():
 			ore_labels[nm].text = "%s: 0" % nm
 			
 	if oxygen_bar: oxygen_bar.value = current_battery
+	
+	# Regenerate the world
+	var main = get_parent()
+	if main and main.has_method("generate_world"):
+		main.generate_world()
+		if main.has_method("position_entities"):
+			# Note: we don't await physics_frame here like main._ready because the player 
+			# will be positioned manually right after.
+			main.position_entities()
+	
 	global_position = spawn_position
+
 	velocity = Vector2.ZERO
 	is_wall_stuck = false
 	_release_grapple()

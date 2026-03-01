@@ -124,7 +124,7 @@ func position_entities():
 	# 6. Cobblestone backgrounds — Tile to cover the entire depth and width
 	var bg_under = get_node_or_null("Background Under")
 	if bg_under:
-		var bg_tex = load("res://stonewallbackground.png")
+		var bg_tex = load("res://rockwallbackground2.png")
 		if bg_tex:
 			# Clear old ones
 			for child in bg_under.get_children():
@@ -132,6 +132,10 @@ func position_entities():
 			
 			var bg_scale = 0.35
 			var scaled_size = bg_tex.get_size() * bg_scale
+
+
+
+
 			
 			# Width covers -WIDTH/2 to WIDTH/2 tiles (tile size 64px)
 			var world_width = WIDTH * 64.0
