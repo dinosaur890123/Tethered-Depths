@@ -206,7 +206,7 @@ func _input(event):
 			elif event.keycode == KEY_7:
 				_dev_set_admin_pickaxe()
 			elif event.keycode == KEY_5:
-				_dev_add_cargo_capacity(10)
+				_dev_add_cargo_capacity(100)
 			elif event.keycode == KEY_6:
 				_dev_reset_progress()
 			elif event.keycode == KEY_ESCAPE or event.keycode == KEY_BACKSPACE:
