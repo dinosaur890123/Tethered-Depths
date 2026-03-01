@@ -321,7 +321,7 @@ func _ready():
 		money_label = hud.get_node_or_null("MoneyLabel") as Label
 		if money_label:
 			money_label.text = "$0"
-			# Depth label below cash
+			# Depth label to the right of cash
 			var dlbl := Label.new()
 			dlbl.name = "DepthHudLabel"
 			dlbl.text = "↓ 0 tiles"
@@ -329,10 +329,12 @@ func _ready():
 			dlbl.add_theme_color_override("font_color", Color(0.3, 1.0, 1.0))
 			dlbl.add_theme_color_override("font_outline_color", Color.BLACK)
 			dlbl.add_theme_constant_override("outline_size", 3)
-			dlbl.position = Vector2(20.0, 62.0)
+			# Align vertically with MoneyLabel (y=20), shifted to the right
+			dlbl.position = Vector2(160.0, 30.0)
 			dlbl.size = Vector2(200.0, 28.0)
 			hud.add_child(dlbl)
 			depth_hud_label = dlbl
+
 
 		clock_label = hud.get_node_or_null("ClockLabel") as Label
 		if clock_label:
@@ -1504,8 +1506,9 @@ func _input(event: InputEvent) -> void:
 			if flashlight_on:
 				_update_flashlight()
 		_update_flashlight_slot_label()
+		_refresh_selected_item_label()
 		return
-	
+
 	if Input.is_action_just_pressed("inventory"):
 		if not is_in_menu:
 			_toggle_inventory()

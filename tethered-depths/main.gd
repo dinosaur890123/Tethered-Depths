@@ -81,7 +81,11 @@ func _ready():
 	# Initial volume
 	_on_volume_changed(volume_slider.value)
 
+	# Initial sky setup
+	_update_sky_texture(_current_sky_texture)
+
 	load_game()
+
 	randomize()
 	generate_world()
 	await get_tree().physics_frame
@@ -102,8 +106,9 @@ func _ready():
 			player.add_user_signal("ore_collected")
 		player.connect("ore_collected", _on_ore_collected)
 
-var _sky_is_sunset: bool = false
+var _current_sky_texture: String = "res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg"
 const SUNSET_MINUTES = 17.0 * 60.0 # 5 PM
+const NIGHT_MINUTES = 20.0 * 60.0  # 8 PM
 
 func _process(_delta: float) -> void:
 	if not is_game_started: return
@@ -111,12 +116,18 @@ func _process(_delta: float) -> void:
 	var player = get_node_or_null("Player")
 	if player and "game_minutes" in player:
 		var mins = player.game_minutes
-		if mins >= SUNSET_MINUTES and not _sky_is_sunset:
-			_update_sky_texture("res://sunset.png")
-			_sky_is_sunset = true
-		elif mins < SUNSET_MINUTES and _sky_is_sunset:
-			_update_sky_texture("res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg")
-			_sky_is_sunset = false
+		var target_sky: String
+		
+		if mins >= NIGHT_MINUTES:
+			target_sky = "res://night.png"
+		elif mins >= SUNSET_MINUTES:
+			target_sky = "res://sunset.png"
+		else:
+			target_sky = "res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg"
+			
+		if target_sky != _current_sky_texture:
+			_update_sky_texture(target_sky)
+			_current_sky_texture = target_sky
 
 func _update_sky_texture(path: String) -> void:
 	var tex = load(path)
@@ -192,15 +203,18 @@ func _on_restart_pressed():
 func _on_settings_pressed():
 	menu_root.visible = false
 	settings_root.visible = true
+	$MainMenu/LogoTexture.visible = false
 
 func _on_records_pressed():
 	menu_root.visible = false
 	pb_root.visible = true
+	$MainMenu/LogoTexture.visible = false
 	_update_pb_labels()
 
 func _on_ore_tab_pressed():
 	menu_root.visible = false
 	ore_root.visible = true
+	$MainMenu/LogoTexture.visible = false
 	_update_ore_grid()
 
 func _on_settings_back_pressed():
@@ -208,6 +222,7 @@ func _on_settings_back_pressed():
 	settings_root.visible = false
 	pb_root.visible = false
 	ore_root.visible = false
+	$MainMenu/LogoTexture.visible = true
 
 func _on_exit_pressed():
 	_update_pb_labels()
@@ -286,25 +301,45 @@ func _update_ore_grid():
 		
 		var discovered = discovered_ores.has(nm)
 		
-		# Image
+		# Image & Glow
+		var icon_container = Control.new()
+		icon_container.custom_minimum_size = Vector2(100, 100)
+		icon_container.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		container.add_child(icon_container)
+		
+		if discovered and nm.begins_with("Mutated "):
+			# Add Glow Panel
+			var glow = Panel.new()
+			glow.set_anchors_preset(Control.LayoutPreset.PRESET_CENTER)
+			glow.offset_left = -15
+			glow.offset_right = 15
+			glow.offset_top = -15
+			glow.offset_bottom = 15
+			
+			var sb = StyleBoxFlat.new()
+			sb.bg_color = Color(0, 0, 0, 0) # Transparent center
+			sb.set_corner_radius_all(50)
+			sb.shadow_color = ore[3] # The purple color
+			sb.shadow_size = 18
+			glow.add_theme_stylebox_override("panel", sb)
+			icon_container.add_child(glow)
+
 		var rect = TextureRect.new()
 		var tex_path = _get_ore_tex_path(nm)
 		if discovered and tex_path != "":
 			rect.texture = load(tex_path)
-			# Apply purple tint to mutated versions
 			if nm.begins_with("Mutated "):
 				rect.modulate = Color(0.8, 0.2, 0.95)
 			elif nm == "Rainbow":
-				rect.modulate = Color(1, 0.5, 1) # Specific rainbow tint
+				rect.modulate = Color(1, 0.5, 1)
 		else:
-			# Show a placeholder or darkened version
 			rect.texture = load("res://icon.svg")
 			rect.modulate = Color(0, 0, 0, 0.8)
 		
-		rect.custom_minimum_size = Vector2(100, 100)
+		rect.set_anchors_preset(Control.LayoutPreset.PRESET_FULL_RECT)
 		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		container.add_child(rect)
+		icon_container.add_child(rect)
 		
 		# Name
 		var name_lbl = Label.new()

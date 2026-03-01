@@ -15,7 +15,7 @@
 [ext_resource type="Texture2D" uid="uid://b8ejsoft6l3ti" path="res://signprice.png" id="11_efxa6"]
 [ext_resource type="Texture2D" uid="uid://cn3u5c107fi7p" path="res://trees/tree4.png" id="11_ycdy4"]
 [ext_resource type="Texture2D" uid="uid://b08ow73g6yw48" path="res://stonewallbackground.png" id="12_dg77c"]
-[ext_resource type="PackedScene" path="res://trader.tscn" id="14_trader"]
+[ext_resource type="PackedScene" uid="uid://j4qhjgifve7e" path="res://trader.tscn" id="14_trader"]
 [ext_resource type="PackedScene" uid="uid://cejj4pr8eahri" path="res://house.tscn" id="15_house"]
 [ext_resource type="Texture2D" uid="uid://b4qtjr0p7e7o5" path="res://signtutorial.png" id="16_2cqfq"]
 [ext_resource type="Texture2D" uid="uid://1odjg1g6j6s7" path="res://shopsign.png" id="18_074og"]
@@ -78,7 +78,7 @@ sources/4 = SubResource("TileSetAtlasSource_deep")
 size = Vector2(2785.72, 46.4286)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_4c57u"]
-size = Vector2(91.7852, 5848.395)
+size = Vector2(91.7852, 5899.288)
 
 [node name="Main" type="Node2D" unique_id=35273369]
 scale = Vector2(1.4, 1.4)
@@ -528,8 +528,8 @@ shape = SubResource("RectangleShape2D_efxa6")
 [node name="Side Borders" type="StaticBody2D" parent="." unique_id=658447515]
 
 [node name="StaticBody2D#Left Border" type="CollisionShape2D" parent="Side Borders" unique_id=2062907820]
-position = Vector2(-625.71423, 2845.0889)
-scale = Vector2(0.9999995, 0.9999995)
+position = Vector2(-625.71423, 2819.6418)
+scale = Vector2(0.9999994, 0.9999994)
 shape = SubResource("RectangleShape2D_4c57u")
 
 [node name="StaticBody2D#Right Border" type="CollisionShape2D" parent="Side Borders" unique_id=260530894]
