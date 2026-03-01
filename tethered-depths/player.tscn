@@ -298,6 +298,7 @@ scale = Vector2(4, 4)
 sprite_frames = SubResource("SF_miner")
 animation = &"walk"
 autoplay = "idle"
+frame_progress = 0.60234
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1607723881]
 position = Vector2(1, 8.25)
