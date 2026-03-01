@@ -254,12 +254,14 @@ func load_game():
 	var err = config.load(SAVE_PATH)
 	if err == OK:
 		high_money = config.get_value("records", "high_money", 0)
-		high_days = config.get_value("records", "high_days", 1)
+		high_days = config.get_value("records", "high_days", 0)
 		discovered_ores = config.get_value("collection", "discovered_ores", {})
 		lifetime_ore_counts = config.get_value("collection", "lifetime_ore_counts", {})
 
-func generate_world():
-	# World generation
+func _on_player_died():
+	_update_pb_labels() # Save records on death
+	death_screen.visible = true
+
 	tilemap.clear()
 	if OS.is_debug_build():
 		print("Generating world...")

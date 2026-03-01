@@ -67,7 +67,7 @@ var game_minutes: float = 7.0 * 60.0  # Start at 7:00 AM
 var clock_label: Label
 
 # --- End of Day Stats & UI ---
-var day_count: int = 1
+var day_count: int = 0
 var day_label: Label
 var daily_ores_collected: int = 0
 var daily_money_made: int = 0
