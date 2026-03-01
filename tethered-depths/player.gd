@@ -430,7 +430,8 @@ func _ready():
 
 		var item_label = Label.new()
 		item_label.name = "SelectedItemLabel"
-		item_label.text = "Starter Pick"
+		item_label.text = ""
+
 		item_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		item_label.custom_minimum_size = Vector2(520, 30)
 		item_label.anchor_left = 0.5
@@ -1763,10 +1764,14 @@ func _select_hotbar_slot(index: int):
 	# Update Selected Item Name
 	var label = hud.get_node_or_null("SelectedItemLabel") as Label
 	if label:
-		if selected_slot == 0:
-			label.text = PICKAXE_UPGRADES[pickaxe_level]["name"]
+		if index == 0:
+			label.text = ""
+		elif index < hotbar_item_ids.size():
+			var item_id = hotbar_item_ids[index]
+			label.text = item_id if item_id != "" else "Empty Slot"
 		else:
-			var item_id := ""
+			label.text = "Empty Slot"
+
 			var count := 0
 			if selected_slot >= 0 and selected_slot < hotbar_item_ids.size():
 				item_id = hotbar_item_ids[selected_slot]
