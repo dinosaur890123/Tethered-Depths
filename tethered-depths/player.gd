@@ -79,6 +79,7 @@ var daily_max_depth: int = 0
 var daily_mutated_collected: int = 0
 var daily_ore_collected: Dictionary = {} # base ore name -> count (non-mutated)
 var daily_objectives_rewarded: bool = false
+var _midnight_warning_shown: bool = false
 var objectives_label: RichTextLabel
 var objectives_toggle_btn: Button
 var _last_objectives_hud_text: String = "__init__"
@@ -715,9 +716,24 @@ func _process(delta: float) -> void:
 	_update_depth_lighting()
 	game_minutes += delta * 5.0  # 1 real second = 5 game minutes
 
+	# Midnight warning at 11:30 PM
+	if game_minutes >= 1410.0 and not _midnight_warning_shown:
+		_midnight_warning_shown = true
+		_spawn_floating_text("GET HOME! Midnight in 30 min!", global_position + Vector2(0.0, -80.0), Color(1.0, 0.3, 0.1))
+
 	if game_minutes >= 1440.0:
-		game_minutes -= 1440.0
-		trigger_end_of_day()
+		game_minutes = 1440.0
+		# Check if player is at the surface (home) — tile Y <= 3
+		var at_home := false
+		if tilemap:
+			var pos_tile: Vector2i = tilemap.local_to_map(tilemap.to_local(global_position))
+			at_home = pos_tile.y <= 3
+		if at_home:
+			trigger_end_of_day()
+		else:
+			_spawn_floating_text("You didn't make it home!", global_position + Vector2(0.0, -80.0), Color(1.0, 0.2, 0.2))
+			die_and_respawn()
+
 	if clock_label:
 		clock_label.text = _format_game_time(game_minutes)
 
@@ -1794,6 +1810,9 @@ func _respawn_and_reset_day():
 	daily_max_depth = 0
 	daily_mutated_collected = 0
 	daily_ore_collected.clear()
+	_midnight_warning_shown = false
+	if objectives_toggle_btn:
+		objectives_toggle_btn.text = "Daily Tasks ▼"
 	
 	for ore in ORE_TABLE:
 		var nm: String = ore[0]
