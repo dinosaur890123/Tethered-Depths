@@ -15,6 +15,14 @@ func _ready():
 	$ShopZone.body_entered.connect(_on_body_entered)
 	$ShopZone.body_exited.connect(_on_body_exited)
 
+
+func _input(event):
+	if not player_nearby:
+		return
+	# Player uses F for hotbar items; treat F as "handled" while in this zone.
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
+		get_viewport().set_input_as_handled()
+
 func _process(_delta):
 	if not player_nearby:
 		prompt_label.visible = false
