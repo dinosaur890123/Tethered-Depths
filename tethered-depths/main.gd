@@ -17,6 +17,7 @@ var is_game_started: bool = false
 const SAVE_PATH = "user://savegame.cfg"
 var high_money: int = 0
 var high_days: int = 0
+var high_depth: int = 0
 var discovered_ores: Dictionary = {} # ore_name -> bool
 var lifetime_ore_counts: Dictionary = {} # ore_name -> int
 
@@ -46,7 +47,23 @@ func _ready():
 	death_screen.visible = false
 	start_btn.text = "Start Game"
 	restart_btn.visible = false
-	
+
+	# Push the button panel down so it sits below the logo
+	var panel := $MainMenu/Root/PanelContainer as PanelContainer
+	if panel:
+		panel.offset_top += 90.0
+		panel.offset_bottom += 90.0
+
+	# Add Furthest Depth label to Records tab (before the Back button)
+	var pb_vbox := $MainMenu/PBTab/VBox as VBoxContainer
+	var depth_lbl := Label.new()
+	depth_lbl.name = "DepthLabel"
+	depth_lbl.text = "Furthest Depth: 0 tiles"
+	depth_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	depth_lbl.add_theme_font_size_override("font_size", 32)
+	pb_vbox.add_child(depth_lbl)
+	pb_vbox.move_child(depth_lbl, 3) # After DaysLabel, before BackBtn
+
 	# Connect menu buttons
 	start_btn.pressed.connect(_on_start_pressed)
 	restart_btn.pressed.connect(_on_restart_pressed)
@@ -64,6 +81,7 @@ func _ready():
 	# Initial volume
 	_on_volume_changed(volume_slider.value)
 
+	load_game()
 	randomize()
 	generate_world()
 	await get_tree().physics_frame
@@ -83,6 +101,35 @@ func _ready():
 		if not player.has_signal("ore_collected"):
 			player.add_user_signal("ore_collected")
 		player.connect("ore_collected", _on_ore_collected)
+
+var _sky_is_sunset: bool = false
+const SUNSET_MINUTES = 17.0 * 60.0 # 5 PM
+
+func _process(_delta: float) -> void:
+	if not is_game_started: return
+	
+	var player = get_node_or_null("Player")
+	if player and "game_minutes" in player:
+		var mins = player.game_minutes
+		if mins >= SUNSET_MINUTES and not _sky_is_sunset:
+			_update_sky_texture("res://sunset.png")
+			_sky_is_sunset = true
+		elif mins < SUNSET_MINUTES and _sky_is_sunset:
+			_update_sky_texture("res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg")
+			_sky_is_sunset = false
+
+func _update_sky_texture(path: String) -> void:
+	var tex = load(path)
+	if not tex: return
+	var bg_above = get_node_or_null("Background above")
+	if bg_above:
+		for bg in bg_above.get_children():
+			if bg is Sprite2D:
+				bg.texture = tex
+				# Re-align bottom to surface
+				var rect = bg.get_rect()
+				var bottom_global_y = bg.to_global(Vector2(0.0, rect.end.y)).y
+				bg.global_position.y += _surface_y_cached - bottom_global_y
 
 func _setup_autosave() -> void:
 	if _autosave_timer != null:
@@ -112,6 +159,7 @@ func _on_autosave_timeout() -> void:
 	_save_dirty = false
 
 func _input(event):
+
 	if event.is_action_pressed("ui_cancel"): # ESC
 		if settings_root.visible or pb_root.visible or ore_root.visible:
 			_on_settings_back_pressed()
@@ -162,9 +210,15 @@ func _on_settings_back_pressed():
 	ore_root.visible = false
 
 func _on_exit_pressed():
+	_update_pb_labels()
 	_pull_player_progress()
 	save_game()
 	get_tree().quit()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_update_pb_labels()
+		get_tree().quit()
 
 func _on_volume_changed(value: float):
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Master"), linear_to_db(value / 100.0))
@@ -206,10 +260,15 @@ func _update_pb_labels():
 	if player:
 		high_money = max(high_money, player.money)
 		high_days = max(high_days, player.day_count)
+		high_depth = max(high_depth, player.lifetime_max_depth)
 	_mark_save_dirty()
 	
 	$MainMenu/PBTab/VBox/MoneyLabel.text = "Highest Money: $%d" % high_money
 	$MainMenu/PBTab/VBox/DaysLabel.text = "Most Days Survived: %d" % high_days
+	var depth_lbl := $MainMenu/PBTab/VBox/DepthLabel as Label
+	if depth_lbl:
+		depth_lbl.text = "Furthest Depth: %d tiles" % high_depth
+	save_game()
 
 func _update_ore_grid():
 	var grid = $MainMenu/OreTab/VBox/Scroll/Grid
@@ -285,6 +344,7 @@ func save_game():
 	var config = ConfigFile.new()
 	config.set_value("records", "high_money", high_money)
 	config.set_value("records", "high_days", high_days)
+	config.set_value("records", "high_depth", high_depth)
 	config.set_value("collection", "discovered_ores", discovered_ores)
 	config.set_value("collection", "lifetime_ore_counts", lifetime_ore_counts)
 	config.save(SAVE_PATH)
@@ -295,6 +355,7 @@ func load_game():
 	if err == OK:
 		high_money = config.get_value("records", "high_money", 0)
 		high_days = config.get_value("records", "high_days", 0)
+		high_depth = config.get_value("records", "high_depth", 0)
 		discovered_ores = config.get_value("collection", "discovered_ores", {})
 		lifetime_ore_counts = config.get_value("collection", "lifetime_ore_counts", {})
 
@@ -348,11 +409,15 @@ func generate_world():
 
 			tilemap.set_cell(cell_pos, source_id, Vector2i(0, 0), alt_tile)
 
+var _surface_y_cached: float = 0.0
+
 func position_entities():
 	var surface_pos_local = tilemap.map_to_local(Vector2i(0, SURFACE_Y))
 	var global_center = tilemap.to_global(surface_pos_local)
 	var tile_h_world = (128.0 * tilemap.scale.y * self.scale.y)
 	var surface_y = global_center.y - (tile_h_world / 2.0)
+	_surface_y_cached = surface_y
+
 
 
 	var player = get_node_or_null("Player")

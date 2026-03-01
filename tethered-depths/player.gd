@@ -71,7 +71,7 @@ var game_minutes: float = 7.0 * 60.0  # Start at 7:00 AM
 var clock_label: Label
 
 # --- End of Day Stats & UI ---
-var day_count: int = 0
+var day_count: int = 1
 var day_label: Label
 var daily_ores_collected: int = 0
 var daily_money_made: int = 0
@@ -80,6 +80,7 @@ var times_died: int = 0
 # --- Daily Objectives ---
 var daily_objectives: Array[Dictionary] = []
 var daily_max_depth: int = 0
+var lifetime_max_depth: int = 0
 var daily_mutated_collected: int = 0
 var daily_ore_collected: Dictionary = {} # base ore name -> count (non-mutated)
 var daily_objectives_rewarded: bool = false
@@ -96,6 +97,9 @@ var hotbar_item_counts: Array[int] = []
 var hotbar_item_labels: Array[Label] = []
 var hotbar_item_count_labels: Array[Label] = []
 const HOTBAR_SLOT_COUNT: int = 9
+var flashlight_slot_label: Label
+var hotbar_hint_label: Label
+var _hovered_hotbar_slot: int = -1
 
 # Hotbar consumables
 const ITEM_POTION_SURFACE: String = "potion_surface"
@@ -107,6 +111,7 @@ const SPEED_POTION_DURATION: float = 10.0
 var speed_potion_timer: float = 0.0
 var speed_potion_mult: float = 1.0
 var cargo_label: Label
+var depth_hud_label: Label
 
 var grapple_line: Line2D
 
@@ -316,6 +321,18 @@ func _ready():
 		money_label = hud.get_node_or_null("MoneyLabel") as Label
 		if money_label:
 			money_label.text = "$0"
+			# Depth label below cash
+			var dlbl := Label.new()
+			dlbl.name = "DepthHudLabel"
+			dlbl.text = "↓ 0 tiles"
+			dlbl.add_theme_font_size_override("font_size", 20)
+			dlbl.add_theme_color_override("font_color", Color(0.3, 1.0, 1.0))
+			dlbl.add_theme_color_override("font_outline_color", Color.BLACK)
+			dlbl.add_theme_constant_override("outline_size", 3)
+			dlbl.position = Vector2(20.0, 62.0)
+			dlbl.size = Vector2(200.0, 28.0)
+			hud.add_child(dlbl)
+			depth_hud_label = dlbl
 
 		clock_label = hud.get_node_or_null("ClockLabel") as Label
 		if clock_label:
@@ -436,6 +453,17 @@ func _ready():
 				sb.bg_color = Color(0.3, 0.3, 0.3, 0.9)
 				hotbar_item_labels.append(null)
 				hotbar_item_count_labels.append(null)
+				# Flashlight indicator
+				var fl_lbl := Label.new()
+				fl_lbl.text = "FL\nON"
+				fl_lbl.add_theme_font_size_override("font_size", 12)
+				fl_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				fl_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+				fl_lbl.set_anchors_preset(Control.LayoutPreset.PRESET_FULL_RECT)
+				fl_lbl.offset_top = 14
+				fl_lbl.modulate = Color(1.0, 1.0, 0.5)
+				slot.add_child(fl_lbl)
+				flashlight_slot_label = fl_lbl
 
 			else:
 				var item_lbl := Label.new()
@@ -468,9 +496,13 @@ func _ready():
 
 			hotbar_item_ids.append("")
 			hotbar_item_counts.append(0)
-			
+
 			hotbar_container.add_child(slot)
 			hotbar_slots.append(slot)
+			# Hover signals for "Press F" hint (potion slots only)
+			if i > 0:
+				slot.mouse_entered.connect(Callable(self, "_on_hotbar_slot_hover").bind(i))
+				slot.mouse_exited.connect(Callable(self, "_on_hotbar_slot_unhover").bind(i))
 
 		var item_label = Label.new()
 		item_label.name = "SelectedItemLabel"
@@ -490,6 +522,20 @@ func _ready():
 		item_label.add_theme_color_override("font_outline_color", Color.BLACK)
 		item_label.add_theme_constant_override("outline_size", 4)
 		hud.add_child(item_label)
+
+		# "Press F to interact" hint label (shown above player when hovering a potion slot)
+		var hint_lbl := Label.new()
+		hint_lbl.name = "HotbarHintLabel"
+		hint_lbl.text = "Press F to interact"
+		hint_lbl.add_theme_font_size_override("font_size", 15)
+		hint_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+		hint_lbl.add_theme_constant_override("outline_size", 4)
+		hint_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		hint_lbl.custom_minimum_size = Vector2(210, 26)
+		hint_lbl.visible = false
+		hint_lbl.z_index = 15
+		hud.add_child(hint_lbl)
+		hotbar_hint_label = hint_lbl
 
 		oxygen_bar = hud.get_node_or_null("ProgressBar") as ProgressBar
 		if oxygen_bar:
@@ -774,6 +820,19 @@ func _process(delta: float) -> void:
 	if clock_label:
 		clock_label.text = _format_game_time(game_minutes)
 
+	# "Press F to interact" hint above player when hovering a potion hotbar slot
+	if hotbar_hint_label:
+		var show_hint := false
+		if _hovered_hotbar_slot >= 1 and _hovered_hotbar_slot < hotbar_item_ids.size():
+			var h_item := hotbar_item_ids[_hovered_hotbar_slot]
+			if h_item in [ITEM_POTION_SURFACE, ITEM_POTION_OXYGEN, ITEM_POTION_SPEED]:
+				if int(hotbar_item_counts[_hovered_hotbar_slot]) > 0:
+					show_hint = true
+		hotbar_hint_label.visible = show_hint
+		if show_hint:
+			var screen_pos := get_viewport().get_canvas_transform() * global_position
+			hotbar_hint_label.position = screen_pos + Vector2(-105.0, -80.0)
+
 func _physics_process(delta):
 	if is_end_of_day or not _is_gameplay_enabled():
 		is_walking = false
@@ -804,8 +863,12 @@ func _physics_process(delta):
 	# 1. Drain Battery (Oxygen)
 	var pos_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 	var depth_y: int = max(0, int(pos_tile.y))
+	if depth_hud_label:
+		depth_hud_label.text = "↓ %d tiles" % depth_y
 	if depth_y > daily_max_depth:
 		daily_max_depth = depth_y
+		if depth_y > lifetime_max_depth:
+			lifetime_max_depth = depth_y
 		_update_daily_objectives_hud()
 	var tile_below = pos_tile + Vector2i(0, 1)
 	var on_grass = tilemap.get_cell_source_id(tile_below) == 1
@@ -873,7 +936,7 @@ func _physics_process(delta):
 	# 5. Velocity
 	velocity.x = h * speed * speed_potion_mult
 	if is_wall_climbing:
-		velocity.y = -climb_speed
+		velocity.y = -climb_speed * speed_potion_mult
 
 	move_and_slide()
 
@@ -1440,6 +1503,7 @@ func _input(event: InputEvent) -> void:
 			flashlight.enabled = flashlight_on
 			if flashlight_on:
 				_update_flashlight()
+		_update_flashlight_slot_label()
 		return
 	
 	if Input.is_action_just_pressed("inventory"):
@@ -1908,7 +1972,7 @@ func _select_hotbar_slot(index: int):
 	var label = hud.get_node_or_null("SelectedItemLabel") as Label
 	if label:
 		if index == 0:
-			label.text = ""
+			label.text = "Flashlight [%s]" % ("ON" if flashlight_on else "OFF")
 		else:
 			var item_id := ""
 			var count := 0
@@ -1920,6 +1984,23 @@ func _select_hotbar_slot(index: int):
 			else:
 				label.text = "Empty Slot"
 
+
+func _update_flashlight_slot_label() -> void:
+	if flashlight_slot_label == null:
+		return
+	if flashlight_on:
+		flashlight_slot_label.text = "FL\nON"
+		flashlight_slot_label.modulate = Color(1.0, 1.0, 0.5)
+	else:
+		flashlight_slot_label.text = "FL\nOFF"
+		flashlight_slot_label.modulate = Color(0.6, 0.6, 0.6)
+
+func _on_hotbar_slot_hover(slot_idx: int) -> void:
+	_hovered_hotbar_slot = slot_idx
+
+func _on_hotbar_slot_unhover(slot_idx: int) -> void:
+	if _hovered_hotbar_slot == slot_idx:
+		_hovered_hotbar_slot = -1
 
 func _hotbar_item_display_name(item_id: String) -> String:
 	match item_id:
@@ -1971,7 +2052,7 @@ func _refresh_selected_item_label() -> void:
 	if label == null:
 		return
 	if selected_slot == 0:
-		label.text = PICKAXE_UPGRADES[pickaxe_level]["name"]
+		label.text = "Flashlight [%s]" % ("ON" if flashlight_on else "OFF")
 		return
 	if selected_slot < 0 or selected_slot >= hotbar_item_ids.size():
 		label.text = "Empty Slot"
@@ -2004,7 +2085,15 @@ func add_hotbar_item(item_id: String, amount: int = 1) -> bool:
 
 
 func _use_selected_hotbar_item() -> void:
-	if selected_slot <= 0:
+	if selected_slot == 0:
+		# Slot 1 = Flashlight toggle
+		flashlight_on = not flashlight_on
+		if flashlight != null:
+			flashlight.enabled = flashlight_on
+			if flashlight_on:
+				_update_flashlight()
+		_update_flashlight_slot_label()
+		_refresh_selected_item_label()
 		return
 	if selected_slot >= hotbar_item_ids.size():
 		return
@@ -2016,7 +2105,7 @@ func _use_selected_hotbar_item() -> void:
 	var used := false
 	match item_id:
 		ITEM_POTION_SURFACE:
-			global_position.y = spawn_position.y
+			global_position = spawn_position
 			current_battery = max_battery
 			if oxygen_bar:
 				oxygen_bar.value = current_battery
