@@ -102,8 +102,8 @@ func _apply_shop_ui_style() -> void:
 	panel_sb.corner_radius_top_right = 14
 	panel_sb.corner_radius_bottom_left = 14
 	panel_sb.corner_radius_bottom_right = 14
-	panel_sb.shadow_color = Color(0.0, 0.0, 0.0, 0.55)
-	panel_sb.shadow_size = 10
+	panel_sb.shadow_color = Color(0.0, 0.0, 0.0, 0.22)
+	panel_sb.shadow_size = 4
 	ui_panel.add_theme_stylebox_override("panel", panel_sb)
 
 	# Button styling.

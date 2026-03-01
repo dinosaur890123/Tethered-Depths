@@ -215,14 +215,19 @@ func _ready():
 		bg_sb.corner_radius_top_left = 10; bg_sb.corner_radius_top_right = 10
 		bg_sb.border_width_top = 2; bg_sb.border_color = Color(0.3, 0.3, 0.3)
 		hotbar_bg.add_theme_stylebox_override("panel", bg_sb)
-		hotbar_bg.set_anchors_preset(Control.PRESET_BOTTOM_CENTER)
-		hotbar_bg.grow_horizontal = Control.GROW_DIRECTION_BOTH
-		hotbar_bg.offset_bottom = 0
+		# Godot 4 doesn't have a built-in "bottom center" preset; anchor explicitly.
+		hotbar_bg.anchor_left = 0.5
+		hotbar_bg.anchor_right = 0.5
+		hotbar_bg.anchor_top = 1.0
+		hotbar_bg.anchor_bottom = 1.0
+		hotbar_bg.offset_left = -hotbar_bg.custom_minimum_size.x * 0.5
+		hotbar_bg.offset_right = hotbar_bg.custom_minimum_size.x * 0.5
 		hotbar_bg.offset_top = -70
+		hotbar_bg.offset_bottom = 0
 		hud.add_child(hotbar_bg)
 
 		var hotbar_container = HBoxContainer.new()
-		hotbar_container.set_anchors_preset(Control.PRESET_FULL_RECT)
+		hotbar_container.set_anchors_preset(Control.LayoutPreset.PRESET_FULL_RECT)
 		hotbar_container.alignment = BoxContainer.ALIGNMENT_CENTER
 		hotbar_container.set_theme_constant_override("separation", 8)
 		hotbar_bg.add_child(hotbar_container)
@@ -260,9 +265,15 @@ func _ready():
 		item_label.name = "SelectedItemLabel"
 		item_label.text = "Starter Pick"
 		item_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		item_label.set_anchors_preset(Control.PRESET_BOTTOM_CENTER)
+		item_label.custom_minimum_size = Vector2(520, 30)
+		item_label.anchor_left = 0.5
+		item_label.anchor_right = 0.5
+		item_label.anchor_top = 1.0
+		item_label.anchor_bottom = 1.0
+		item_label.offset_left = -item_label.custom_minimum_size.x * 0.5
+		item_label.offset_right = item_label.custom_minimum_size.x * 0.5
 		item_label.offset_bottom = -75
-		item_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		item_label.offset_top = item_label.offset_bottom - item_label.custom_minimum_size.y
 		item_label.add_theme_font_size_override("font_size", 20)
 		item_label.add_theme_color_override("font_outline_color", Color.BLACK)
 		item_label.add_theme_constant_override("outline_size", 4)
@@ -704,7 +715,7 @@ func die_and_respawn():
 	times_died += 1
 	
 	# Penalties: half money and +1 hour
-	money = int(money / 2)
+	money = int(float(money) / 2.0)
 	if money_label:
 		money_label.text = "$" + str(money)
 	
