@@ -1655,14 +1655,12 @@ func _refresh_selected_item_label() -> void:
 func add_hotbar_item(item_id: String, amount: int = 1) -> bool:
 	if amount <= 0:
 		return false
-	# Stack first.
 	for i in range(1, min(HOTBAR_SLOT_COUNT, hotbar_item_ids.size())):
 		if hotbar_item_ids[i] == item_id and int(hotbar_item_counts[i]) > 0:
 			hotbar_item_counts[i] = int(hotbar_item_counts[i]) + amount
 			_update_hotbar_slot_ui(i)
 			_refresh_selected_item_label()
 			return true
-	# Otherwise find an empty slot.
 	for i in range(1, min(HOTBAR_SLOT_COUNT, hotbar_item_ids.size())):
 		if hotbar_item_ids[i] == "" or int(hotbar_item_counts[i]) <= 0:
 			hotbar_item_ids[i] = item_id
