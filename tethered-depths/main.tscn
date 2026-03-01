@@ -78,7 +78,7 @@ sources/4 = SubResource("TileSetAtlasSource_deep")
 size = Vector2(2785.72, 46.4286)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_4c57u"]
-size = Vector2(66.4282, 1693.57)
+size = Vector2(91.7852, 5848.395)
 
 [node name="Main" type="Node2D" unique_id=35273369]
 scale = Vector2(1.4, 1.4)
@@ -524,24 +524,18 @@ scale = Vector2(0.999999, 0.999999)
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Vertical Borders" unique_id=436746478]
 position = Vector2(64.4644, -71.4286)
 shape = SubResource("RectangleShape2D_efxa6")
-metadata/_edit_lock_ = true
-
-[node name="StaticBody2D2#CollisionShape2D2" type="CollisionShape2D" parent="Vertical Borders" unique_id=1011529191]
-position = Vector2(64.2858, 8381.43)
-shape = SubResource("RectangleShape2D_efxa6")
 
 [node name="Side Borders" type="StaticBody2D" parent="." unique_id=658447515]
 
 [node name="StaticBody2D#Left Border" type="CollisionShape2D" parent="Side Borders" unique_id=2062907820]
-position = Vector2(-609.286, 542.143)
+position = Vector2(-625.71423, 2845.0889)
+scale = Vector2(0.9999995, 0.9999995)
 shape = SubResource("RectangleShape2D_4c57u")
-metadata/_edit_lock_ = true
 
 [node name="StaticBody2D#Right Border" type="CollisionShape2D" parent="Side Borders" unique_id=260530894]
 position = Vector2(929.286, 502.143)
 scale = Vector2(0.999999, 0.999999)
 shape = SubResource("RectangleShape2D_4c57u")
-metadata/_edit_lock_ = true
 
 [node name="Signtutorial" type="Sprite2D" parent="." unique_id=152401060]
 position = Vector2(-64.2857, 178.571)

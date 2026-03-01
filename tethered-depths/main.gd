@@ -24,8 +24,6 @@ var _save_dirty: bool = false
 var _autosave_timer: Timer
 
 @onready var main_menu: CanvasLayer = $MainMenu
-# ... (rest of onready vars)
-
 @onready var menu_root: Control = $MainMenu/Root
 @onready var settings_root: Control = $MainMenu/Settings
 @onready var pb_root: Control = $MainMenu/PBTab
@@ -37,7 +35,6 @@ var _autosave_timer: Timer
 @onready var restart_btn: Button = $MainMenu/Root/PanelContainer/VBox/RestartBtn
 
 func _ready():
-	load_game() # Load previous progress
 	process_mode = PROCESS_MODE_ALWAYS
 	_setup_autosave()
 	get_tree().paused = true
@@ -379,16 +376,6 @@ func position_entities():
 		if shop:
 			trader.global_position.x = shop.global_position.x + 80.0
 		_align_node_bottom_to_surface(trader as Node2D, surface_y)
-
-
-	var crate := get_node_or_null("Cratestorage")
-	if crate is Sprite2D:
-		if house:
-			crate.global_position.x = house.global_position.x + 140.0
-
-		crate.z_index = 1
-		crate.centered = true
-		_align_node_bottom_to_surface(crate as Node2D, surface_y)
 
 
 	var sign_paths := ["Signtutorial", "Shopsign", "Signprice"]
