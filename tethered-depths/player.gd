@@ -448,27 +448,27 @@ func _setup_flashlight() -> void:
 	_update_flashlight()
 
 func _create_flashlight_texture(size: int, cone_angle_deg: float) -> Texture2D:
-	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var img: Image = Image.create(size, size, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
-	var center := Vector2(float(size) * 0.5, float(size) * 0.5)
-	var max_r := float(size) * FLASHLIGHT_MAX_RADIUS_FRAC
-	var half_angle := deg_to_rad(cone_angle_deg * 0.5)
+	var center: Vector2 = Vector2(float(size) * 0.5, float(size) * 0.5)
+	var max_r: float = float(size) * FLASHLIGHT_MAX_RADIUS_FRAC
+	var half_angle: float = deg_to_rad(cone_angle_deg * 0.5)
 
 	for y in range(size):
 		for x in range(size):
-			var v := Vector2(float(x), float(y)) - center
-			var dist := v.length()
+			var v: Vector2 = Vector2(float(x), float(y)) - center
+			var dist: float = v.length()
 			if dist <= 0.001 or dist > max_r:
 				continue
 			# Forward cone points to +X (right). Nothing behind the player.
 			if v.x <= 0.0:
 				continue
-			var ang := abs(atan2(v.y, v.x))
+			var ang: float = absf(atan2(v.y, v.x))
 			if ang > half_angle:
 				continue
-			var radial := 1.0 - (dist / max_r)
-			var angular := 1.0 - (ang / half_angle)
-			var a := clamp(radial * radial * angular, 0.0, 1.0)
+			var radial: float = 1.0 - (dist / max_r)
+			var angular: float = 1.0 - (ang / half_angle)
+			var a: float = clampf(radial * radial * angular, 0.0, 1.0)
 			img.set_pixel(x, y, Color(1, 1, 1, a))
 
 	return ImageTexture.create_from_image(img)
@@ -479,12 +479,12 @@ func _update_depth_lighting() -> void:
 	if tilemap == null:
 		depth_canvas_modulate.color = Color(1, 1, 1)
 		return
-	var pos_tile := tilemap.local_to_map(tilemap.to_local(global_position))
-	var y := int(pos_tile.y)
-	var t := 0.0
+	var pos_tile: Vector2i = tilemap.local_to_map(tilemap.to_local(global_position))
+	var y: int = int(pos_tile.y)
+	var t: float = 0.0
 	if y > DEPTH_DARKEN_START_TILE_Y:
-		t = clamp(float(y - DEPTH_DARKEN_START_TILE_Y) / float(DEPTH_DARKEN_FULL_TILE_Y - DEPTH_DARKEN_START_TILE_Y), 0.0, 1.0)
-	var mult := lerp(1.0, DEPTH_DARKEN_MIN_MULT, t)
+		t = clampf(float(y - DEPTH_DARKEN_START_TILE_Y) / float(DEPTH_DARKEN_FULL_TILE_Y - DEPTH_DARKEN_START_TILE_Y), 0.0, 1.0)
+	var mult: float = lerpf(1.0, DEPTH_DARKEN_MIN_MULT, t)
 	depth_canvas_modulate.color = Color(mult, mult, mult, 1.0)
 
 func _update_flashlight() -> void:
