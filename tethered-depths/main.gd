@@ -21,13 +21,6 @@ var discovered_ores: Dictionary = {} # ore_name -> bool
 var lifetime_ore_counts: Dictionary = {} # ore_name -> int
 
 @onready var main_menu: CanvasLayer = $MainMenu
-# ... (rest of onready vars)
-
-func _ready():
-	load_game() # Load previous progress
-	process_mode = PROCESS_MODE_ALWAYS
-	# ...
-
 @onready var menu_root: Control = $MainMenu/Root
 @onready var settings_root: Control = $MainMenu/Settings
 @onready var pb_root: Control = $MainMenu/PBTab
@@ -39,6 +32,7 @@ func _ready():
 @onready var restart_btn: Button = $MainMenu/Root/PanelContainer/VBox/RestartBtn
 
 func _ready():
+	load_game() # Load previous progress
 	process_mode = PROCESS_MODE_ALWAYS
 	get_tree().paused = true
 	main_menu.visible = true
@@ -159,13 +153,13 @@ func _on_player_died():
 		start_btn.text = "Start Game"
 		restart_btn.visible = false
 		get_tree().paused = true
-		# Optionally reset the player position here or let reload_scene handle it?
-		# reload_current_scene is better for a full reset.
 		get_tree().reload_current_scene()
 	)
 
 func _on_ore_collected(ore_name: String):
 	discovered_ores[ore_name] = true
+	lifetime_ore_counts[ore_name] = lifetime_ore_counts.get(ore_name, 0) + 1
+	save_game()
 
 func _update_pb_labels():
 	var player = get_node_or_null("Player")
@@ -175,6 +169,7 @@ func _update_pb_labels():
 	
 	$MainMenu/PBTab/VBox/MoneyLabel.text = "Highest Money: $%d" % high_money
 	$MainMenu/PBTab/VBox/DaysLabel.text = "Most Days Survived: %d" % high_days
+	save_game()
 
 func _update_ore_grid():
 	var grid = $MainMenu/OreTab/VBox/Scroll/Grid
@@ -224,7 +219,7 @@ func _update_ore_grid():
 		
 		# Count
 		var count_lbl = Label.new()
-		var total = player.lifetime_ore_counts.get(nm, 0)
+		var total = lifetime_ore_counts.get(nm, 0)
 		count_lbl.text = "Collected: %d" % total
 		count_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		count_lbl.add_theme_font_size_override("font_size", 14)
@@ -245,6 +240,23 @@ func _get_ore_tex_path(nm: String) -> String:
 		"Rainbow": return "res://Stones_ores_bars/gold_ore.png"
 	return ""
 
+# Persistence logic
+func save_game():
+	var config = ConfigFile.new()
+	config.set_value("records", "high_money", high_money)
+	config.set_value("records", "high_days", high_days)
+	config.set_value("collection", "discovered_ores", discovered_ores)
+	config.set_value("collection", "lifetime_ore_counts", lifetime_ore_counts)
+	config.save(SAVE_PATH)
+
+func load_game():
+	var config = ConfigFile.new()
+	var err = config.load(SAVE_PATH)
+	if err == OK:
+		high_money = config.get_value("records", "high_money", 0)
+		high_days = config.get_value("records", "high_days", 1)
+		discovered_ores = config.get_value("collection", "discovered_ores", {})
+		lifetime_ore_counts = config.get_value("collection", "lifetime_ore_counts", {})
 
 func generate_world():
 	# World generation
