@@ -13,12 +13,21 @@ const SURFACE_Y = 0
 
 var is_game_started: bool = false
 
-# PB Tracking
+# PB Tracking & Persistence
+const SAVE_PATH = "user://savegame.cfg"
 var high_money: int = 0
 var high_days: int = 0
 var discovered_ores: Dictionary = {} # ore_name -> bool
+var lifetime_ore_counts: Dictionary = {} # ore_name -> int
 
 @onready var main_menu: CanvasLayer = $MainMenu
+# ... (rest of onready vars)
+
+func _ready():
+	load_game() # Load previous progress
+	process_mode = PROCESS_MODE_ALWAYS
+	# ...
+
 @onready var menu_root: Control = $MainMenu/Root
 @onready var settings_root: Control = $MainMenu/Settings
 @onready var pb_root: Control = $MainMenu/PBTab
@@ -176,16 +185,65 @@ func _update_ore_grid():
 	if not player: return
 	
 	for ore in player.ORE_TABLE:
-		var nm = ore[0]
-		if nm.begins_with("Mutated "): continue
+		var nm: String = ore[0]
 		
-		var lbl = Label.new()
-		lbl.text = nm
-		if discovered_ores.has(nm):
-			lbl.modulate = ore[3]
+		var container = VBoxContainer.new()
+		container.custom_minimum_size = Vector2(180, 200)
+		
+		var discovered = discovered_ores.has(nm)
+		
+		# Image
+		var rect = TextureRect.new()
+		var tex_path = _get_ore_tex_path(nm)
+		if discovered and tex_path != "":
+			rect.texture = load(tex_path)
+			# Apply purple tint to mutated versions
+			if nm.begins_with("Mutated "):
+				rect.modulate = Color(0.8, 0.2, 0.95)
+			elif nm == "Rainbow":
+				rect.modulate = Color(1, 0.5, 1) # Specific rainbow tint
 		else:
-			lbl.modulate = Color(0, 0, 0)
-		grid.add_child(lbl)
+			# Show a placeholder or darkened version
+			rect.texture = load("res://icon.svg")
+			rect.modulate = Color(0, 0, 0, 0.8)
+		
+		rect.custom_minimum_size = Vector2(100, 100)
+		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		container.add_child(rect)
+		
+		# Name
+		var name_lbl = Label.new()
+		name_lbl.text = nm if discovered else "???"
+		name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		if discovered:
+			name_lbl.modulate = ore[3]
+		else:
+			name_lbl.modulate = Color.GRAY
+		container.add_child(name_lbl)
+		
+		# Count
+		var count_lbl = Label.new()
+		var total = player.lifetime_ore_counts.get(nm, 0)
+		count_lbl.text = "Collected: %d" % total
+		count_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		count_lbl.add_theme_font_size_override("font_size", 14)
+		container.add_child(count_lbl)
+		
+		grid.add_child(container)
+
+func _get_ore_tex_path(nm: String) -> String:
+	var base_name = nm
+	if nm.begins_with("Mutated "):
+		base_name = nm.replace("Mutated ", "")
+	
+	match base_name:
+		"Stone": return "res://Stones_ores_bars/stone_1.png"
+		"Copper": return "res://Stones_ores_bars/copper_ore.png"
+		"Silver": return "res://Stones_ores_bars/silver_ore.png"
+		"Gold": return "res://Stones_ores_bars/gold_ore.png"
+		"Rainbow": return "res://Stones_ores_bars/gold_ore.png"
+	return ""
 
 
 func generate_world():

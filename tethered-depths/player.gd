@@ -250,7 +250,10 @@ const ORE_TABLE = [
 
 # Per-ore inventory counts
 var ore_counts: Dictionary = {}
+# Lifetime collection counts
+var lifetime_ore_counts: Dictionary = {}
 # HUD label references keyed by ore name
+
 var ore_labels: Dictionary = {}
 
 # --- Inventory (opened with the `inventory` action, default E) ---
@@ -368,6 +371,8 @@ func _ready():
 			if i == 0:
 				sb.border_color = Color(1, 0.9, 0) # Keep selection highlight for slot 1
 				sb.bg_color = Color(0.3, 0.3, 0.3, 0.9)
+				hotbar_item_labels.append(null)
+				hotbar_item_count_labels.append(null)
 
 			else:
 				var item_lbl := Label.new()
@@ -1385,7 +1390,11 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 		var amt: int      = ore_data["amount"]
 		if not ore_counts.has(nm):
 			ore_counts[nm] = 0
+		if not lifetime_ore_counts.has(nm):
+			lifetime_ore_counts[nm] = 0
+		
 		ore_counts[nm] += amt
+		lifetime_ore_counts[nm] += amt
 		current_cargo   += amt
 		daily_ores_collected += amt
 		ore_collected.emit(base_name)
