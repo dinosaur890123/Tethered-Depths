@@ -20,8 +20,21 @@
 [ext_resource type="Texture2D" uid="uid://1odjg1g6j6s7" path="res://shopsign.png" id="18_074og"]
 [ext_resource type="Texture2D" uid="uid://bu6iu68kj38h0" path="res://cratestorage.png" id="18_82xsv"]
 [ext_resource type="Texture2D" uid="uid://yfchjk8l565l" path="res://rockwallbackground2.png" id="20_82xsv"]
+[ext_resource type="Texture2D" uid="uid://cv43mjh5vpbko" path="res://subterralogo.png" id="21_logo"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_menu"]
+bg_color = Color(0.1, 0.1, 0.1, 0.85)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_left = 10
+corner_radius_bottom_right = 10
+expand_margin_left = 20.0
+expand_margin_top = 20.0
+expand_margin_right = 20.0
+expand_margin_bottom = 20.0
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_0xm2m"]
+
 resource_name = "Dirt"
 texture = ExtResource("2_h2yge")
 texture_region_size = Vector2i(128, 128)
@@ -84,7 +97,112 @@ metadata/_edit_lock_ = true
 position = Vector2(580, 202.286)
 
 [node name="House" parent="." unique_id=759281187 instance=ExtResource("15_house")]
-position = Vector2(-400, 202.286)
+position = Vector2(-300, 202.286)
+
+[node name="MainMenu" type="CanvasLayer" parent="." unique_id=987654321]
+layer = 100
+
+[node name="Dimmer" type="ColorRect" parent="MainMenu"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.65)
+
+[node name="LogoTexture" type="TextureRect" parent="MainMenu"]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -400.0
+offset_top = 20.0
+offset_right = 400.0
+offset_bottom = 320.0
+grow_horizontal = 2
+texture = ExtResource("21_logo")
+expand_mode = 1
+stretch_mode = 5
+
+
+[node name="Root" type="Control" parent="MainMenu"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="MainMenu/Root"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_menu")
+
+[node name="VBox" type="VBoxContainer" parent="MainMenu/Root/PanelContainer"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="StartBtn" type="Button" parent="MainMenu/Root/PanelContainer/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Start Game"
+
+[node name="RestartBtn" type="Button" parent="MainMenu/Root/PanelContainer/VBox"]
+visible = false
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Restart Game"
+
+[node name="SettingsBtn" type="Button" parent="MainMenu/Root/PanelContainer/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Settings"
+
+[node name="ExitBtn" type="Button" parent="MainMenu/Root/PanelContainer/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Exit"
+
+
+[node name="Settings" type="Control" parent="MainMenu"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="MainMenu/Settings"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = -60.0
+offset_right = 150.0
+offset_bottom = 60.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 15
+
+[node name="VolumeLabel" type="Label" parent="MainMenu/Settings/VBox"]
+layout_mode = 2
+text = "Music Volume"
+horizontal_alignment = 1
+
+[node name="VolumeSlider" type="HSlider" parent="MainMenu/Settings/VBox"]
+layout_mode = 2
+value = 70.0
+
+[node name="BackBtn" type="Button" parent="MainMenu/Settings/VBox"]
+layout_mode = 2
+text = "Back"
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=720617696]
 
