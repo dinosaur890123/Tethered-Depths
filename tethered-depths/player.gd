@@ -198,8 +198,22 @@ var inventory_label: RichTextLabel
 var inventory_open: bool = false
 var is_in_menu: bool = false # Used to block player input when shop/trader is open
 
+func _is_gameplay_enabled() -> bool:
+	# Block gameplay while the main menu is up (tree paused) and until Start is clicked.
+	# Note: `Main` sets `process_mode = ALWAYS`, so we must explicitly opt out.
+	if get_tree() == null:
+		return true
+	if get_tree().paused:
+		return false
+	var main := get_parent()
+	if main != null and ("is_game_started" in main):
+		return bool(main.is_game_started)
+	return true
+
 func _ready():
-# ... rest of _ready (no change to the beginning)
+	# Ensure we pause correctly even though the scene root (`Main`) runs while paused.
+	process_mode = PROCESS_MODE_PAUSABLE
+	# ... rest of _ready (no change to the beginning)
 	base_mine_time = float(PICKAXE_UPGRADES[pickaxe_level]["mine_time"])
 	recompute_mine_time()
 	spawn_position = global_position
@@ -583,7 +597,8 @@ func recompute_mine_time() -> void:
 
 
 func _process(delta: float) -> void:
-	if is_end_of_day or get_tree().paused: return
+	if is_end_of_day or not _is_gameplay_enabled():
+		return
 	_update_depth_lighting()
 	game_minutes += delta * 5.0  # 1 real second = 5 game minutes
 
@@ -594,7 +609,14 @@ func _process(delta: float) -> void:
 		clock_label.text = _format_game_time(game_minutes)
 
 func _physics_process(delta):
-	if is_end_of_day: return
+	if is_end_of_day or not _is_gameplay_enabled():
+		is_walking = false
+		if is_mining:
+			cancel_mining()
+		velocity = Vector2.ZERO
+		_update_animation()
+		_update_walking_sfx()
+		return
 	if not tilemap: return
 	if is_in_menu or inventory_open:
 		is_walking = false
@@ -1044,6 +1066,9 @@ func _input(event: InputEvent) -> void:
 			_close_end_of_day()
 		return
 
+	if not _is_gameplay_enabled():
+		return
+
 	# Flashlight toggle (Q)
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_Q:
 		flashlight_on = not flashlight_on
@@ -1075,7 +1100,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if is_end_of_day or is_in_menu or inventory_open:
+	if is_end_of_day or is_in_menu or inventory_open or not _is_gameplay_enabled():
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
 		_use_selected_hotbar_item()

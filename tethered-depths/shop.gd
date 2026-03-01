@@ -15,10 +15,11 @@ var player_nearby: Node = null
 @export var foundation_depth_tiles: int = 2
 
 # Developer menu unlock (press F 10x near shop)
+@export var enable_dev_menu: bool = false
 const DEV_TAP_TARGET: int = 10
 var _dev_tap_count: int = 0
 
-enum ShopState { IDLE, PROMPT, MAIN_MENU, SELL_MENU, BUY_MENU, UPGRADE_MENU, CONFIRM_BUY, DEV_MENU }
+enum ShopState { IDLE, PROMPT, MAIN_MENU, SELL_MENU, BUY_MENU, CONSUMABLES_MENU, UPGRADE_MENU, CONFIRM_BUY, DEV_MENU }
 var current_state = ShopState.IDLE
 var pending_upgrade_index: int = -1
 
@@ -178,7 +179,7 @@ func _input(event):
 		get_viewport().set_input_as_handled()
 
 	# Secret dev menu: tap F 10 times while near the shop.
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
+	if enable_dev_menu and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
 		if current_state != ShopState.DEV_MENU:
 			_dev_tap_count += 1
 			if _dev_tap_count >= DEV_TAP_TARGET:
@@ -190,6 +191,10 @@ func _input(event):
 		
 	if event is InputEventKey and event.pressed and not event.echo:
 		if current_state == ShopState.DEV_MENU:
+			if not enable_dev_menu:
+				current_state = ShopState.MAIN_MENU
+				feedback_text = ""
+				return
 			if event.keycode == KEY_1:
 				_dev_add_money(1000)
 			elif event.keycode == KEY_2:
@@ -219,6 +224,9 @@ func _input(event):
 			elif event.keycode == KEY_3:
 				current_state = ShopState.UPGRADE_MENU
 				feedback_text = ""
+			elif event.keycode == KEY_4:
+				current_state = ShopState.CONSUMABLES_MENU
+				feedback_text = ""
 		elif current_state == ShopState.BUY_MENU:
 			if event.keycode == KEY_1:
 				_start_confirm_buy(1)
@@ -228,6 +236,16 @@ func _input(event):
 				_start_confirm_buy(3)
 			elif event.keycode == KEY_4:
 				_start_confirm_buy(4)
+		elif current_state == ShopState.CONSUMABLES_MENU:
+			if event.keycode == KEY_1:
+				_buy_potion(POTION_OXYGEN_ID)
+				_last_render_state = -999
+			elif event.keycode == KEY_2:
+				_buy_potion(POTION_SPEED_ID)
+				_last_render_state = -999
+			elif event.keycode == KEY_3:
+				_buy_potion(POTION_SURFACE_ID)
+				_last_render_state = -999
 		elif current_state == ShopState.UPGRADE_MENU:
 			if event.keycode == KEY_1:
 				_buy_stat_upgrade("cargo")
@@ -252,7 +270,7 @@ func _input(event):
 				if player_nearby: player_nearby.is_in_menu = false
 				feedback_text = ""
 				return
-			if current_state in [ShopState.SELL_MENU, ShopState.BUY_MENU, ShopState.UPGRADE_MENU]:
+			if current_state in [ShopState.SELL_MENU, ShopState.BUY_MENU, ShopState.CONSUMABLES_MENU, ShopState.UPGRADE_MENU]:
 				current_state = ShopState.MAIN_MENU
 				feedback_text = ""
 				return
@@ -309,7 +327,7 @@ func _process(delta):
 
 
 	# Screen-space UI for real buttons.
-	var show_ui: bool = current_state in [ShopState.MAIN_MENU, ShopState.SELL_MENU, ShopState.BUY_MENU, ShopState.UPGRADE_MENU, ShopState.CONFIRM_BUY]
+	var show_ui: bool = current_state in [ShopState.MAIN_MENU, ShopState.SELL_MENU, ShopState.BUY_MENU, ShopState.CONSUMABLES_MENU, ShopState.UPGRADE_MENU, ShopState.CONFIRM_BUY]
 	ui_layer.visible = show_ui
 	prompt_label.visible = not show_ui
 
@@ -378,6 +396,7 @@ func _render_ui() -> void:
 			_add_button("Sell Ores", func(): current_state = ShopState.SELL_MENU)
 			_add_button("Buy Pickaxes", func(): current_state = ShopState.BUY_MENU)
 			_add_button("Upgrades", func(): current_state = ShopState.UPGRADE_MENU)
+			_add_button("Consumables", func(): current_state = ShopState.CONSUMABLES_MENU)
 			_add_button("Close", func(): 
 				current_state = ShopState.PROMPT
 				if player_nearby: player_nearby.is_in_menu = false
@@ -418,10 +437,13 @@ func _render_ui() -> void:
 				if owned:
 					label += "  [Owned]"
 				_add_button(label, func(): _start_confirm_buy(idx); _last_render_state = -999, owned or (not can_afford))
+			_add_button("Back", func(): current_state = ShopState.MAIN_MENU)
 
-			# Potions
-			_add_button("Oxygen Potion (+60 oxygen)  (%s)" % _money_str(POTION_OXYGEN_PRICE), func(): _buy_potion(POTION_OXYGEN_ID); _last_render_state = -999, int(player_nearby.money) < POTION_OXYGEN_PRICE)
-			_add_button("Speed Potion (+%d%% for %ds)  (%s)" % [int((1.5 - 1.0) * 100.0), 10, _money_str(POTION_SPEED_PRICE)], func(): _buy_potion(POTION_SPEED_ID); _last_render_state = -999, int(player_nearby.money) < POTION_SPEED_PRICE)
+		ShopState.CONSUMABLES_MENU:
+			ui_body.text = "[center][b]CONSUMABLES[/b][/center]\n[center][color=gray]Click an item to buy[/color][/center]"
+			_add_button("1: Oxygen Potion (+60 oxygen)  (%s)" % _money_str(POTION_OXYGEN_PRICE), func(): _buy_potion(POTION_OXYGEN_ID); _last_render_state = -999, int(player_nearby.money) < POTION_OXYGEN_PRICE)
+			_add_button("2: Speed Potion (+%d%% for %ds)  (%s)" % [int((1.5 - 1.0) * 100.0), 10, _money_str(POTION_SPEED_PRICE)], func(): _buy_potion(POTION_SPEED_ID); _last_render_state = -999, int(player_nearby.money) < POTION_SPEED_PRICE)
+			_add_button("3: Surface Potion (Return to surface)  (%s)" % _money_str(POTION_SURFACE_PRICE), func(): _buy_potion(POTION_SURFACE_ID); _last_render_state = -999, int(player_nearby.money) < POTION_SURFACE_PRICE)
 			_add_button("Back", func(): current_state = ShopState.MAIN_MENU)
 
 		ShopState.UPGRADE_MENU:
@@ -439,7 +461,6 @@ func _render_ui() -> void:
 			_add_button("Oxygen Tank (+%d)  %s  (Lv %d/%d)" % [int(OXYGEN_UPGRADE_STEP), _money_str(oxy_price), oxy_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("oxygen"); _last_render_state = -999, oxy_lv >= MAX_STAT_UPGRADE_LEVEL)
 			_add_button("Boots (+%d speed)  %s  (Lv %d/%d)" % [int(SPEED_UPGRADE_STEP), _money_str(spd_price), spd_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("speed"); _last_render_state = -999, spd_lv >= MAX_STAT_UPGRADE_LEVEL)
 			_add_button("Drill Motor (-%d%% mine time)  %s  (Lv %d/%d)" % [MINE_SPEED_UPGRADE_STEP_PCT, _money_str(mine_price), mine_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("mine"); _last_render_state = -999, mine_lv >= MAX_STAT_UPGRADE_LEVEL)
-			_add_button("Surface Potion (%s)", func(): _buy_potion(POTION_SURFACE_ID); _last_render_state = -999, int(player_nearby.money) < POTION_SURFACE_PRICE)
 			_add_button("Back", func(): current_state = ShopState.MAIN_MENU)
 
 
@@ -469,6 +490,8 @@ func _render_ui() -> void:
 
 
 func _render_dev_menu_label() -> void:
+	if not enable_dev_menu:
+		return
 	if current_state != ShopState.DEV_MENU:
 		return
 	_set_pickaxes_visible(false)
@@ -791,7 +814,8 @@ func _sell_ores():
 	if player_nearby.money_label:
 		player_nearby.money_label.text = "$" + str(player_nearby.money)
 	player_nearby.current_cargo = 0
-	print("Sold ", total_ores_sold, " ores for $", total_earnings)
+	if OS.is_debug_build():
+		print("Sold ", total_ores_sold, " ores for $", total_earnings)
 	
 	feedback_text = "Sold for $" + str(total_earnings)
 	feedback_timer = 2.0

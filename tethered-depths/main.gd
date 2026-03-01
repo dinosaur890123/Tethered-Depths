@@ -191,7 +191,8 @@ func _update_ore_grid():
 func generate_world():
 	# World generation
 	tilemap.clear()
-	print("Generating world...")
+	if OS.is_debug_build():
+		print("Generating world...")
 	var half_w: int = WIDTH >> 1
 	var skip_tiles := {}
 	for x in range(-half_w, half_w):
