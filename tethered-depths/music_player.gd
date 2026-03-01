@@ -5,7 +5,9 @@ const MUSIC_PATH: String = "res://music.mp3"
 var _player: AudioStreamPlayer
 
 func _ready() -> void:
+	process_mode = PROCESS_MODE_ALWAYS
 	_player = AudioStreamPlayer.new()
+	_player.process_mode = PROCESS_MODE_ALWAYS
 	add_child(_player)
 
 	if ResourceLoader.exists(MUSIC_PATH):
