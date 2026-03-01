@@ -200,9 +200,17 @@ func _spawn_block_break_effect(tile_center_global: Vector2, source_id: int) -> v
 		return
 
 	var root := Node2D.new()
-	root.global_position = tile_center_global
 	root.z_index = 10
-	get_parent().add_child(root)
+	var parent_node := get_parent()
+	if parent_node != null:
+		parent_node.add_child(root)
+		if parent_node is Node2D:
+			root.position = (parent_node as Node2D).to_local(tile_center_global)
+		else:
+			root.global_position = tile_center_global
+	else:
+		# Fallback: still place it, though it won't be visible without being in-tree.
+		root.global_position = tile_center_global
 
 	var tex_size := tex.get_size()
 	if tex_size.x <= 0 or tex_size.y <= 0:

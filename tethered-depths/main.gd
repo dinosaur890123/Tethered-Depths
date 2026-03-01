@@ -32,7 +32,6 @@ var lifetime_ore_counts: Dictionary = {} # ore_name -> int
 @onready var restart_btn: Button = $MainMenu/Root/PanelContainer/VBox/RestartBtn
 
 func _ready():
-	load_game()
 	process_mode = PROCESS_MODE_ALWAYS
 	get_tree().paused = true
 	main_menu.visible = true
