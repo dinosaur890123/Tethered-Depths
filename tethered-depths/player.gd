@@ -78,7 +78,9 @@ var daily_objectives: Array[Dictionary] = []
 var daily_max_depth: int = 0
 var daily_mutated_collected: int = 0
 var daily_ore_collected: Dictionary = {} # base ore name -> count (non-mutated)
+var daily_objectives_rewarded: bool = false
 var objectives_label: RichTextLabel
+var objectives_toggle_btn: Button
 var _last_objectives_hud_text: String = "__init__"
 
 # --- Inventory & Storage ---
@@ -257,11 +259,11 @@ const ORE_TABLE = [
 	["Copper", 9, 15,  Color(0.90, 0.50, 0.15)],
 	["Silver", 22, 50,  Color(0.80, 0.85, 0.95)],
 	["Gold",   45, 200, Color(1.00, 0.85, 0.10)],
-	["Rainbow", 180, 2500, Color(1.00, 1.00, 1.00)],
 	["Mutated Stone",  MUTATED_DROP_DENOM,  8,   Color(0.80, 0.20, 0.95)],
 	["Mutated Copper", MUTATED_DROP_DENOM,  60,  Color(0.80, 0.20, 0.95)],
 	["Mutated Silver", MUTATED_DROP_DENOM,  200, Color(0.80, 0.20, 0.95)],
 	["Mutated Gold",   MUTATED_DROP_DENOM,  800, Color(0.80, 0.20, 0.95)],
+	["Rainbow", 180, 2500, Color(1.00, 1.00, 1.00)],
 ]
 
 # Per-ore inventory counts
@@ -326,17 +328,6 @@ func _ready():
 			clock_label.position = Vector2(1060.0, 35.0)
 			clock_label.add_theme_font_size_override("font_size", 18)
 
-			# Daily objectives (top-right under the clock)
-			objectives_label = RichTextLabel.new()
-			objectives_label.bbcode_enabled = true
-			objectives_label.fit_content = true
-			objectives_label.scroll_active = false
-			objectives_label.mouse_filter = Control.MouseFilter.MOUSE_FILTER_IGNORE
-			objectives_label.position = Vector2(1060.0, 55.0)
-			objectives_label.size = Vector2(210, 110)
-			objectives_label.add_theme_font_size_override("normal_font_size", 14)
-			hud.add_child(objectives_label)
-
 		# Move Minimap down
 		var minimap_panel = hud.get_node_or_null("MinimapPanel") as Panel
 		if minimap_panel:
@@ -348,6 +339,46 @@ func _ready():
 			cargo_label.add_theme_font_size_override("font_size", 18)
 			cargo_label.position = Vector2(minimap_panel.position.x, minimap_panel.position.y + minimap_panel.size.y + 5.0)
 			hud.add_child(cargo_label)
+
+			# Daily objectives toggle button (under minimap)
+			var obj_x: float = minimap_panel.position.x
+			var obj_y: float = minimap_panel.position.y + minimap_panel.size.y + 32.0
+			var obj_w: float = minimap_panel.size.x if minimap_panel.size.x > 0.0 else float(MINIMAP_W) + 10.0
+			objectives_toggle_btn = Button.new()
+			objectives_toggle_btn.text = "Daily Tasks ▼"
+			objectives_toggle_btn.position = Vector2(obj_x, obj_y)
+			objectives_toggle_btn.size = Vector2(obj_w, 28)
+			objectives_toggle_btn.add_theme_font_size_override("font_size", 14)
+			var obj_btn_sb := StyleBoxFlat.new()
+			obj_btn_sb.bg_color = Color(0.08, 0.08, 0.14, 0.85)
+			obj_btn_sb.border_width_left = 1
+			obj_btn_sb.border_width_top = 1
+			obj_btn_sb.border_width_right = 1
+			obj_btn_sb.border_width_bottom = 1
+			obj_btn_sb.border_color = Color(0.35, 0.35, 0.5, 1.0)
+			obj_btn_sb.corner_radius_top_left = 6
+			obj_btn_sb.corner_radius_top_right = 6
+			obj_btn_sb.corner_radius_bottom_left = 6
+			obj_btn_sb.corner_radius_bottom_right = 6
+			objectives_toggle_btn.add_theme_stylebox_override("normal", obj_btn_sb)
+			var obj_btn_hover := obj_btn_sb.duplicate() as StyleBoxFlat
+			obj_btn_hover.bg_color = Color(0.14, 0.14, 0.22, 0.9)
+			objectives_toggle_btn.add_theme_stylebox_override("hover", obj_btn_hover)
+			objectives_toggle_btn.add_theme_stylebox_override("pressed", obj_btn_sb)
+			objectives_toggle_btn.pressed.connect(_toggle_objectives_panel)
+			hud.add_child(objectives_toggle_btn)
+
+			# Daily objectives panel (hidden by default, revealed by button)
+			objectives_label = RichTextLabel.new()
+			objectives_label.bbcode_enabled = true
+			objectives_label.fit_content = true
+			objectives_label.scroll_active = false
+			objectives_label.mouse_filter = Control.MouseFilter.MOUSE_FILTER_IGNORE
+			objectives_label.position = Vector2(obj_x, obj_y + 30.0)
+			objectives_label.size = Vector2(obj_w, 110)
+			objectives_label.add_theme_font_size_override("normal_font_size", 14)
+			objectives_label.visible = false
+			hud.add_child(objectives_label)
 
 		# --- Hotbar (Minecraft-style) ---
 		var hotbar_bg = Panel.new()
@@ -1059,6 +1090,7 @@ func _generate_daily_objectives() -> void:
 	daily_max_depth = 0
 	daily_mutated_collected = 0
 	daily_ore_collected.clear()
+	daily_objectives_rewarded = false
 
 	# Difficulty should scale with player upgrades so objectives stay possible.
 	# Day count still nudges difficulty upward, but upgrades are the main driver.
@@ -1170,20 +1202,65 @@ func _update_daily_objectives_hud() -> void:
 		return
 
 	var lines: Array[String] = []
-	lines.append("[center][color=gray]Objectives[/color][/center]")
+	lines.append("[center][b][color=gray]Objectives[/color][/b][/center]")
 	for obj in daily_objectives:
 		var ok := _objective_is_complete(obj)
 		var color := "green" if ok else "white"
 		var line := _objective_line_text(obj)
 		if line == "":
 			continue
-		lines.append("[center][color=%s]%s[/color][/center]" % [color, line])
+		lines.append("[center][b][color=%s]%s[/color][/b][/center]" % [color, line])
+
+	# Check if all objectives just became complete and give reward once
+	if not daily_objectives_rewarded and not daily_objectives.is_empty():
+		var all_done := true
+		for obj in daily_objectives:
+			if not _objective_is_complete(obj):
+				all_done = false
+				break
+		if all_done:
+			daily_objectives_rewarded = true
+			var reward := _compute_daily_reward()
+			money += reward
+			if money_label:
+				money_label.text = "$" + str(money)
+			_spawn_floating_text("TASKS COMPLETE! +$%d" % reward, global_position + Vector2(0, -80), Color(1.0, 0.9, 0.1))
+			if objectives_toggle_btn:
+				objectives_toggle_btn.text = "✓ Daily Tasks"
 
 	var text := "\n".join(lines)
 	if text == _last_objectives_hud_text:
 		return
 	_last_objectives_hud_text = text
 	objectives_label.text = text
+
+func _compute_daily_reward() -> int:
+	var total := 0
+	for obj in daily_objectives:
+		var t := String(obj.get("type", ""))
+		match t:
+			"reach_depth":
+				total += int(obj.get("target", 0)) * 3
+			"collect_mutated":
+				total += int(obj.get("target", 0)) * 300
+			"collect_ore":
+				var ore_name := String(obj.get("ore", ""))
+				var target := int(obj.get("target", 0))
+				var unit := 0
+				match ore_name:
+					"Stone":  unit = 20
+					"Copper": unit = 60
+					"Silver": unit = 200
+					"Gold":   unit = 600
+					_:        unit = 30
+				total += target * unit
+	return total
+
+func _toggle_objectives_panel() -> void:
+	if objectives_label == null or objectives_toggle_btn == null:
+		return
+	objectives_label.visible = not objectives_label.visible
+	objectives_toggle_btn.text = "Daily Tasks ▲" if objectives_label.visible else "Daily Tasks ▼"
 
 func finish_mining():
 	if not tilemap: return
