@@ -20,6 +20,8 @@ func _ready():
 func _input(event):
 	if not player_nearby:
 		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
+		get_viewport().set_input_as_handled()
 		
 	if event is InputEventKey and event.pressed and not event.echo:
 		if current_state == TraderState.PROMPT:

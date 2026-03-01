@@ -72,7 +72,20 @@ var times_died: int = 0
 # --- Inventory & Storage ---
 var selected_slot: int = 0
 var hotbar_slots: Array[Panel] = []
-var hotbar_items: Array = [null, null, null, null, null, null, null, null, null]
+var hotbar_item_ids: Array[String] = []
+var hotbar_item_counts: Array[int] = []
+var hotbar_item_labels: Array[Label] = []
+var hotbar_item_count_labels: Array[Label] = []
+const HOTBAR_SLOT_COUNT: int = 9
+
+# Hotbar consumables
+const ITEM_POTION_OXYGEN: String = "potion_oxygen"
+const ITEM_POTION_SPEED: String = "potion_speed"
+const OXYGEN_POTION_RESTORE: float = 60.0
+const SPEED_POTION_MULT: float = 1.5
+const SPEED_POTION_DURATION: float = 10.0
+var speed_potion_timer: float = 0.0
+var speed_potion_mult: float = 1.0
 var cargo_label: Label
 
 var grapple_line: Line2D
@@ -251,7 +264,11 @@ func _ready():
 		hotbar_container.add_theme_constant_override("separation", 8)
 		hotbar_bg.add_child(hotbar_container)
 		
-		for i in range(9):
+		hotbar_item_ids.clear()
+		hotbar_item_counts.clear()
+		hotbar_item_labels.clear()
+		hotbar_item_count_labels.clear()
+		for i in range(HOTBAR_SLOT_COUNT):
 			var slot = Panel.new()
 			slot.custom_minimum_size = Vector2(50, 50)
 			var sb = StyleBoxFlat.new()
@@ -276,7 +293,41 @@ func _ready():
 				slot.add_child(icon)
 				sb.border_color = Color(1, 0.9, 0) # Gold highlight
 				sb.bg_color = Color(0.3, 0.3, 0.3, 0.9)
+				hotbar_item_labels.append(null)
+				hotbar_item_count_labels.append(null)
 				
+			else:
+				var item_lbl := Label.new()
+				item_lbl.name = "ItemLabel"
+				item_lbl.text = ""
+				item_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				item_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+				item_lbl.set_anchors_preset(Control.LayoutPreset.PRESET_FULL_RECT)
+				item_lbl.add_theme_font_size_override("font_size", 14)
+				item_lbl.modulate = Color(1.0, 1.0, 1.0, 0.95)
+				slot.add_child(item_lbl)
+				hotbar_item_labels.append(item_lbl)
+
+				var count_lbl := Label.new()
+				count_lbl.name = "CountLabel"
+				count_lbl.text = ""
+				count_lbl.add_theme_font_size_override("font_size", 12)
+				count_lbl.modulate = Color(1.0, 1.0, 1.0, 0.95)
+				count_lbl.anchor_left = 1.0
+				count_lbl.anchor_right = 1.0
+				count_lbl.anchor_top = 1.0
+				count_lbl.anchor_bottom = 1.0
+				count_lbl.offset_right = -4.0
+				count_lbl.offset_left = -22.0
+				count_lbl.offset_bottom = -2.0
+				count_lbl.offset_top = -16.0
+				count_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+				slot.add_child(count_lbl)
+				hotbar_item_count_labels.append(count_lbl)
+
+			hotbar_item_ids.append("")
+			hotbar_item_counts.append(0)
+			
 			hotbar_container.add_child(slot)
 			hotbar_slots.append(slot)
 
@@ -576,6 +627,12 @@ func _physics_process(delta):
 	if current_battery <= 0:
 		die_and_respawn()
 
+	# Timed speed potion
+	if speed_potion_timer > 0.0:
+		speed_potion_timer = max(0.0, speed_potion_timer - delta)
+		if speed_potion_timer == 0.0:
+			speed_potion_mult = 1.0
+
 	# 2. Horizontal input
 	var h = Input.get_axis("Left", "Right")
 	is_walking = h != 0
@@ -617,7 +674,7 @@ func _physics_process(delta):
 		velocity.y = -jump_speed
 
 	# 5. Velocity
-	velocity.x = h * speed
+	velocity.x = h * speed * speed_potion_mult
 	if is_wall_climbing:
 		velocity.y = -climb_speed
 
@@ -1011,6 +1068,13 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		if event.keycode >= KEY_1 and event.keycode <= KEY_9:
 			_select_hotbar_slot(event.keycode - KEY_1)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if is_end_of_day or is_in_menu or inventory_open:
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
+		_use_selected_hotbar_item()
 
 
 	if event is InputEventMouseButton and event.pressed:
@@ -1422,12 +1486,135 @@ func _select_hotbar_slot(index: int):
 	# Update Selected Item Name
 	var label = hud.get_node_or_null("SelectedItemLabel") as Label
 	if label:
-		var item = hotbar_items[selected_slot]
-		if item != null:
-			label.text = item["name"]
+		if selected_slot == 0:
+			label.text = PICKAXE_UPGRADES[pickaxe_level]["name"]
 		else:
-			label.text = "Empty Slot"
+			var item_id := ""
+			var count := 0
+			if selected_slot >= 0 and selected_slot < hotbar_item_ids.size():
+				item_id = hotbar_item_ids[selected_slot]
+				count = int(hotbar_item_counts[selected_slot])
+			if item_id != "" and count > 0:
+				label.text = "%s x%d" % [_hotbar_item_display_name(item_id), count]
+			else:
+				label.text = "Empty Slot"
 
+
+func _hotbar_item_display_name(item_id: String) -> String:
+	match item_id:
+		ITEM_POTION_OXYGEN:
+			return "Oxygen Potion"
+		ITEM_POTION_SPEED:
+			return "Speed Potion"
+		_:
+			return "Item"
+
+
+func _hotbar_item_short_label(item_id: String) -> String:
+	match item_id:
+		ITEM_POTION_OXYGEN:
+			return "O2"
+		ITEM_POTION_SPEED:
+			return "SPD"
+		_:
+			return "?"
+
+
+func _update_hotbar_slot_ui(slot_index: int) -> void:
+	if slot_index <= 0:
+		return
+	if slot_index >= hotbar_item_ids.size() or slot_index >= hotbar_item_labels.size() or slot_index >= hotbar_item_count_labels.size():
+		return
+	var item_lbl := hotbar_item_labels[slot_index]
+	var count_lbl := hotbar_item_count_labels[slot_index]
+	if item_lbl == null or count_lbl == null:
+		return
+	var item_id := hotbar_item_ids[slot_index]
+	var count := int(hotbar_item_counts[slot_index])
+	if item_id == "" or count <= 0:
+		item_lbl.text = ""
+		count_lbl.text = ""
+		return
+	item_lbl.text = _hotbar_item_short_label(item_id)
+	count_lbl.text = str(count) if count > 1 else ""
+
+
+func _refresh_selected_item_label() -> void:
+	if hud == null:
+		return
+	var label := hud.get_node_or_null("SelectedItemLabel") as Label
+	if label == null:
+		return
+	if selected_slot == 0:
+		label.text = PICKAXE_UPGRADES[pickaxe_level]["name"]
+		return
+	if selected_slot < 0 or selected_slot >= hotbar_item_ids.size():
+		label.text = "Empty Slot"
+		return
+	var item_id := hotbar_item_ids[selected_slot]
+	var count := int(hotbar_item_counts[selected_slot])
+	if item_id != "" and count > 0:
+		label.text = "%s x%d" % [_hotbar_item_display_name(item_id), count]
+	else:
+		label.text = "Empty Slot"
+
+
+func add_hotbar_item(item_id: String, amount: int = 1) -> bool:
+	if amount <= 0:
+		return false
+	# Stack first.
+	for i in range(1, min(HOTBAR_SLOT_COUNT, hotbar_item_ids.size())):
+		if hotbar_item_ids[i] == item_id and int(hotbar_item_counts[i]) > 0:
+			hotbar_item_counts[i] = int(hotbar_item_counts[i]) + amount
+			_update_hotbar_slot_ui(i)
+			_refresh_selected_item_label()
+			return true
+	# Otherwise find an empty slot.
+	for i in range(1, min(HOTBAR_SLOT_COUNT, hotbar_item_ids.size())):
+		if hotbar_item_ids[i] == "" or int(hotbar_item_counts[i]) <= 0:
+			hotbar_item_ids[i] = item_id
+			hotbar_item_counts[i] = amount
+			_update_hotbar_slot_ui(i)
+			_refresh_selected_item_label()
+			return true
+	return false
+
+
+func _use_selected_hotbar_item() -> void:
+	if selected_slot <= 0:
+		return
+	if selected_slot >= hotbar_item_ids.size():
+		return
+	var item_id := hotbar_item_ids[selected_slot]
+	var count := int(hotbar_item_counts[selected_slot])
+	if item_id == "" or count <= 0:
+		return
+
+	var used := false
+	match item_id:
+		ITEM_POTION_OXYGEN:
+			current_battery = min(max_battery, current_battery + OXYGEN_POTION_RESTORE)
+			if oxygen_bar:
+				oxygen_bar.value = current_battery
+			_update_low_battery_overlay()
+			_spawn_floating_text("+Oxygen", global_position, Color(0.35, 0.85, 1.0, 0.9))
+			used = true
+		ITEM_POTION_SPEED:
+			speed_potion_mult = SPEED_POTION_MULT
+			speed_potion_timer = SPEED_POTION_DURATION
+			_spawn_floating_text("+Speed", global_position, Color(1.0, 0.85, 0.35, 0.9))
+			used = true
+		_:
+			used = false
+
+	if not used:
+		return
+
+	hotbar_item_counts[selected_slot] = max(0, int(hotbar_item_counts[selected_slot]) - 1)
+	if int(hotbar_item_counts[selected_slot]) <= 0:
+		hotbar_item_ids[selected_slot] = ""
+	_update_hotbar_slot_ui(selected_slot)
+	_refresh_selected_item_label()
 
 func _toggle_inventory() -> void:
 	inventory_open = not inventory_open

@@ -36,6 +36,12 @@ const MINE_SPEED_UPGRADE_BASE_PRICE: int = 1200
 
 const MAX_STAT_UPGRADE_LEVEL: int = 8
 
+# Consumables
+const POTION_OXYGEN_ID: String = "potion_oxygen"
+const POTION_SPEED_ID: String = "potion_speed"
+const POTION_OXYGEN_PRICE: int = 150
+const POTION_SPEED_PRICE: int = 250
+
 var pickaxe_sprites: Array[Sprite2D] = []
 var feedback_timer: float = 0.0
 var feedback_text: String = ""
@@ -165,6 +171,9 @@ func _register_unbreakable_foundation_tiles() -> void:
 func _input(event):
 	if not player_nearby:
 		return
+	# Prevent player hotbar item use (F) while interacting with the shop.
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
+		get_viewport().set_input_as_handled()
 
 	# Secret dev menu: tap F 10 times while near the shop.
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
@@ -396,7 +405,7 @@ func _render_ui() -> void:
 			_add_button("Back", func(): current_state = ShopState.MAIN_MENU)
 
 		ShopState.BUY_MENU:
-			ui_body.text = "[center][b]BUY PICKAXES[/b][/center]\n[center][color=gray]Click a pickaxe to buy[/color][/center]"
+			ui_body.text = "[center][b]BUY[/b][/center]\n[center][color=gray]Click an item to buy[/color][/center]"
 			for i in range(1, 5):
 				var idx := i
 				var upg = player_nearby.PICKAXE_UPGRADES[i]
@@ -407,6 +416,10 @@ func _render_ui() -> void:
 				if owned:
 					label += "  [Owned]"
 				_add_button(label, func(): _start_confirm_buy(idx); _last_render_state = -999, owned or (not can_afford))
+
+			# Potions
+			_add_button("Oxygen Potion (+60 oxygen)  (%s)" % _money_str(POTION_OXYGEN_PRICE), func(): _buy_potion(POTION_OXYGEN_ID); _last_render_state = -999, int(player_nearby.money) < POTION_OXYGEN_PRICE)
+			_add_button("Speed Potion (+%d%% for %ds)  (%s)" % [int((1.5 - 1.0) * 100.0), 10, _money_str(POTION_SPEED_PRICE)], func(): _buy_potion(POTION_SPEED_ID); _last_render_state = -999, int(player_nearby.money) < POTION_SPEED_PRICE)
 			_add_button("Back", func(): current_state = ShopState.MAIN_MENU)
 
 		ShopState.UPGRADE_MENU:
@@ -511,6 +524,44 @@ func _buy_pickaxe(index: int):
 	else:
 		feedback_text = "Not enough money"
 		feedback_timer = 2.0
+
+
+func _buy_potion(potion_id: String) -> void:
+	if player_nearby == null:
+		return
+	var price := 0
+	match potion_id:
+		POTION_OXYGEN_ID:
+			price = POTION_OXYGEN_PRICE
+		POTION_SPEED_ID:
+			price = POTION_SPEED_PRICE
+		_:
+			return
+
+	if int(player_nearby.money) < price:
+		feedback_text = "Not enough money"
+		feedback_timer = 1.6
+		return
+
+	var ok := false
+	if player_nearby.has_method("add_hotbar_item"):
+		ok = bool(player_nearby.call("add_hotbar_item", potion_id, 1))
+	if not ok:
+		feedback_text = "Hotbar full"
+		feedback_timer = 1.6
+		return
+
+	player_nearby.money -= price
+	if player_nearby.money_label:
+		player_nearby.money_label.text = "$" + str(player_nearby.money)
+	feedback_text = "Bought %s!" % ("Oxygen Potion" if potion_id == POTION_OXYGEN_ID else "Speed Potion")
+	feedback_timer = 1.6
+	if FileAccess.file_exists("res://buy_1.mp3"):
+		var asp = AudioStreamPlayer.new()
+		asp.stream = load("res://buy_1.mp3")
+		add_child(asp)
+		asp.play()
+		asp.finished.connect(asp.queue_free)
 
 func _stat_upgrade_price(base_price: int, level: int) -> int:
 	# Doubles each level: 400, 800, 1600...
