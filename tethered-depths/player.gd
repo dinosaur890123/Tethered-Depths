@@ -2093,6 +2093,7 @@ func _use_selected_hotbar_item() -> void:
 			if flashlight_on:
 				_update_flashlight()
 		_update_flashlight_slot_label()
+		_refresh_selected_item_label()
 		return
 	if selected_slot >= hotbar_item_ids.size():
 		return

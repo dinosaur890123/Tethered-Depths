@@ -81,6 +81,7 @@ func _ready():
 	# Initial volume
 	_on_volume_changed(volume_slider.value)
 
+	load_game()
 	randomize()
 	generate_world()
 	await get_tree().physics_frame
@@ -101,7 +102,6 @@ func _ready():
 			player.add_user_signal("ore_collected")
 		player.connect("ore_collected", _on_ore_collected)
 
-<<<<<<< HEAD
 var _sky_is_sunset: bool = false
 const SUNSET_MINUTES = 17.0 * 60.0 # 5 PM
 
@@ -131,7 +131,6 @@ func _update_sky_texture(path: String) -> void:
 				var bottom_global_y = bg.to_global(Vector2(0.0, rect.end.y)).y
 				bg.global_position.y += _surface_y_cached - bottom_global_y
 
-=======
 func _setup_autosave() -> void:
 	if _autosave_timer != null:
 		return
@@ -158,7 +157,6 @@ func _on_autosave_timeout() -> void:
 	_pull_player_progress()
 	save_game()
 	_save_dirty = false
->>>>>>> 44ba12932f4b4a6eb9b0a4322d040f9a0669d64a
 
 func _input(event):
 
@@ -212,12 +210,9 @@ func _on_settings_back_pressed():
 	ore_root.visible = false
 
 func _on_exit_pressed():
-<<<<<<< HEAD
 	_update_pb_labels()
-=======
 	_pull_player_progress()
 	save_game()
->>>>>>> 44ba12932f4b4a6eb9b0a4322d040f9a0669d64a
 	get_tree().quit()
 
 func _notification(what: int) -> void:
@@ -265,13 +260,9 @@ func _update_pb_labels():
 	if player:
 		high_money = max(high_money, player.money)
 		high_days = max(high_days, player.day_count)
-<<<<<<< HEAD
 		high_depth = max(high_depth, player.lifetime_max_depth)
-
-=======
 	_mark_save_dirty()
 	
->>>>>>> 44ba12932f4b4a6eb9b0a4322d040f9a0669d64a
 	$MainMenu/PBTab/VBox/MoneyLabel.text = "Highest Money: $%d" % high_money
 	$MainMenu/PBTab/VBox/DaysLabel.text = "Most Days Survived: %d" % high_days
 	var depth_lbl := $MainMenu/PBTab/VBox/DepthLabel as Label
