@@ -437,7 +437,9 @@ func _render_ui() -> void:
 			_add_button("Oxygen Tank (+%d)  %s  (Lv %d/%d)" % [int(OXYGEN_UPGRADE_STEP), _money_str(oxy_price), oxy_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("oxygen"); _last_render_state = -999, oxy_lv >= MAX_STAT_UPGRADE_LEVEL)
 			_add_button("Boots (+%d speed)  %s  (Lv %d/%d)" % [int(SPEED_UPGRADE_STEP), _money_str(spd_price), spd_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("speed"); _last_render_state = -999, spd_lv >= MAX_STAT_UPGRADE_LEVEL)
 			_add_button("Drill Motor (-%d%% mine time)  %s  (Lv %d/%d)" % [MINE_SPEED_UPGRADE_STEP_PCT, _money_str(mine_price), mine_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("mine"); _last_render_state = -999, mine_lv >= MAX_STAT_UPGRADE_LEVEL)
+			_add_button("Surface Potion ($1000)", func(): _buy_potion(); _last_render_state = -999)
 			_add_button("Back", func(): current_state = ShopState.MAIN_MENU)
+
 
 		ShopState.CONFIRM_BUY:
 			var upg = player_nearby.PICKAXE_UPGRADES[pending_upgrade_index]
@@ -632,7 +634,33 @@ func _buy_stat_upgrade(kind: String) -> void:
 		asp.finished.connect(asp.queue_free)
 
 
+func _buy_potion() -> void:
+	if player_nearby == null:
+		return
+	if player_nearby.money < 1000:
+		feedback_text = "Not enough money ($1000)"
+		feedback_timer = 1.6
+		return
+	
+	if player_nearby.has_method("add_item_to_hotbar"):
+		if player_nearby.add_item_to_hotbar("Surface Potion", Color.MEDIUM_PURPLE):
+			player_nearby.money -= 1000
+			if player_nearby.money_label:
+				player_nearby.money_label.text = "$" + str(player_nearby.money)
+			feedback_text = "Bought Surface Potion!"
+			feedback_timer = 1.6
+			if FileAccess.file_exists("res://buy_1.mp3"):
+				var asp = AudioStreamPlayer.new()
+				asp.stream = load("res://buy_1.mp3")
+				add_child(asp)
+				asp.play()
+				asp.finished.connect(asp.queue_free)
+		else:
+			feedback_text = "Hotbar full!"
+			feedback_timer = 1.6
+
 func _ui_header() -> String:
+
 	if player_nearby == null:
 		return ""
 	var money := int(player_nearby.money)

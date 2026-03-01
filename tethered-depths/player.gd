@@ -87,6 +87,7 @@ const SPEED_POTION_DURATION: float = 10.0
 var speed_potion_timer: float = 0.0
 var speed_potion_mult: float = 1.0
 var cargo_label: Label
+
 var grapple_line: Line2D
 
 # --- Luck Strategy ---
@@ -456,7 +457,12 @@ func _ready():
 	# Mining sound player
 	mining_sfx_player = AudioStreamPlayer.new()
 	add_child(mining_sfx_player)
+	
+	# Init hotbar
+	hotbar_items[0] = {"name": PICKAXE_UPGRADES[0]["name"], "type": "tool"}
+
 	if mining_sfx == null and ResourceLoader.exists(DEFAULT_MINING_SFX_PATH):
+
 		mining_sfx = load(DEFAULT_MINING_SFX_PATH) as AudioStream
 	if mining_sfx != null:
 		mining_sfx_player.stream = mining_sfx
@@ -1054,7 +1060,11 @@ func _input(event: InputEvent) -> void:
 	if is_in_menu:
 		return
 
+	if Input.is_action_just_pressed("mine") and selected_slot != 0:
+		use_selected_item()
+
 	# Hotbar selection 1-9
+
 	if event is InputEventKey and event.pressed:
 		if event.keycode >= KEY_1 and event.keycode <= KEY_9:
 			_select_hotbar_slot(event.keycode - KEY_1)
@@ -1629,7 +1639,41 @@ func _refresh_inventory() -> void:
 	text += "\n[b]Special value:[/b] $%d" % total_value
 	inventory_label.text = text
 
+func add_item_to_hotbar(item_name: String, color: Color) -> bool:
+	for i in range(1, hotbar_items.size()):
+		if hotbar_items[i] == null:
+			hotbar_items[i] = {"name": item_name, "type": "potion", "color": color}
+			# Update visual
+			var slot = hotbar_slots[i]
+			var icon = ColorRect.new()
+			icon.name = "Icon"
+			icon.custom_minimum_size = Vector2(20, 20)
+			icon.color = color
+			icon.position = Vector2(15, 15)
+			slot.add_child(icon)
+			return true
+	return false
+
+func use_selected_item():
+	var item = hotbar_items[selected_slot]
+	if item == null: return
+	
+	if item["type"] == "potion":
+		if item["name"] == "Surface Potion":
+			# Immediate resurface
+			global_position.y = spawn_position.y
+			current_battery = max_battery # Optional: refill oxygen too
+			if oxygen_bar: oxygen_bar.value = current_battery
+			
+			# Remove item
+			hotbar_items[selected_slot] = null
+			var slot = hotbar_slots[selected_slot]
+			var icon = slot.get_node_or_null("Icon")
+			if icon: icon.queue_free()
+			_select_hotbar_slot(selected_slot) # Update label
+
 func _get_ore_value(ore_name: String) -> int:
+
 	for ore in ORE_TABLE:
 		if (ore[0] as String) == ore_name:
 			return int(ore[2])
