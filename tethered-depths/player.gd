@@ -1113,9 +1113,9 @@ func _generate_daily_objectives() -> void:
 				base_amt = 1 + int(floor(float(difficulty) / 4.0))
 			_:
 				base_amt = 5
-		var target_amt := base_amt + rng.randi_range(0, 2)
+		var target_amt: int = base_amt + int(rng.randi_range(0, 2))
 		# Keep within what a player can realistically hold in a day.
-		var cap_limit := max(3, int(floor(float(max_cargo) * 0.75)))
+		var cap_limit: int = maxi(3, int(floor(float(max_cargo) * 0.75)))
 		target_amt = clampi(target_amt, 2, cap_limit)
 		daily_objectives.append({
 			"type": "collect_ore",
@@ -1417,17 +1417,6 @@ func _try_fire_grapple() -> void:
 
 func _has_los_to_tile(target_tile: Vector2i) -> bool:
 	var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
-
-		# Daily objective tracking
-		var base_nm := nm
-		if base_nm.begins_with("Mutated "):
-			daily_mutated_collected += amt
-			# do not count mutated toward normal ore quotas
-		else:
-			if not daily_ore_collected.has(base_nm):
-				daily_ore_collected[base_nm] = 0
-			daily_ore_collected[base_nm] = int(daily_ore_collected[base_nm]) + amt
-		_update_daily_objectives_hud()
 
 	var dx = target_tile.x - player_tile.x
 	var dy = target_tile.y - player_tile.y
