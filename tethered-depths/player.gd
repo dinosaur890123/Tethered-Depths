@@ -437,9 +437,9 @@ func _setup_flashlight() -> void:
 	flashlight = PointLight2D.new()
 	flashlight.name = "Flashlight"
 	flashlight.enabled = true
-	flashlight.energy = 1.25
+	flashlight.energy = 0.35
 	flashlight.color = Color(1.0, 0.98, 0.9)
-	flashlight.texture_scale = 2.2
+	flashlight.texture_scale = 1.5
 	flashlight.shadow_enabled = false
 	if flashlight_texture == null:
 		flashlight_texture = _create_flashlight_texture(FLASHLIGHT_TEX_SIZE)
@@ -744,9 +744,10 @@ func start_mining(tile_coords: Vector2i):
 func _is_insta_mine_pickaxe() -> bool:
 	if pickaxe_level < 0 or pickaxe_level >= PICKAXE_UPGRADES.size():
 		return false
-	var upg := PICKAXE_UPGRADES[pickaxe_level]
-	if upg is Dictionary:
-		return bool((upg as Dictionary).get("insta_mine", false))
+	var upg_any: Variant = PICKAXE_UPGRADES[pickaxe_level]
+	if upg_any is Dictionary:
+		var upg: Dictionary = upg_any as Dictionary
+		return bool(upg.get("insta_mine", false))
 	return false
 
 func _play_mining_sfx() -> void:
