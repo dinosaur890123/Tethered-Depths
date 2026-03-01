@@ -145,11 +145,11 @@ var walking_sfx_player: AudioStreamPlayer
 # Upgrade tracking
 var pickaxe_level: int = 0
 const PICKAXE_UPGRADES = [
-	{"name": "Starter Pick", "price": 0,     "mine_time": 1.8,  "luck": 1.0,  "color": Color(0.6, 0.6, 0.6)},
-	{"name": "Stone Pick",   "price": 500,   "mine_time": 1.25, "luck": 1.1,  "color": Color(0.75, 0.7, 0.65)},
-	{"name": "Copper Pick",  "price": 1000,  "mine_time": 0.9,  "luck": 1.2,  "color": Color(0.9, 0.5, 0.15)},
-	{"name": "Silver Pick",  "price": 5000,  "mine_time": 0.54, "luck": 1.35, "color": Color(0.8, 0.85, 0.95)},
-	{"name": "Gold Pick",    "price": 50000, "mine_time": 0.27, "luck": 1.55,  "color": Color(1.0, 0.85, 0.1)},
+	{"name": "Starter Pick", "price": 0,     "mine_time": 1.4,  "luck": 1.20, "color": Color(0.6, 0.6, 0.6)},
+	{"name": "Stone Pick",   "price": 450,   "mine_time": 1.0,  "luck": 1.35, "color": Color(0.75, 0.7, 0.65)},
+	{"name": "Copper Pick",  "price": 900,   "mine_time": 0.72, "luck": 1.55, "color": Color(0.9, 0.5, 0.15)},
+	{"name": "Silver Pick",  "price": 4200,  "mine_time": 0.44, "luck": 1.85, "color": Color(0.8, 0.85, 0.95)},
+	{"name": "Gold Pick",    "price": 42000, "mine_time": 0.22, "luck": 2.20, "color": Color(1.0, 0.85, 0.1)},
 	{"name": "Admin Pick",   "price": 0,     "mine_time": 0.01, "luck": 10.0,  "color": Color(0.80, 0.20, 0.95), "admin": true, "insta_mine": true}
 ]
 
@@ -857,8 +857,8 @@ func _physics_process(delta):
 		return  # Physics paused during grapple travel
 
 	# Oxygen-based Luck Strategy: Lower oxygen = higher luck bonus
-	# Bonus ranges from 1.0 (full tank) to 2.5 (empty tank)
-	oxygen_luck_bonus = 1.0 + (1.0 - (current_battery / max_battery)) * 1.5
+	# Bonus ranges from 1.0 (full tank) to 3.0 (empty tank)
+	oxygen_luck_bonus = 1.0 + (1.0 - (current_battery / max_battery)) * 2.0
 
 	# 1. Drain Battery (Oxygen)
 	var pos_tile = tilemap.local_to_map(tilemap.to_local(global_position))
