@@ -11,13 +11,87 @@ const WIDTH = 120
 const DEPTH = 350
 const SURFACE_Y = 0
 
+var is_game_started: bool = false
+
+@onready var main_menu: CanvasLayer = $MainMenu
+@onready var menu_root: Control = $MainMenu/Root
+@onready var settings_root: Control = $MainMenu/Settings
+@onready var volume_slider: HSlider = $MainMenu/Settings/VBox/VolumeSlider
+@onready var start_btn: Button = $MainMenu/Root/PanelContainer/VBox/StartBtn
+@onready var restart_btn: Button = $MainMenu/Root/PanelContainer/VBox/RestartBtn
+
 func _ready():
+	process_mode = PROCESS_MODE_ALWAYS
+	get_tree().paused = true
+	main_menu.visible = true
+	menu_root.visible = true
+	settings_root.visible = false
+	start_btn.text = "Start Game"
+	restart_btn.visible = false
+	
+	# Connect menu buttons
+	start_btn.pressed.connect(_on_start_pressed)
+	restart_btn.pressed.connect(_on_restart_pressed)
+	$MainMenu/Root/PanelContainer/VBox/SettingsBtn.pressed.connect(_on_settings_pressed)
+	$MainMenu/Root/PanelContainer/VBox/ExitBtn.pressed.connect(_on_exit_pressed)
+	$MainMenu/Settings/VBox/BackBtn.pressed.connect(_on_settings_back_pressed)
+
+	volume_slider.value_changed.connect(_on_volume_changed)
+	
+	# Initial volume
+	_on_volume_changed(volume_slider.value)
+
 	randomize()
 	generate_world()
 	await get_tree().physics_frame
 	position_entities()
 
+func _input(event):
+	if event.is_action_pressed("ui_cancel"): # ESC
+		if settings_root.visible:
+			_on_settings_back_pressed()
+		else:
+			_toggle_menu()
+
+func _toggle_menu():
+	if not is_game_started: return
+	main_menu.visible = !main_menu.visible
+	get_tree().paused = main_menu.visible
+	if main_menu.visible:
+		start_btn.text = "Continue"
+		restart_btn.visible = true
+		menu_root.visible = true
+		settings_root.visible = false
+
+func _on_start_pressed():
+	is_game_started = true
+	main_menu.visible = false
+	get_tree().paused = false
+	start_btn.text = "Continue"
+	restart_btn.visible = true
+
+func _on_restart_pressed():
+	get_tree().paused = false
+	get_tree().reload_current_scene()
+
+func _on_settings_pressed():
+	menu_root.visible = false
+	settings_root.visible = true
+
+func _on_settings_back_pressed():
+	menu_root.visible = true
+	settings_root.visible = false
+
+func _on_exit_pressed():
+	get_tree().quit()
+
+func _on_volume_changed(value: float):
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Master"), linear_to_db(value / 100.0))
+
 func generate_world():
+# ... (rest of generate_world)
+
+
 	tilemap.clear()
 	print("Generating world...")
 	var half_w: int = WIDTH >> 1
@@ -88,18 +162,25 @@ func position_entities():
 		house.z_index = 1
 		_align_node_bottom_to_surface(house as Node2D, surface_y)
 
+	var trader := get_node_or_null("Trader")
+
+	if trader is Node2D:
+		if shop:
+			trader.global_position.x = shop.global_position.x + 80.0
+		_align_node_bottom_to_surface(trader as Node2D, surface_y)
+
+
 	var crate := get_node_or_null("Cratestorage")
 	if crate is Sprite2D:
+		if house:
+			crate.global_position.x = house.global_position.x + 80.0
 		crate.z_index = 1
 		crate.centered = true
 		_align_node_bottom_to_surface(crate as Node2D, surface_y)
 
-	var trader := get_node_or_null("Trader")
-	if trader is Node2D:
-		trader.z_index = 1
-		_align_node_bottom_to_surface(trader as Node2D, surface_y)
 
 	var sign_paths := ["Signtutorial", "Shopsign", "Signprice"]
+
 	for p in sign_paths:
 		var s_node := get_node_or_null(p)
 		if s_node is Node2D:
