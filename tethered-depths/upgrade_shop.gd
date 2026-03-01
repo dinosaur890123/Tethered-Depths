@@ -126,4 +126,5 @@ func _apply_upgrade():
 	
 	# Update HUD
 	player_nearby.money_label.text = "$" + str(player_nearby.money)
-	print("Upgraded to ", upg["name"], "! New mine time: ", upg["mine_time"])
+	if OS.is_debug_build():
+		print("Upgraded to ", upg["name"], "! New mine time: ", upg["mine_time"])
