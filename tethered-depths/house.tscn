@@ -9,9 +9,8 @@ size = Vector2(114, 112)
 [node name="House" type="Node2D" unique_id=1207200046]
 script = ExtResource("2_script")
 
-[node name="GroundAnchor" type="Marker2D" parent="."]
-
 [node name="PromptLabel" type="RichTextLabel" parent="." unique_id=1852820553]
+
 clip_contents = false
 offset_left = -147.0
 offset_top = -103.0

@@ -1,5 +1,9 @@
 extends CharacterBody2D
 
+signal died
+signal ore_collected(ore_name)
+
+
 # Stats (Upgradable!)
 var speed: float = 300.0
 var jump_speed: float = 400.0
@@ -977,7 +981,9 @@ func cancel_mining():
 	_update_walking_sfx()
 
 func die_and_respawn():
+	died.emit()
 	anim_sprite.play("death")
+
 	if is_mining:
 		cancel_mining()
 	_release_grapple()
@@ -1389,6 +1395,8 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 		ore_counts[nm] += amt
 		current_cargo   += amt
 		daily_ores_collected += amt
+		ore_collected.emit(base_name)
+
 		if cargo_label:
 			cargo_label.text = "Cargo: %d/%d" % [current_cargo, max_cargo]
 		if ore_labels.has(nm):
@@ -1531,16 +1539,8 @@ func _respawn_and_reset_day():
 			
 	if oxygen_bar: oxygen_bar.value = current_battery
 	
-	# Regenerate the world
-	var main = get_parent()
-	if main and main.has_method("generate_world"):
-		main.generate_world()
-		if main.has_method("position_entities"):
-			# Note: we don't await physics_frame here like main._ready because the player 
-			# will be positioned manually right after.
-			main.position_entities()
-	
 	global_position = spawn_position
+
 
 	velocity = Vector2.ZERO
 	is_wall_stuck = false

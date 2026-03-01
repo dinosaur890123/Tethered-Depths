@@ -103,6 +103,40 @@ position = Vector2(-300, 202.286)
 [node name="MainMenu" type="CanvasLayer" parent="." unique_id=987654321]
 layer = 100
 
+[node name="DeathScreen" type="CanvasLayer" parent="." unique_id=543210987]
+layer = 120
+visible = false
+
+[node name="Overlay" type="ColorRect" parent="DeathScreen"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.6, 0, 0, 0.6)
+
+[node name="VBox" type="VBoxContainer" parent="DeathScreen"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -100.0
+offset_right = 300.0
+offset_bottom = 100.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="Label" type="Label" parent="DeathScreen/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0, 0, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 10
+theme_override_font_sizes/font_size = 120
+text = "YOU DIED"
+horizontal_alignment = 1
+
+
 [node name="Dimmer" type="ColorRect" parent="MainMenu"]
 anchors_preset = 15
 anchor_right = 1.0
@@ -157,6 +191,16 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 28
 text = "Restart Game"
 
+[node name="RecordsBtn" type="Button" parent="MainMenu/Root/PanelContainer/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Records (PB)"
+
+[node name="OreBtn" type="Button" parent="MainMenu/Root/PanelContainer/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Ores Collection"
+
 [node name="SettingsBtn" type="Button" parent="MainMenu/Root/PanelContainer/VBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
@@ -167,8 +211,99 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 28
 text = "Exit"
 
+[node name="PBTab" type="Control" parent="MainMenu"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="MainMenu/PBTab"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -100.0
+offset_right = 200.0
+offset_bottom = 100.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 20
+
+[node name="Title" type="Label" parent="MainMenu/PBTab/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 48
+text = "PERSONAL BESTS"
+horizontal_alignment = 1
+
+[node name="MoneyLabel" type="Label" parent="MainMenu/PBTab/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = "Highest Money: $0"
+horizontal_alignment = 1
+
+[node name="DaysLabel" type="Label" parent="MainMenu/PBTab/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = "Most Days Survived: 1"
+horizontal_alignment = 1
+
+[node name="BackBtn" type="Button" parent="MainMenu/PBTab/VBox"]
+layout_mode = 2
+text = "Back"
+
+[node name="OreTab" type="Control" parent="MainMenu"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="MainMenu/OreTab"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -250.0
+offset_right = 300.0
+offset_bottom = 250.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 15
+
+[node name="Title" type="Label" parent="MainMenu/OreTab/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 48
+text = "ORES DISCOVERED"
+horizontal_alignment = 1
+
+[node name="Scroll" type="ScrollContainer" parent="MainMenu/OreTab/VBox"]
+custom_minimum_size = Vector2(0, 300)
+layout_mode = 2
+
+[node name="Grid" type="GridContainer" parent="MainMenu/OreTab/VBox/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 30
+theme_override_constants/v_separation = 20
+columns = 3
+
+[node name="BackBtn" type="Button" parent="MainMenu/OreTab/VBox"]
+layout_mode = 2
+text = "Back"
 
 [node name="Settings" type="Control" parent="MainMenu"]
+
 visible = false
 layout_mode = 3
 anchors_preset = 15

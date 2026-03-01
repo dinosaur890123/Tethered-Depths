@@ -13,9 +13,18 @@ const SURFACE_Y = 0
 
 var is_game_started: bool = false
 
+# PB Tracking
+var high_money: int = 0
+var high_days: int = 0
+var discovered_ores: Dictionary = {} # ore_name -> bool
+
 @onready var main_menu: CanvasLayer = $MainMenu
 @onready var menu_root: Control = $MainMenu/Root
 @onready var settings_root: Control = $MainMenu/Settings
+@onready var pb_root: Control = $MainMenu/PBTab
+@onready var ore_root: Control = $MainMenu/OreTab
+@onready var death_screen: CanvasLayer = $DeathScreen
+
 @onready var volume_slider: HSlider = $MainMenu/Settings/VBox/VolumeSlider
 @onready var start_btn: Button = $MainMenu/Root/PanelContainer/VBox/StartBtn
 @onready var restart_btn: Button = $MainMenu/Root/PanelContainer/VBox/RestartBtn
@@ -26,6 +35,9 @@ func _ready():
 	main_menu.visible = true
 	menu_root.visible = true
 	settings_root.visible = false
+	pb_root.visible = false
+	ore_root.visible = false
+	death_screen.visible = false
 	start_btn.text = "Start Game"
 	restart_btn.visible = false
 	
@@ -33,8 +45,13 @@ func _ready():
 	start_btn.pressed.connect(_on_start_pressed)
 	restart_btn.pressed.connect(_on_restart_pressed)
 	$MainMenu/Root/PanelContainer/VBox/SettingsBtn.pressed.connect(_on_settings_pressed)
+	$MainMenu/Root/PanelContainer/VBox/RecordsBtn.pressed.connect(_on_records_pressed)
+	$MainMenu/Root/PanelContainer/VBox/OreBtn.pressed.connect(_on_ore_tab_pressed)
 	$MainMenu/Root/PanelContainer/VBox/ExitBtn.pressed.connect(_on_exit_pressed)
+	
 	$MainMenu/Settings/VBox/BackBtn.pressed.connect(_on_settings_back_pressed)
+	$MainMenu/PBTab/VBox/BackBtn.pressed.connect(_on_settings_back_pressed)
+	$MainMenu/OreTab/VBox/BackBtn.pressed.connect(_on_settings_back_pressed)
 
 	volume_slider.value_changed.connect(_on_volume_changed)
 	
@@ -45,10 +62,21 @@ func _ready():
 	generate_world()
 	await get_tree().physics_frame
 	position_entities()
+	
+	# Connect player signals
+	var player = get_node_or_null("Player")
+	if player:
+		if not player.has_signal("died"):
+			player.add_user_signal("died")
+		player.connect("died", _on_player_died)
+		
+		if not player.has_signal("ore_collected"):
+			player.add_user_signal("ore_collected")
+		player.connect("ore_collected", _on_ore_collected)
 
 func _input(event):
 	if event.is_action_pressed("ui_cancel"): # ESC
-		if settings_root.visible:
+		if settings_root.visible or pb_root.visible or ore_root.visible:
 			_on_settings_back_pressed()
 		else:
 			_toggle_menu()
@@ -62,6 +90,8 @@ func _toggle_menu():
 		restart_btn.visible = true
 		menu_root.visible = true
 		settings_root.visible = false
+		pb_root.visible = false
+		ore_root.visible = false
 
 func _on_start_pressed():
 	is_game_started = true
@@ -78,15 +108,85 @@ func _on_settings_pressed():
 	menu_root.visible = false
 	settings_root.visible = true
 
+func _on_records_pressed():
+	menu_root.visible = false
+	pb_root.visible = true
+	_update_pb_labels()
+
+func _on_ore_tab_pressed():
+	menu_root.visible = false
+	ore_root.visible = true
+	_update_ore_grid()
+
 func _on_settings_back_pressed():
 	menu_root.visible = true
 	settings_root.visible = false
+	pb_root.visible = false
+	ore_root.visible = false
 
 func _on_exit_pressed():
 	get_tree().quit()
 
 func _on_volume_changed(value: float):
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Master"), linear_to_db(value / 100.0))
+
+func _on_player_died():
+	death_screen.visible = true
+	var label = death_screen.get_node("VBox/Label")
+	var overlay = death_screen.get_node("Overlay")
+	
+	overlay.modulate.a = 0.0
+	label.modulate.a = 0.0
+	
+	var tw = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tw.tween_property(overlay, "modulate:a", 0.6, 0.5)
+	tw.parallel().tween_property(label, "modulate:a", 1.0, 0.5)
+	tw.tween_interval(1.5)
+	tw.tween_callback(func():
+		death_screen.visible = false
+		is_game_started = false
+		main_menu.visible = true
+		menu_root.visible = true
+		start_btn.text = "Start Game"
+		restart_btn.visible = false
+		get_tree().paused = true
+		# Optionally reset the player position here or let reload_scene handle it?
+		# reload_current_scene is better for a full reset.
+		get_tree().reload_current_scene()
+	)
+
+func _on_ore_collected(ore_name: String):
+	discovered_ores[ore_name] = true
+
+func _update_pb_labels():
+	var player = get_node_or_null("Player")
+	if player:
+		high_money = max(high_money, player.money)
+		high_days = max(high_days, player.day_count)
+	
+	$MainMenu/PBTab/VBox/MoneyLabel.text = "Highest Money: $%d" % high_money
+	$MainMenu/PBTab/VBox/DaysLabel.text = "Most Days Survived: %d" % high_days
+
+func _update_ore_grid():
+	var grid = $MainMenu/OreTab/VBox/Scroll/Grid
+	for child in grid.get_children():
+		child.queue_free()
+	
+	var player = get_node_or_null("Player")
+	if not player: return
+	
+	for ore in player.ORE_TABLE:
+		var nm = ore[0]
+		if nm.begins_with("Mutated "): continue
+		
+		var lbl = Label.new()
+		lbl.text = nm
+		if discovered_ores.has(nm):
+			lbl.modulate = ore[3]
+		else:
+			lbl.modulate = Color(0, 0, 0)
+		grid.add_child(lbl)
+
 
 func generate_world():
 	# World generation
