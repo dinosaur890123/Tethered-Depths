@@ -30,10 +30,10 @@ const OXYGEN_UPGRADE_STEP: float = 40.0
 const SPEED_UPGRADE_STEP: float = 55.0
 const MINE_SPEED_UPGRADE_STEP_PCT: int = 12
 
-const CARGO_UPGRADE_BASE_PRICE: int = 300
-const OXYGEN_UPGRADE_BASE_PRICE: int = 500
-const SPEED_UPGRADE_BASE_PRICE: int = 650
-const MINE_SPEED_UPGRADE_BASE_PRICE: int = 900
+const CARGO_UPGRADE_BASE_PRICE: int = 270
+const OXYGEN_UPGRADE_BASE_PRICE: int = 450
+const SPEED_UPGRADE_BASE_PRICE: int = 600
+const MINE_SPEED_UPGRADE_BASE_PRICE: int = 800
 
 const MAX_STAT_UPGRADE_LEVEL: int = 8
 
@@ -41,9 +41,9 @@ const MAX_STAT_UPGRADE_LEVEL: int = 8
 const POTION_OXYGEN_ID: String = "potion_oxygen"
 const POTION_SPEED_ID: String = "potion_speed"
 const POTION_SURFACE_ID: String = "potion_surface"
-const POTION_OXYGEN_PRICE: int = 150
-const POTION_SPEED_PRICE: int = 250
-const POTION_SURFACE_PRICE: int = 1000
+const POTION_OXYGEN_PRICE: int = 125
+const POTION_SPEED_PRICE: int = 220
+const POTION_SURFACE_PRICE: int = 900
 
 var pickaxe_sprites: Array[Sprite2D] = []
 var feedback_timer: float = 0.0
@@ -599,7 +599,7 @@ func _buy_potion(potion_id: String) -> void:
 
 func _stat_upgrade_price(base_price: int, level: int) -> int:
 	# Gentler ramp than pure doubling so upgrades stay obtainable.
-	return int(round(float(base_price) * pow(1.75, float(level))))
+	return int(round(float(base_price) * pow(1.70, float(level))))
 
 func _buy_stat_upgrade(kind: String) -> void:
 	if player_nearby == null:
