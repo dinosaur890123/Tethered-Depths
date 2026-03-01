@@ -14,7 +14,7 @@
 [ext_resource type="Texture2D" uid="uid://brygcidv5xlq7" path="res://trees/tree3.png" id="10_dg77c"]
 [ext_resource type="Texture2D" uid="uid://b8ejsoft6l3ti" path="res://signprice.png" id="11_efxa6"]
 [ext_resource type="Texture2D" uid="uid://cn3u5c107fi7p" path="res://trees/tree4.png" id="11_ycdy4"]
-[ext_resource type="PackedScene" path="res://trader.tscn" id="14_trader"]
+[ext_resource type="PackedScene" uid="uid://j4qhjgifve7e" path="res://trader.tscn" id="14_trader"]
 [ext_resource type="PackedScene" path="res://house.tscn" id="15_house"]
 [ext_resource type="Texture2D" uid="uid://b4qtjr0p7e7o5" path="res://signtutorial.png" id="16_2cqfq"]
 [ext_resource type="Texture2D" uid="uid://1odjg1g6j6s7" path="res://shopsign.png" id="18_074og"]
@@ -360,6 +360,31 @@ scale = Vector2(5.3723946, 4.843751)
 texture = ExtResource("11_ycdy4")
 
 [node name="Background Under" type="Node" parent="." unique_id=148604480]
+
+[node name="Stonewallbackground4" type="Sprite2D" parent="Background Under" unique_id=1750699608]
+z_index = -5
+position = Vector2(-1645, 1942)
+scale = Vector2(0.350506, 0.341112)
+texture = ExtResource("12_dg77c")
+
+[node name="Stonewallbackground" type="Sprite2D" parent="Background Under" unique_id=312616991]
+z_index = -5
+position = Vector2(1497.75, 921.625)
+scale = Vector2(0.35, 0.35)
+texture = ExtResource("12_dg77c")
+metadata/_edit_lock_ = true
+
+[node name="Stonewallbackground2" type="Sprite2D" parent="Background Under" unique_id=280452947]
+z_index = -5
+position = Vector2(-73.2501, 921.625)
+scale = Vector2(0.350641, 0.35)
+texture = ExtResource("12_dg77c")
+
+[node name="Stonewallbackground3" type="Sprite2D" parent="Background Under" unique_id=1629843755]
+z_index = -5
+position = Vector2(-1645.25, 921.625)
+scale = Vector2(0.35, 0.35)
+texture = ExtResource("12_dg77c")
 
 [node name="Vertical Borders" type="StaticBody2D" parent="." unique_id=608768684]
 position = Vector2(132.857, -81.4286)
