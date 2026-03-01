@@ -160,8 +160,11 @@ var ore_labels: Dictionary = {}
 var inventory_panel: ColorRect
 var inventory_label: RichTextLabel
 var inventory_open: bool = false
+var is_in_menu: bool = false # Used to block player input when shop/trader is open
 
 func _ready():
+# ... rest of _ready (no change to the beginning)
+
 	base_mine_time = mine_time
 	recompute_mine_time()
 	spawn_position = global_position
@@ -409,6 +412,12 @@ func _process(delta: float) -> void:
 func _physics_process(delta):
 	if is_end_of_day: return
 	if not tilemap: return
+	if is_in_menu or inventory_open:
+		is_walking = false
+		if is_mining: cancel_mining()
+		_update_animation()
+		return
+
 	if is_grapple_moving:
 		_update_walking_sfx()
 		_update_grapple_line()
@@ -462,14 +471,29 @@ func _physics_process(delta):
 			_update_animation()
 			_update_walking_sfx()
 			queue_redraw()
-			if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+			if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and selected_slot == 0:
 				if highlight_valid and not is_mining:
 					start_mining(highlighted_tile)
 			else:
 				if is_mining: cancel_mining()
 			return
 
-	# 3. Wall climbing
+	# 3. Gravity (moved before move_and_slide)
+	if not is_on_floor() and not is_wall_climbing:
+		velocity.y += gravity * delta
+
+	# 4. Jump
+	if Input.is_action_just_pressed("ui_accept") and is_on_floor():
+		velocity.y = -jump_speed
+
+	# 5. Velocity
+	velocity.x = h * speed
+	if is_wall_climbing:
+		velocity.y = -climb_speed
+
+	move_and_slide()
+
+	# 6. Wall climbing (now after move_and_slide for better sync)
 	var wall_normal = get_wall_normal()
 	is_wall_climbing = (
 		is_on_wall()
@@ -478,22 +502,7 @@ func _physics_process(delta):
 		and sign(h) == -sign(wall_normal.x)
 	)
 
-	# 4. Gravity
-	if not is_on_floor() and not is_wall_climbing:
-		velocity.y += gravity * delta
-
-	# 5. Jump
-	if Input.is_action_just_pressed("ui_accept") and is_on_floor():
-		velocity.y = -jump_speed
-
-	# 6. Velocity
-	velocity.x = h * speed
-	if is_wall_climbing:
-		velocity.y = -climb_speed
-
-	move_and_slide()
-
-	if is_mining and is_on_floor():
+	if is_mining:
 		var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 		var adjacent_tiles = [
 			player_tile + Vector2i(1, 0),
@@ -511,12 +520,13 @@ func _physics_process(delta):
 	_update_grapple_line()
 	queue_redraw()
 
-	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and selected_slot == 0:
 		if highlight_valid and not is_mining:
 			start_mining(highlighted_tile)
 	else:
 		if is_mining:
 			cancel_mining()
+
 
 func _update_grapple_line():
 	if not grapple_line: return
@@ -544,10 +554,20 @@ func _update_highlight():
 	]
 
 	if mouse_tile in adjacent_tiles and tilemap.get_cell_source_id(mouse_tile) != -1:
-		highlighted_tile = mouse_tile
-		highlight_valid = true
+		var unbreakable: Dictionary = {}
+		if tilemap.has_meta("unbreakable_tiles"):
+			var meta = tilemap.get_meta("unbreakable_tiles")
+			if meta is Dictionary:
+				unbreakable = meta
+		
+		if not unbreakable.has(mouse_tile):
+			highlighted_tile = mouse_tile
+			highlight_valid = true
+		else:
+			highlight_valid = false
 	else:
 		highlight_valid = false
+
 
 func _update_animation():
 	var target_anim: StringName
@@ -815,11 +835,26 @@ func _input(event: InputEvent) -> void:
 		if event is InputEventKey and event.keycode == KEY_SPACE and event.pressed:
 			_close_end_of_day()
 		return
+	
+	if Input.is_action_just_pressed("inventory"):
+		if not is_in_menu:
+			_toggle_inventory()
+		return
+
+		
+	if inventory_open:
+		if event is InputEventKey and event.pressed and (event.keycode == KEY_ESCAPE or event.keycode == KEY_E):
+			_toggle_inventory()
+		return
+
+	if is_in_menu:
+		return
 
 	# Hotbar selection 1-9
 	if event is InputEventKey and event.pressed:
 		if event.keycode >= KEY_1 and event.keycode <= KEY_9:
 			_select_hotbar_slot(event.keycode - KEY_1)
+
 
 	if event is InputEventMouseButton and event.pressed:
 		match event.button_index:

@@ -236,6 +236,7 @@ func _input(event):
 		if event.keycode == KEY_ESCAPE or event.keycode == KEY_BACKSPACE:
 			if current_state == ShopState.MAIN_MENU:
 				current_state = ShopState.PROMPT
+				if player_nearby: player_nearby.is_in_menu = false
 				feedback_text = ""
 				return
 			if current_state in [ShopState.SELL_MENU, ShopState.BUY_MENU, ShopState.UPGRADE_MENU]:
@@ -246,6 +247,7 @@ func _input(event):
 				current_state = ShopState.BUY_MENU
 				feedback_text = ""
 				return
+
 
 
 func _wrap_feedback(body_text: String) -> String:
@@ -289,7 +291,9 @@ func _process(delta):
 		prompt_label.text = t
 		if Input.is_action_just_pressed(INTERACT_ACTION):
 			current_state = ShopState.MAIN_MENU
+			if player_nearby: player_nearby.is_in_menu = true
 		return
+
 
 	# Screen-space UI for real buttons.
 	var show_ui: bool = current_state in [ShopState.MAIN_MENU, ShopState.SELL_MENU, ShopState.BUY_MENU, ShopState.UPGRADE_MENU, ShopState.CONFIRM_BUY]
@@ -361,7 +365,10 @@ func _render_ui() -> void:
 			_add_button("Sell Ores", func(): current_state = ShopState.SELL_MENU)
 			_add_button("Buy Pickaxes", func(): current_state = ShopState.BUY_MENU)
 			_add_button("Upgrades", func(): current_state = ShopState.UPGRADE_MENU)
-			_add_button("Close", func(): current_state = ShopState.PROMPT)
+			_add_button("Close", func(): 
+				current_state = ShopState.PROMPT
+				if player_nearby: player_nearby.is_in_menu = false
+			)
 
 		ShopState.SELL_MENU:
 			var total_value := 0
@@ -436,7 +443,10 @@ func _render_ui() -> void:
 
 		_:
 			ui_body.text = ""
-			_add_button("Close", func(): current_state = ShopState.PROMPT)
+			_add_button("Close", func(): 
+				current_state = ShopState.PROMPT
+				if player_nearby: player_nearby.is_in_menu = false
+			)
 
 
 func _render_dev_menu_label() -> void:
@@ -585,11 +595,14 @@ func _on_body_entered(body):
 
 func _on_body_exited(body):
 	if body.is_in_group("player"):
+		if player_nearby:
+			player_nearby.is_in_menu = false
 		player_nearby = null
 		current_state = ShopState.IDLE
 		_dev_tap_count = 0
 		prompt_label.visible = false
 		_set_pickaxes_visible(false)
+
 
 func _dev_add_money(amount: int) -> void:
 	if player_nearby == null:
