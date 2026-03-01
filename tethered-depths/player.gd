@@ -5,8 +5,8 @@ var speed: float = 300.0
 var jump_speed: float = 400.0
 var climb_speed: float = 150.0
 var gravity: float = 980.0
-var mine_time: float = 4.0 # Default for Starter Pick
-var base_mine_time: float = 4.0
+var mine_time: float = 1.8 # Default for Starter Pick
+var base_mine_time: float = 1.8
 var max_battery: float = 100.0
 var current_battery: float = 100.0
 var max_cargo: int = 10
@@ -105,11 +105,11 @@ var walking_sfx_player: AudioStreamPlayer
 # Upgrade tracking
 var pickaxe_level: int = 0
 const PICKAXE_UPGRADES = [
-	{"name": "Starter Pick", "price": 0,     "mine_time": 2,  "luck": 1.0,  "color": Color(0.6, 0.6, 0.6)},
-	{"name": "Stone Pick",   "price": 500,   "mine_time": 1.4,  "luck": 1.1,  "color": Color(0.75, 0.7, 0.65)},
-	{"name": "Copper Pick",  "price": 1000,  "mine_time": 1,  "luck": 1.2,  "color": Color(0.9, 0.5, 0.15)},
-	{"name": "Silver Pick",  "price": 5000,  "mine_time": 0.6,  "luck": 1.35, "color": Color(0.8, 0.85, 0.95)},
-	{"name": "Gold Pick",    "price": 50000, "mine_time": 0.3,  "luck": 1.55,  "color": Color(1.0, 0.85, 0.1)}
+	{"name": "Starter Pick", "price": 0,     "mine_time": 1.8,  "luck": 1.0,  "color": Color(0.6, 0.6, 0.6)},
+	{"name": "Stone Pick",   "price": 500,   "mine_time": 1.25, "luck": 1.1,  "color": Color(0.75, 0.7, 0.65)},
+	{"name": "Copper Pick",  "price": 1000,  "mine_time": 0.9,  "luck": 1.2,  "color": Color(0.9, 0.5, 0.15)},
+	{"name": "Silver Pick",  "price": 5000,  "mine_time": 0.54, "luck": 1.35, "color": Color(0.8, 0.85, 0.95)},
+	{"name": "Gold Pick",    "price": 50000, "mine_time": 0.27, "luck": 1.55,  "color": Color(1.0, 0.85, 0.1)}
 ]
 
 @onready var mining_timer: Timer = $MiningTimer
@@ -164,8 +164,7 @@ var is_in_menu: bool = false # Used to block player input when shop/trader is op
 
 func _ready():
 # ... rest of _ready (no change to the beginning)
-
-	base_mine_time = mine_time
+	base_mine_time = float(PICKAXE_UPGRADES[pickaxe_level]["mine_time"])
 	recompute_mine_time()
 	spawn_position = global_position
 	# Find TileMapLayer more robustly
