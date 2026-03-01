@@ -7,7 +7,7 @@ extends Node2D
 @onready var ui_vbox: VBoxContainer = $ShopUI/Root/Panel/Margin/VBox
 @onready var ui_header: RichTextLabel = $ShopUI/Root/Panel/Margin/VBox/Header
 @onready var ui_body: RichTextLabel = $ShopUI/Root/Panel/Margin/VBox/Body
-@onready var ui_buttons: VBoxContainer = $ShopUI/Root/Panel/Margin/VBox/Buttons
+@onready var ui_buttons: VBoxContainer = $ShopUI/Root/Panel/Margin/VBox/Scroll/Buttons
 var player_nearby: Node = null
 
 # Protect the ground under the shop from being mined.

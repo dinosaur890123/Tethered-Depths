@@ -173,7 +173,8 @@ func position_entities():
 	var crate := get_node_or_null("Cratestorage")
 	if crate is Sprite2D:
 		if house:
-			crate.global_position.x = house.global_position.x + 80.0
+			crate.global_position.x = house.global_position.x + 140.0
+
 		crate.z_index = 1
 		crate.centered = true
 		_align_node_bottom_to_surface(crate as Node2D, surface_y)

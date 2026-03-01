@@ -85,8 +85,15 @@ fit_content = true
 scroll_active = false
 autowrap_mode = 3
 
-[node name="Buttons" type="VBoxContainer" parent="ShopUI/Root/Panel/Margin/VBox"]
+[node name="Scroll" type="ScrollContainer" parent="ShopUI/Root/Panel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Buttons" type="VBoxContainer" parent="ShopUI/Root/Panel/Margin/VBox/Scroll"]
+layout_mode = 2
 size_flags_horizontal = 3
+
 
 [node name="ShopZone" type="Area2D" parent="."]
 

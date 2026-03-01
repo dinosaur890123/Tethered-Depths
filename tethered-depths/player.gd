@@ -572,9 +572,10 @@ func recompute_mine_time() -> void:
 
 
 func _process(delta: float) -> void:
-	if is_end_of_day: return
+	if is_end_of_day or get_tree().paused: return
 	_update_depth_lighting()
 	game_minutes += delta * 5.0  # 1 real second = 5 game minutes
+
 	if game_minutes >= 1440.0:
 		game_minutes -= 1440.0
 		trigger_end_of_day()
