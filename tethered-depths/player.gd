@@ -123,6 +123,19 @@ var is_mining: bool = false
 var target_tile_coords: Vector2i
 var spawn_position: Vector2
 
+# --- Depth Lighting ---
+var depth_canvas_modulate: CanvasModulate
+const DEPTH_DARKEN_START_TILE_Y: int = 6
+const DEPTH_DARKEN_FULL_TILE_Y: int = 220
+const DEPTH_DARKEN_MIN_MULT: float = 0.22
+
+# --- Flashlight ---
+var flashlight: PointLight2D
+var flashlight_texture: Texture2D
+const FLASHLIGHT_TEX_SIZE: int = 256
+const FLASHLIGHT_CONE_ANGLE_DEG: float = 90.0
+const FLASHLIGHT_MAX_RADIUS_FRAC: float = 0.48
+
 # Track which direction the player is facing so we know which block to target
 var facing_dir: int = 1  # 1 = right, -1 = left
 var is_walking: bool = false
@@ -170,6 +183,8 @@ func _ready():
 	# Find TileMapLayer more robustly
 	var main = get_parent()
 	tilemap = main.get_node_or_null("Dirt") as TileMapLayer
+	_setup_depth_lighting()
+	_setup_flashlight()
 	
 	# Find HUD nodes more robustly
 	hud = main.get_node_or_null("HUD") as CanvasLayer
@@ -403,6 +418,82 @@ func _ready():
 
 	_setup_end_of_day_ui()
 
+func _setup_depth_lighting() -> void:
+	var main := get_parent()
+	if main == null:
+		return
+	depth_canvas_modulate = main.get_node_or_null("DepthCanvasModulate") as CanvasModulate
+	if depth_canvas_modulate == null:
+		depth_canvas_modulate = CanvasModulate.new()
+		depth_canvas_modulate.name = "DepthCanvasModulate"
+		main.add_child(depth_canvas_modulate)
+		# Keep it near the top for clarity (render order isn't critical for CanvasModulate).
+		main.move_child(depth_canvas_modulate, 0)
+	_update_depth_lighting()
+
+func _setup_flashlight() -> void:
+	if flashlight != null:
+		return
+	flashlight = PointLight2D.new()
+	flashlight.name = "Flashlight"
+	flashlight.enabled = true
+	flashlight.energy = 1.25
+	flashlight.color = Color(1.0, 0.98, 0.9)
+	flashlight.texture_scale = 2.2
+	flashlight.shadow_enabled = false
+	if flashlight_texture == null:
+		flashlight_texture = _create_flashlight_texture(FLASHLIGHT_TEX_SIZE, FLASHLIGHT_CONE_ANGLE_DEG)
+	flashlight.texture = flashlight_texture
+	add_child(flashlight)
+	_update_flashlight()
+
+func _create_flashlight_texture(size: int, cone_angle_deg: float) -> Texture2D:
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var center := Vector2(float(size) * 0.5, float(size) * 0.5)
+	var max_r := float(size) * FLASHLIGHT_MAX_RADIUS_FRAC
+	var half_angle := deg_to_rad(cone_angle_deg * 0.5)
+
+	for y in range(size):
+		for x in range(size):
+			var v := Vector2(float(x), float(y)) - center
+			var dist := v.length()
+			if dist <= 0.001 or dist > max_r:
+				continue
+			# Forward cone points to +X (right). Nothing behind the player.
+			if v.x <= 0.0:
+				continue
+			var ang := abs(atan2(v.y, v.x))
+			if ang > half_angle:
+				continue
+			var radial := 1.0 - (dist / max_r)
+			var angular := 1.0 - (ang / half_angle)
+			var a := clamp(radial * radial * angular, 0.0, 1.0)
+			img.set_pixel(x, y, Color(1, 1, 1, a))
+
+	return ImageTexture.create_from_image(img)
+
+func _update_depth_lighting() -> void:
+	if depth_canvas_modulate == null:
+		return
+	if tilemap == null:
+		depth_canvas_modulate.color = Color(1, 1, 1)
+		return
+	var pos_tile := tilemap.local_to_map(tilemap.to_local(global_position))
+	var y := int(pos_tile.y)
+	var t := 0.0
+	if y > DEPTH_DARKEN_START_TILE_Y:
+		t = clamp(float(y - DEPTH_DARKEN_START_TILE_Y) / float(DEPTH_DARKEN_FULL_TILE_Y - DEPTH_DARKEN_START_TILE_Y), 0.0, 1.0)
+	var mult := lerp(1.0, DEPTH_DARKEN_MIN_MULT, t)
+	depth_canvas_modulate.color = Color(mult, mult, mult, 1.0)
+
+func _update_flashlight() -> void:
+	if flashlight == null:
+		return
+	# Slightly in front of the player, rotated to match facing_dir.
+	flashlight.position = Vector2(18.0 * float(facing_dir), -8.0)
+	flashlight.rotation = 0.0 if facing_dir >= 0 else PI
+
 func get_mine_time_mult() -> float:
 	return clamp(pow(MINE_TIME_UPGRADE_FACTOR, float(mining_speed_upgrade_level)), MIN_MINE_TIME_MULT, 1.0)
 
@@ -412,6 +503,7 @@ func recompute_mine_time() -> void:
 
 func _process(delta: float) -> void:
 	if is_end_of_day: return
+	_update_depth_lighting()
 	game_minutes += delta * 5.0  # 1 real second = 5 game minutes
 	if game_minutes >= 1440.0:
 		game_minutes -= 1440.0
@@ -426,11 +518,13 @@ func _physics_process(delta):
 		is_walking = false
 		if is_mining: cancel_mining()
 		_update_animation()
+		_update_flashlight()
 		return
 
 	if is_grapple_moving:
 		_update_walking_sfx()
 		_update_grapple_line()
+		_update_flashlight()
 		return  # Physics paused during grapple travel
 
 	# Oxygen-based Luck Strategy: Lower oxygen = higher luck bonus
@@ -528,6 +622,7 @@ func _physics_process(delta):
 	_update_animation()
 	_update_walking_sfx()
 	_update_grapple_line()
+	_update_flashlight()
 	queue_redraw()
 
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and selected_slot == 0:
