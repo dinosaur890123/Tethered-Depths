@@ -229,7 +229,7 @@ func _ready():
 		var hotbar_container = HBoxContainer.new()
 		hotbar_container.set_anchors_preset(Control.LayoutPreset.PRESET_FULL_RECT)
 		hotbar_container.alignment = BoxContainer.ALIGNMENT_CENTER
-		hotbar_container.set_theme_constant_override("separation", 8)
+		hotbar_container.add_theme_constant_override("separation", 8)
 		hotbar_bg.add_child(hotbar_container)
 		
 		for i in range(9):
