@@ -24,6 +24,12 @@ func _process(_delta):
 
 	var current_level: int = int(player_nearby.pickaxe_level)
 	var max_level: int = int(player_nearby.PICKAXE_UPGRADES.size() - 1)
+	while max_level > 0:
+		var upg_max = player_nearby.PICKAXE_UPGRADES[max_level]
+		if upg_max is Dictionary and bool((upg_max as Dictionary).get("admin", false)):
+			max_level -= 1
+			continue
+		break
 
 	var info_text := "[center][b]PICKAXE UPGRADE[/b][/center]\n\n"
 	info_text += "[center][color=gray]Current: %s (Lv %d/%d)[/color][/center]\n\n" % [player_nearby.PICKAXE_UPGRADES[current_level]["name"], current_level, max_level]
@@ -32,6 +38,8 @@ func _process(_delta):
 	# Show prices for all upgrades
 	for i in range(1, player_nearby.PICKAXE_UPGRADES.size()):
 		var upg = player_nearby.PICKAXE_UPGRADES[i]
+		if upg is Dictionary and bool((upg as Dictionary).get("admin", false)):
+			continue
 		var upg_color: Color = upg["color"] as Color
 		var color_hex: String = upg_color.to_html(false)
 		var status := ""

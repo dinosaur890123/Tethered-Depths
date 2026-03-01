@@ -109,7 +109,8 @@ const PICKAXE_UPGRADES = [
 	{"name": "Stone Pick",   "price": 500,   "mine_time": 1.25, "luck": 1.1,  "color": Color(0.75, 0.7, 0.65)},
 	{"name": "Copper Pick",  "price": 1000,  "mine_time": 0.9,  "luck": 1.2,  "color": Color(0.9, 0.5, 0.15)},
 	{"name": "Silver Pick",  "price": 5000,  "mine_time": 0.54, "luck": 1.35, "color": Color(0.8, 0.85, 0.95)},
-	{"name": "Gold Pick",    "price": 50000, "mine_time": 0.27, "luck": 1.55,  "color": Color(1.0, 0.85, 0.1)}
+	{"name": "Gold Pick",    "price": 50000, "mine_time": 0.27, "luck": 1.55,  "color": Color(1.0, 0.85, 0.1)},
+	{"name": "Admin Pick",   "price": 0,     "mine_time": 0.01, "luck": 10.0,  "color": Color(0.80, 0.20, 0.95), "admin": true, "insta_mine": true}
 ]
 
 @onready var mining_timer: Timer = $MiningTimer
@@ -133,7 +134,6 @@ const DEPTH_DARKEN_MIN_MULT: float = 0.22
 var flashlight: PointLight2D
 var flashlight_texture: Texture2D
 const FLASHLIGHT_TEX_SIZE: int = 256
-const FLASHLIGHT_CONE_ANGLE_DEG: float = 90.0
 const FLASHLIGHT_MAX_RADIUS_FRAC: float = 0.48
 
 # Track which direction the player is facing so we know which block to target
@@ -338,14 +338,16 @@ func _ready():
 		inventory_panel = ColorRect.new()
 		inventory_panel.visible = false
 		inventory_panel.color = Color(0.0, 0.0, 0.0, 0.78)
+		# Attach inventory to the hotbar area (bottom-center), like a drop-up panel.
 		inventory_panel.anchor_left = 0.5
 		inventory_panel.anchor_right = 0.5
-		inventory_panel.anchor_top = 0.5
-		inventory_panel.anchor_bottom = 0.5
-		inventory_panel.offset_left = -320.0
-		inventory_panel.offset_right = 320.0
-		inventory_panel.offset_top = -220.0
-		inventory_panel.offset_bottom = 220.0
+		inventory_panel.anchor_top = 1.0
+		inventory_panel.anchor_bottom = 1.0
+		# Match hotbar width (520) and open above it.
+		inventory_panel.offset_left = -260.0
+		inventory_panel.offset_right = 260.0
+		inventory_panel.offset_bottom = -80.0
+		inventory_panel.offset_top = inventory_panel.offset_bottom - 240.0
 		inventory_panel.z_index = 20
 		hud.add_child(inventory_panel)
 
@@ -422,13 +424,20 @@ func _setup_depth_lighting() -> void:
 	var main := get_parent()
 	if main == null:
 		return
-	depth_canvas_modulate = main.get_node_or_null("DepthCanvasModulate") as CanvasModulate
-	if depth_canvas_modulate == null:
+	# NOTE: Adding children to the parent from inside a child's `_ready()` can error
+	# with "Parent node is busy setting up children". Use deferred parenting.
+	var existing := main.get_node_or_null("DepthCanvasModulate") as CanvasModulate
+	if existing != null:
+		depth_canvas_modulate = existing
+	elif depth_canvas_modulate == null:
 		depth_canvas_modulate = CanvasModulate.new()
 		depth_canvas_modulate.name = "DepthCanvasModulate"
-		main.add_child(depth_canvas_modulate)
+	# Ensure the node is actually parented to `main` (it may exist but not be in-tree
+	# yet if a previous add failed).
+	if depth_canvas_modulate.get_parent() != main:
+		main.add_child.call_deferred(depth_canvas_modulate)
 		# Keep it near the top for clarity (render order isn't critical for CanvasModulate).
-		main.move_child(depth_canvas_modulate, 0)
+		main.move_child.call_deferred(depth_canvas_modulate, 0)
 	_update_depth_lighting()
 
 func _setup_flashlight() -> void:
@@ -437,22 +446,21 @@ func _setup_flashlight() -> void:
 	flashlight = PointLight2D.new()
 	flashlight.name = "Flashlight"
 	flashlight.enabled = true
-	flashlight.energy = 1.25
+	flashlight.energy = 0.35
 	flashlight.color = Color(1.0, 0.98, 0.9)
-	flashlight.texture_scale = 2.2
+	flashlight.texture_scale = 1.5
 	flashlight.shadow_enabled = false
 	if flashlight_texture == null:
-		flashlight_texture = _create_flashlight_texture(FLASHLIGHT_TEX_SIZE, FLASHLIGHT_CONE_ANGLE_DEG)
+		flashlight_texture = _create_flashlight_texture(FLASHLIGHT_TEX_SIZE)
 	flashlight.texture = flashlight_texture
 	add_child(flashlight)
 	_update_flashlight()
 
-func _create_flashlight_texture(size: int, cone_angle_deg: float) -> Texture2D:
+func _create_flashlight_texture(size: int) -> Texture2D:
 	var img: Image = Image.create(size, size, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	var center: Vector2 = Vector2(float(size) * 0.5, float(size) * 0.5)
 	var max_r: float = float(size) * FLASHLIGHT_MAX_RADIUS_FRAC
-	var half_angle: float = deg_to_rad(cone_angle_deg * 0.5)
 
 	for y in range(size):
 		for x in range(size):
@@ -460,15 +468,8 @@ func _create_flashlight_texture(size: int, cone_angle_deg: float) -> Texture2D:
 			var dist: float = v.length()
 			if dist <= 0.001 or dist > max_r:
 				continue
-			# Forward cone points to +X (right). Nothing behind the player.
-			if v.x <= 0.0:
-				continue
-			var ang: float = absf(atan2(v.y, v.x))
-			if ang > half_angle:
-				continue
 			var radial: float = 1.0 - (dist / max_r)
-			var angular: float = 1.0 - (ang / half_angle)
-			var a: float = clampf(radial * radial * angular, 0.0, 1.0)
+			var a: float = clampf(radial * radial, 0.0, 1.0)
 			img.set_pixel(x, y, Color(1, 1, 1, a))
 
 	return ImageTexture.create_from_image(img)
@@ -490,9 +491,9 @@ func _update_depth_lighting() -> void:
 func _update_flashlight() -> void:
 	if flashlight == null:
 		return
-	# Slightly in front of the player, rotated to match facing_dir.
-	flashlight.position = Vector2(18.0 * float(facing_dir), -8.0)
-	flashlight.rotation = 0.0 if facing_dir >= 0 else PI
+	# Omnidirectional light centered on the player.
+	flashlight.position = Vector2(0.0, -8.0)
+	flashlight.rotation = 0.0
 
 func get_mine_time_mult() -> float:
 	return clamp(pow(MINE_TIME_UPGRADE_FACTOR, float(mining_speed_upgrade_level)), MIN_MINE_TIME_MULT, 1.0)
@@ -743,8 +744,20 @@ func _draw():
 func start_mining(tile_coords: Vector2i):
 	is_mining = true
 	target_tile_coords = tile_coords
+	if _is_insta_mine_pickaxe():
+		finish_mining()
+		return
 	_play_mining_sfx()
 	mining_timer.start(mine_time)
+
+func _is_insta_mine_pickaxe() -> bool:
+	if pickaxe_level < 0 or pickaxe_level >= PICKAXE_UPGRADES.size():
+		return false
+	var upg_any: Variant = PICKAXE_UPGRADES[pickaxe_level]
+	if upg_any is Dictionary:
+		var upg: Dictionary = upg_any as Dictionary
+		return bool(upg.get("insta_mine", false))
+	return false
 
 func _play_mining_sfx() -> void:
 	if mining_sfx_player == null:
@@ -835,6 +848,8 @@ func _roll_count() -> int:
 
 func finish_mining():
 	if not tilemap: return
+	if mining_timer:
+		mining_timer.stop()
 
 	var source_id = tilemap.get_cell_source_id(target_tile_coords)
 	var is_grass = (source_id == 1)
