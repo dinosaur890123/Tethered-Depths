@@ -8,8 +8,33 @@ const TILE_COBBLE := 3
 const TILE_DEEPSLATE := 4
 
 const WIDTH = 120
-const DEPTH = 600
+const DEPTH = 1000
 const SURFACE_Y = 0
+
+# --- Water simulation ---
+const WATER_TICK         := 0.5   # seconds between simulation steps
+const WATER_PER_TICK     := 3     # max new water cells added per tick
+
+var _water_cells:   Dictionary = {}        # Vector2i -> true
+var _water_sources: Array[Vector2i] = []   # top of each staircase hole
+var _water_timer:   float = 0.0
+var _water_drawer:  Node2D = null
+
+class WaterDrawer extends Node2D:
+	var water_cells:     Dictionary   = {}
+	var parent_tilemap:  TileMapLayer = null
+
+	func _draw() -> void:
+		if not parent_tilemap or not parent_tilemap.tile_set:
+			return
+		var ts  := parent_tilemap.tile_set.tile_size
+		var hw  := ts.x * 0.5
+		var hh  := ts.y * 0.5
+		var col := Color(0.10, 0.40, 0.95, 0.60)
+		for raw_pos in water_cells:
+			var pos := raw_pos as Vector2i
+			var lp  := parent_tilemap.map_to_local(pos)
+			draw_rect(Rect2(lp.x - hw, lp.y - hh, float(ts.x), float(ts.y)), col)
 
 var is_game_started: bool = false
 
@@ -107,6 +132,8 @@ var _current_sky_texture: String = "res://8bit-pixel-graphic-blue-sky-background
 var _sky_base_sprites: Array = []
 var _sky_overlay_sprites: Array = []
 var _sky_overlay_texture: String = ""
+var _sky_scroll_offset: float = 0.0
+const SKY_SCROLL_SPEED: float = 12.0  # global units/sec — clouds drift left
 
 const SUNSET_START_MINUTES = 16.0 * 60.0  # 4 PM — begin blue→sunset crossfade
 const SUNSET_MINUTES       = 17.0 * 60.0  # 5 PM — fully sunset
@@ -119,6 +146,12 @@ func _process(_delta: float) -> void:
 	var player = get_node_or_null("Player")
 	if player and "game_minutes" in player:
 		_update_sky_blend(player.game_minutes)
+
+	# Advance cloud scroll and re-centre tiles around the camera
+	_sky_scroll_offset -= SKY_SCROLL_SPEED * _delta
+	var camera := get_node_or_null("Player/Camera2D") as Camera2D
+	if camera:
+		_anchor_sky_to_camera(camera.global_position.x)
 
 func _update_sky_blend(mins: float) -> void:
 	var base_path: String
@@ -151,36 +184,66 @@ func _update_sky_blend(mins: float) -> void:
 		_current_sky_texture = base_path
 
 	if overlay_path != _sky_overlay_texture:
-		var tex = load(overlay_path) if overlay_path != "" else null
-		for i in range(_sky_overlay_sprites.size()):
-			var sp = _sky_overlay_sprites[i]
-			if not is_instance_valid(sp): continue
-			sp.texture = tex
-			if tex != null:
-				var rect = sp.get_rect()
-				var bottom_global_y = sp.to_global(Vector2(0.0, rect.end.y)).y
-				sp.global_position.y += _surface_y_cached - bottom_global_y
+		if overlay_path != "":
+			_retile_sky_sprites(_sky_overlay_sprites, load(overlay_path))
+		else:
+			for sp in _sky_overlay_sprites:
+				if is_instance_valid(sp):
+					sp.texture = null
 		_sky_overlay_texture = overlay_path
 
 	for sp in _sky_overlay_sprites:
 		if is_instance_valid(sp):
 			sp.modulate.a = alpha
 
+# Re-textures and repositions a set of sky sprites so they tile gap-free
+# across the world, centred on the player's spawn (global x = 0).
+func _retile_sky_sprites(sprites: Array, tex: Texture2D) -> void:
+	if sprites.is_empty() or tex == null: return
+	var ref: Sprite2D = sprites[0]
+	if not is_instance_valid(ref): return
+	# Global rendered width of one tile: texture_px * sprite_scale * Main_scale
+	var tile_w: float = float(tex.get_width()) * ref.scale.x * self.scale.x
+	var n := sprites.size()
+	var half := n / 2  # integer division — centre index
+	for i in range(n):
+		var sp: Sprite2D = sprites[i]
+		if not is_instance_valid(sp): continue
+		sp.texture = tex
+		sp.global_position.x = float(i - half) * tile_w
+		var rect := sp.get_rect()
+		var bottom_gly := sp.to_global(Vector2(0.0, rect.end.y)).y
+		sp.global_position.y += _surface_y_cached - bottom_gly
+
 func _update_sky_texture(path: String) -> void:
-	var tex = load(path)
+	var tex: Texture2D = load(path)
 	if not tex: return
-	for i in range(_sky_base_sprites.size()):
-		var bg = _sky_base_sprites[i]
-		if not is_instance_valid(bg): continue
-		bg.texture = tex
-		var rect = bg.get_rect()
-		var bottom_global_y = bg.to_global(Vector2(0.0, rect.end.y)).y
-		bg.global_position.y += _surface_y_cached - bottom_global_y
-		# Keep matching overlay sprite in sync
-		if i < _sky_overlay_sprites.size():
-			var ov = _sky_overlay_sprites[i]
-			if is_instance_valid(ov):
-				ov.global_position = bg.global_position
+	_retile_sky_sprites(_sky_base_sprites, tex)
+
+# Called every frame — keeps sky tiles centred on the camera so horizontal
+# gaps are impossible regardless of texture size or player position.
+func _anchor_sky_to_camera(cam_x: float) -> void:
+	_anchor_sprite_row(_sky_base_sprites, cam_x, _sky_scroll_offset)
+	_anchor_sprite_row(_sky_overlay_sprites, cam_x, _sky_scroll_offset)
+
+func _anchor_sprite_row(sprites: Array, cam_x: float, scroll: float) -> void:
+	if sprites.is_empty(): return
+	# Find the first valid sprite with a texture to measure tile width
+	var ref: Sprite2D = null
+	for s in sprites:
+		if is_instance_valid(s) and (s as Sprite2D).texture != null:
+			ref = s as Sprite2D
+			break
+	if ref == null: return
+	var tile_w := float(ref.texture.get_width()) * ref.scale.x * self.scale.x
+	# Wrap the scroll within one tile so the float stays small forever
+	var wrapped := fmod(scroll, tile_w)   # stays in (-tile_w, 0]
+	var n := sprites.size()
+	var half := n / 2
+	for i in range(n):
+		var sp := sprites[i] as Sprite2D
+		if not is_instance_valid(sp): continue
+		sp.global_position.x = cam_x + wrapped + float(i - half) * tile_w
 
 func _setup_autosave() -> void:
 	if _autosave_timer != null:
@@ -440,6 +503,31 @@ func generate_world():
 		print("Generating world...")
 	var half_w: int = WIDTH >> 1
 	var skip_tiles := {}
+
+	# --- Staircase holes pre-pass ---
+	# Check every 8x8 grid cell; 5% chance to carve a staircase in each cell.
+	# Each staircase: 3-5 steps, 2 tiles tall per step = 6-10 blocks removed.
+	# Steps go diagonally down-left or down-right (randomly chosen).
+	const STAIR_GRID := 8
+	const STAIR_CHANCE := 0.05
+	for gx in range(-half_w + 1, half_w - 7, STAIR_GRID):
+		for gy in range(SURFACE_Y + 2, DEPTH - 10, STAIR_GRID):
+			if randf() >= STAIR_CHANCE:
+				continue
+			# Jitter origin within the grid cell for a more organic look
+			var ox := gx + randi_range(0, STAIR_GRID - 1)
+			var oy := gy + randi_range(0, STAIR_GRID - 1)
+			var n_steps := randi_range(3, 5)       # 3-5 steps = 6-10 blocks
+			var dir := 1 if randf() < 0.5 else -1  # down-right or down-left
+			for s in range(n_steps):
+				var sx := ox + s * dir
+				var sy := oy + s
+				if sx >= -half_w and sx < half_w:
+					if sy < DEPTH:
+						skip_tiles[Vector2i(sx, sy)] = true
+					if sy + 1 < DEPTH:
+						skip_tiles[Vector2i(sx, sy + 1)] = true
+
 	for x in range(-half_w, half_w):
 		for y in range(SURFACE_Y, DEPTH):
 			var cell_pos = Vector2i(x, y)
@@ -504,7 +592,7 @@ func position_entities():
 	var shop := get_node_or_null("Shop")
 	if shop is Node2D:
 		_align_node_bottom_to_surface(shop as Node2D, surface_y)
-		_register_surface_footprint(shop as Node2D, surface_y, 0)
+		_register_surface_footprint(shop as Node2D, surface_y, 1)
 
 	var house := get_node_or_null("House")
 	if house is Node2D:
@@ -519,6 +607,7 @@ func position_entities():
 		if s_node is Node2D:
 			s_node.z_index = 1
 			_align_node_bottom_to_surface(s_node as Node2D, surface_y)
+			_register_surface_footprint(s_node as Node2D, surface_y, 1)
 
 	var tree_paths := ["Trees/Tree1", "Trees/Tree2", "Trees/Tree3", "Trees/Tree4", "Trees/Tree5", "Trees/Tree6", "Trees/Tree7", "Trees/Tree8", "Trees/Tree9", "Trees/Tree10", "Trees/Tree11"]
 	for p in tree_paths:
@@ -527,14 +616,51 @@ func position_entities():
 			_align_node_bottom_to_surface(tree as Node2D, surface_y)
 			_register_surface_footprint(tree as Node2D, surface_y, 0)
 
-	# 5. Sky backgrounds — align bottom edge exactly to the grass surface
+	# 5. Sky backgrounds — align to surface, add extra copies, create crossfade overlay layer
 	var bg_above = get_node_or_null("Background above")
+	_sky_base_sprites.clear()
+	_sky_overlay_sprites.clear()
+	_sky_overlay_texture = ""
 	if bg_above:
+		# Align existing scene sprites and collect them
+		var ref_sprite: Sprite2D = null
 		for bg in bg_above.get_children():
 			if not (bg is Sprite2D) or not bg.texture: continue
 			var rect = bg.get_rect()
 			var bottom_global_y = bg.to_global(Vector2(0.0, rect.end.y)).y
 			bg.global_position.y += surface_y - bottom_global_y
+			_sky_base_sprites.append(bg)
+			if ref_sprite == null:
+				ref_sprite = bg
+
+		# Add 2 extra copies (one far-left, one far-right) to prevent evening-sky gaps
+		if ref_sprite != null and _sky_base_sprites.size() >= 2:
+			var xs: Array = []
+			for s in _sky_base_sprites:
+				xs.append(s.global_position.x)
+			xs.sort()
+			var spacing: float = (xs[-1] - xs[0]) / float(_sky_base_sprites.size() - 1)
+			for extra_x in [xs[0] - spacing, xs[-1] + spacing]:
+				var new_bg = Sprite2D.new()
+				new_bg.texture = ref_sprite.texture
+				new_bg.scale = ref_sprite.scale
+				new_bg.z_index = ref_sprite.z_index
+				new_bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+				new_bg.global_position = Vector2(extra_x, ref_sprite.global_position.y)
+				bg_above.add_child(new_bg)
+				_sky_base_sprites.append(new_bg)
+
+		# Create an invisible overlay sprite per base sprite for crossfade transitions
+		for base in _sky_base_sprites:
+			var ov = Sprite2D.new()
+			ov.texture = null
+			ov.scale = base.scale
+			ov.z_index = base.z_index + 1
+			ov.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			ov.global_position = base.global_position
+			ov.modulate = Color(1.0, 1.0, 1.0, 0.0)
+			bg_above.add_child(ov)
+			_sky_overlay_sprites.append(ov)
 
 	# 6. Cobblestone backgrounds — Tile to cover the entire depth and width
 	var bg_under = get_node_or_null("Background Under")

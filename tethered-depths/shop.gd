@@ -36,6 +36,7 @@ const SPEED_UPGRADE_BASE_PRICE: int = 600
 const MINE_SPEED_UPGRADE_BASE_PRICE: int = 800
 
 const MAX_STAT_UPGRADE_LEVEL: int = 8
+const PHASE_GRAPPLE_PRICE: int = 10000
 
 # Consumables
 const POTION_OXYGEN_ID: String = "potion_oxygen"
@@ -458,6 +459,8 @@ func _render_ui() -> void:
 			_add_button("Oxygen Tank (+%d)  %s  (Lv %d/%d)" % [int(OXYGEN_UPGRADE_STEP), _money_str(oxy_price), oxy_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("oxygen"); _last_render_state = -999, oxy_lv >= MAX_STAT_UPGRADE_LEVEL)
 			_add_button("Boots (+%d speed)  %s  (Lv %d/%d)" % [int(SPEED_UPGRADE_STEP), _money_str(spd_price), spd_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("speed"); _last_render_state = -999, spd_lv >= MAX_STAT_UPGRADE_LEVEL)
 			_add_button("Drill Motor (-%d%% mine time)  %s  (Lv %d/%d)" % [MINE_SPEED_UPGRADE_STEP_PCT, _money_str(mine_price), mine_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("mine"); _last_render_state = -999, mine_lv >= MAX_STAT_UPGRADE_LEVEL)
+			var phase_owned := bool(player_nearby.phase_grapple_unlocked) if "phase_grapple_unlocked" in player_nearby else false
+			_add_button("Phase Grapple (grapple through walls)  %s%s" % [_money_str(PHASE_GRAPPLE_PRICE), "  [OWNED]" if phase_owned else ""], func(): _buy_phase_grapple(); _last_render_state = -999, phase_owned)
 			_add_button("Back", func(): current_state = ShopState.MAIN_MENU)
 
 
@@ -663,6 +666,30 @@ func _buy_stat_upgrade(kind: String) -> void:
 		add_child(asp)
 		asp.play()
 		asp.finished.connect(asp.queue_free)
+func _buy_phase_grapple() -> void:
+	if not player_nearby: return
+	if "phase_grapple_unlocked" not in player_nearby: return
+	if player_nearby.phase_grapple_unlocked:
+		feedback_text = "Already owned!"
+		feedback_timer = 1.2
+		return
+	if player_nearby.money < PHASE_GRAPPLE_PRICE:
+		feedback_text = "Not enough money"
+		feedback_timer = 1.6
+		return
+	player_nearby.money -= PHASE_GRAPPLE_PRICE
+	if player_nearby.money_label:
+		player_nearby.money_label.text = "$" + str(player_nearby.money)
+	player_nearby.phase_grapple_unlocked = true
+	feedback_text = "Phase Grapple unlocked!"
+	feedback_timer = 1.6
+	if FileAccess.file_exists("res://buy_1.mp3"):
+		var asp = AudioStreamPlayer.new()
+		asp.stream = load("res://buy_1.mp3")
+		add_child(asp)
+		asp.play()
+		asp.finished.connect(asp.queue_free)
+
 func _ui_header() -> String:
 
 	if player_nearby == null:

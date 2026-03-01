@@ -39,7 +39,9 @@ var grapple_hover_valid: bool = false
 var grapple_hover_invalid: bool = false
 var is_grapple_moving: bool = false
 var is_wall_stuck: bool = false
+var grapple_wall_dir: float = 0.0  # -1 = wall is to left, +1 = wall is to right
 const WALL_STICK_SLIDE_SPEED: float = 44.8  # half-tile/sec in global space
+const WALL_STICK_PUSH_SPEED: float = 120.0  # horizontal press into wall each frame
 const GRAPPLE_MAX_TILES: int = 4
 const GRAPPLE_MIN_TILES: int = 2
 
@@ -114,6 +116,7 @@ var speed_potion_timer: float = 0.0
 var speed_potion_mult: float = 1.0
 var cargo_label: Label
 var depth_hud_label: Label
+var ore_collection_label: RichTextLabel
 
 var grapple_line: Line2D
 
@@ -186,10 +189,12 @@ var facing_dir: int = 1  # 1 = right, -1 = left
 var is_walking: bool = false
 var shop_node: Node2D = null
 var is_wall_climbing: bool = false
+var phase_grapple_unlocked: bool = false
 
 # Highlight state — updated every frame based on mouse position
 var highlighted_tile: Vector2i
 var highlight_valid: bool = false
+var highlight_out_of_range: bool = false
 # Tile size in world space: tileset is 128px, TileMapLayer scale is 0.5
 const TILE_WORLD_SIZE = 64.0
 
@@ -277,6 +282,15 @@ const ORE_TABLE = [
 	["Mutated Silver", MUTATED_DROP_DENOM,  320, Color(0.80, 0.20, 0.95)],
 	["Mutated Gold",   MUTATED_DROP_DENOM,  1200, Color(0.80, 0.20, 0.95)],
 	["Rainbow", 180, 3500, Color(1.00, 1.00, 1.00)],
+	# Deep ores — 5th element is minimum tile depth (y) required to drop
+	["Emerald",      70,   800,   Color(0.10, 0.90, 0.30), 100],
+	["Ruby",         90,   2500,  Color(1.00, 0.10, 0.15), 250],
+	["Diamond",     130,  12000,  Color(0.55, 1.00, 1.00), 500],
+	["Void Crystal", 160, 50000,  Color(0.55, 0.05, 0.90), 800],
+	["Mutated Emerald",      MUTATED_DROP_DENOM,  3200,   Color(0.80, 0.20, 0.95)],
+	["Mutated Ruby",         MUTATED_DROP_DENOM,  10000,  Color(0.80, 0.20, 0.95)],
+	["Mutated Diamond",      MUTATED_DROP_DENOM,  48000,  Color(0.80, 0.20, 0.95)],
+	["Mutated Void Crystal", MUTATED_DROP_DENOM,  200000, Color(0.80, 0.20, 0.95)],
 ]
 
 # Per-ore inventory counts
@@ -614,20 +628,20 @@ func _ready():
 		inventory_label.offset_bottom = -14.0
 		inventory_panel.add_child(inventory_label)
 
-		# Initialise ore counts and build HUD labels
-		var y: float = 68.0
+		# Initialise ore counts
 		for ore in ORE_TABLE:
-			var nm: String = ore[0]
-			ore_counts[nm] = 0
-			if nm in ["Stone", "Copper", "Silver", "Gold"]:
-				var lbl := Label.new()
-				lbl.text = "%s: 0" % nm
-				lbl.modulate = ore[3] as Color
-				lbl.add_theme_font_size_override("font_size", 20)
-				lbl.position = Vector2(20.0, y)
-				hud.add_child(lbl)
-				ore_labels[nm] = lbl
-				y += 26.0
+			ore_counts[ore[0] as String] = 0
+
+		# Dynamic ore collection panel (left side, below y=68)
+		ore_collection_label = RichTextLabel.new()
+		ore_collection_label.bbcode_enabled = true
+		ore_collection_label.fit_content = true
+		ore_collection_label.scroll_active = false
+		ore_collection_label.position = Vector2(8.0, 68.0)
+		ore_collection_label.size = Vector2(210.0, 600.0)
+		ore_collection_label.add_theme_font_size_override("normal_font_size", 17)
+		hud.add_child(ore_collection_label)
+		_update_ore_collection_hud()
 
 		# --- Minimap ---
 		if minimap_panel:
@@ -914,7 +928,7 @@ func _physics_process(delta):
 			_release_grapple()
 		else:
 			velocity.y = WALL_STICK_SLIDE_SPEED
-			velocity.x = 0.0
+			velocity.x = grapple_wall_dir * WALL_STICK_PUSH_SPEED
 			if Input.is_action_just_pressed("ui_accept"):
 				velocity.y = -jump_speed
 				is_wall_stuck = false
@@ -995,6 +1009,7 @@ func _update_grapple_line():
 
 func _update_highlight():
 	highlight_valid = false
+	highlight_out_of_range = false
 
 	if is_mining or not tilemap:
 		return
@@ -1011,13 +1026,17 @@ func _update_highlight():
 	]
 
 	var src_id := tilemap.get_cell_source_id(mouse_tile)
-	if mouse_tile in adjacent_tiles and src_id != -1:
-		if tilemap.has_meta("unbreakable_tiles"):
-			var meta = tilemap.get_meta("unbreakable_tiles")
-			if meta is Dictionary and (meta as Dictionary).has(mouse_tile):
-				return
+	if src_id != -1:
 		highlighted_tile = mouse_tile
-		highlight_valid = true
+		if mouse_tile in adjacent_tiles:
+			if tilemap.has_meta("unbreakable_tiles"):
+				var meta = tilemap.get_meta("unbreakable_tiles")
+				if meta is Dictionary and (meta as Dictionary).has(mouse_tile):
+					highlight_out_of_range = true
+					return
+			highlight_valid = true
+		else:
+			highlight_out_of_range = true
 
 
 func _update_animation():
@@ -1060,6 +1079,14 @@ func _draw():
 		else:
 			draw_rect(r, Color(1.0, 0.0, 0.0, 0.25), true)
 			draw_rect(r, Color(1.0, 0.0, 0.0, 1.0), false, 2.5)
+
+	if highlight_out_of_range and not is_mining:
+		var tile_center_global = tilemap.to_global(tilemap.map_to_local(highlighted_tile))
+		var tile_center_local = to_local(tile_center_global)
+		var half = TILE_WORLD_SIZE / 2.0
+		var rect = Rect2(tile_center_local - Vector2(half, half), Vector2(TILE_WORLD_SIZE, TILE_WORLD_SIZE))
+		draw_rect(rect, Color(1.0, 0.2, 0.2, 0.25), true)
+		draw_rect(rect, Color(1.0, 0.2, 0.2, 1.0), false, 2.5)
 
 	if highlight_valid and not is_mining:
 		var tile_center_global = tilemap.to_global(tilemap.map_to_local(highlighted_tile))
@@ -1426,12 +1453,25 @@ func finish_mining():
 		var amount = min(_roll_count(), cargo_remaining)
 		if amount > 0:
 			cargo_remaining -= amount
+			var stone_name := "Stone"
+			var stone_color := Color(0.75, 0.70, 0.65)
+			var stone_value := _get_ore_value("Stone")
+			if randf() < MUTATED_CHANCE:
+				stone_name = "Mutated Stone"
+				stone_color = Color(0.80, 0.20, 0.95)
+				stone_value = _get_ore_value("Mutated Stone")
+				if randf() < MUTATED_CHANCE:
+					stone_name = "Rainbow"
+					stone_color = Color.from_hsv(randf(), 0.95, 1.0, 1.0)
+					stone_value = _get_ore_value("Rainbow")
 			found.append({
-				"name":   "Stone",
+				"name":   stone_name,
 				"amount": amount,
-				"value":  _get_ore_value("Stone"),
-				"color":  Color(0.75, 0.70, 0.65),
+				"value":  stone_value,
+				"color":  stone_color,
 			})
+
+	var depth: int = target_tile_coords.y
 
 	for ore in ORE_TABLE:
 		if cargo_remaining <= 0:
@@ -1441,7 +1481,14 @@ func finish_mining():
 			continue
 		if ore_name.begins_with("Mutated "):
 			continue
-		var chance_denom = float(ore[1]) / current_luck
+		# Deep ore depth gate
+		var min_depth: int = int(ore[4]) if ore.size() > 4 else 0
+		if depth < min_depth:
+			continue
+		# Scale chance: deeper = more likely (caps at 10x base rate)
+		var base_denom := float(ore[1])
+		var effective_denom := base_denom if min_depth == 0 else max(base_denom * float(min_depth) / float(depth), base_denom * 0.1)
+		var chance_denom = effective_denom / current_luck
 		if randf() * chance_denom < 1.0:
 			var amount = min(_roll_count(), cargo_remaining)
 			cargo_remaining -= amount
@@ -1454,6 +1501,10 @@ func finish_mining():
 				drop_name = "Mutated %s" % drop_name
 				drop_color = Color(0.80, 0.20, 0.95)
 				drop_value = _get_ore_value(drop_name)
+				if randf() < MUTATED_CHANCE:
+					drop_name = "Rainbow"
+					drop_color = Color.from_hsv(randf(), 0.95, 1.0, 1.0)
+					drop_value = _get_ore_value("Rainbow")
 			found.append({
 				"name":   drop_name,
 				"amount": amount,
@@ -1562,9 +1613,28 @@ func _unhandled_input(event: InputEvent) -> void:
 				minimap_zoom = clamp(minimap_zoom / 1.25, 0.5, 8.0)
 				_update_minimap()
 
+func _update_ore_collection_hud() -> void:
+	if not ore_collection_label:
+		return
+	var text := "[b]Collected this run:[/b]\n"
+	var any := false
+	for ore in ORE_TABLE:
+		var nm: String = ore[0]
+		var count: int = int(ore_counts.get(nm, 0))
+		if count <= 0:
+			continue
+		any = true
+		var c: Color = ore[3] as Color
+		var hex := "#%02x%02x%02x" % [int(c.r * 255), int(c.g * 255), int(c.b * 255)]
+		text += "[color=%s]%s: %d[/color]\n" % [hex, nm, count]
+	if not any:
+		text += "[color=#888888]None yet[/color]"
+	ore_collection_label.text = text
+
 func _update_grapple_hover() -> void:
 	grapple_hover_valid = false
 	grapple_hover_invalid = false
+	if not phase_grapple_unlocked: return
 	if grapple_active or not tilemap: return
 	var mouse_world = get_global_mouse_position()
 	var mouse_tile = tilemap.local_to_map(tilemap.to_local(mouse_world))
@@ -1580,6 +1650,7 @@ func _update_grapple_hover() -> void:
 		grapple_hover_valid = true
 
 func _try_fire_grapple() -> void:
+	if not phase_grapple_unlocked: return
 	if not tilemap or is_grapple_moving: return
 	var mouse_world = get_global_mouse_position()
 	var mouse_tile = tilemap.local_to_map(tilemap.to_local(mouse_world))
@@ -1593,13 +1664,11 @@ func _try_fire_grapple() -> void:
 	var sx = sign(to_player.x) if to_player.x != 0 else 1.0
 	var sy = sign(to_player.y) if to_player.y != 0 else 1.0
 	var candidates: Array[Vector2] = [
-		tile_center + Vector2(sx * 56.0, 0.0),     # preferred horizontal face
+		tile_center + Vector2(sx * 56.0, 0.0),     # preferred horizontal face (toward player)
+		tile_center + Vector2(-sx * 56.0, 0.0),    # opposite horizontal face
 		tile_center + Vector2(0.0, sy * 92.0),      # preferred vertical face
-		tile_center + Vector2(-sx * 56.0, 0.0),    # opposite horizontal
 		tile_center + Vector2(0.0, -sy * 92.0),    # opposite vertical
 	]
-	if abs(to_player.y) > abs(to_player.x):
-		candidates = [candidates[1], candidates[0], candidates[3], candidates[2]]
 	var target_pos := Vector2.ZERO
 	var found := false
 	for c in candidates:
@@ -1612,6 +1681,8 @@ func _try_fire_grapple() -> void:
 	grapple_point = target_pos
 	# If the landing spot is beside the block (horizontal face), the player sticks to the wall
 	var will_wall_stick = abs(target_pos.x - tile_center.x) > abs(target_pos.y - tile_center.y)
+	# Wall is on the opposite side of where the player landed (player is at +56 → wall is left at -1)
+	grapple_wall_dir = -sign(target_pos.x - tile_center.x)
 	is_grapple_moving = true
 	velocity = Vector2.ZERO
 	var dist = global_position.distance_to(target_pos)
@@ -1764,30 +1835,30 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 			ore_counts[nm] = 0
 		if not lifetime_ore_counts.has(nm):
 			lifetime_ore_counts[nm] = 0
-		
-		ore_counts[nm] += amt
-		lifetime_ore_counts[nm] += amt
-		current_cargo   += amt
-		daily_ores_collected += amt
+
+		var actual_add: int = min(amt, max_cargo - current_cargo)
+		if actual_add <= 0:
+			fly_node.queue_free()
+			return
+		ore_counts[nm] += actual_add
+		lifetime_ore_counts[nm] += actual_add
+		current_cargo   += actual_add
+		daily_ores_collected += actual_add
 		# Daily objective tracking
 		var base_nm := nm
 		if base_nm.begins_with("Mutated "):
-			daily_mutated_collected += amt
+			daily_mutated_collected += actual_add
 			# do not count mutated toward normal ore quotas
 		else:
 			if not daily_ore_collected.has(base_nm):
 				daily_ore_collected[base_nm] = 0
-			daily_ore_collected[base_nm] = int(daily_ore_collected[base_nm]) + amt
+			daily_ore_collected[base_nm] = int(daily_ore_collected[base_nm]) + actual_add
 		_update_daily_objectives_hud()
 		ore_collected.emit(nm)
 
 		if cargo_label:
 			cargo_label.text = "Cargo: %d/%d" % [current_cargo, max_cargo]
-		if ore_labels.has(nm):
-			ore_labels[nm].text = "%s: %d" % [nm, ore_counts[nm]]
-			var flash = create_tween()
-			flash.tween_property(ore_labels[nm], "modulate:a", 0.15, 0.07)
-			flash.tween_property(ore_labels[nm], "modulate:a", 1.00, 0.18)
+		_update_ore_collection_hud()
 		if inventory_open:
 			_refresh_inventory()
 		fly_node.queue_free()
@@ -1933,11 +2004,9 @@ func _respawn_and_reset_day():
 		objectives_toggle_btn.text = "Daily Tasks ▼"
 	
 	for ore in ORE_TABLE:
-		var nm: String = ore[0]
-		ore_counts[nm] = 0
-		if ore_labels.has(nm):
-			ore_labels[nm].text = "%s: 0" % nm
-			
+		ore_counts[ore[0] as String] = 0
+	_update_ore_collection_hud()
+
 	if oxygen_bar: oxygen_bar.value = current_battery
 	
 	global_position = spawn_position
@@ -1954,6 +2023,7 @@ func _respawn_and_reset_day():
 	_update_low_battery_overlay()
 	if clock_label: clock_label.text = _format_game_time(game_minutes)
 	if cargo_label: cargo_label.text = "Cargo: 0/%d" % max_cargo
+	_update_ore_collection_hud()
 
 func _select_hotbar_slot(index: int):
 	if index < 0 or index >= hotbar_slots.size(): return
