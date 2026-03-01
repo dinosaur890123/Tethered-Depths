@@ -67,7 +67,7 @@ var game_minutes: float = 7.0 * 60.0  # Start at 7:00 AM
 var clock_label: Label
 
 # --- End of Day Stats & UI ---
-var day_count: int = 1
+var day_count: int = 0
 var day_label: Label
 var daily_ores_collected: int = 0
 var daily_money_made: int = 0
@@ -430,7 +430,8 @@ func _ready():
 
 		var item_label = Label.new()
 		item_label.name = "SelectedItemLabel"
-		item_label.text = "Starter Pick"
+		item_label.text = ""
+
 		item_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		item_label.custom_minimum_size = Vector2(520, 30)
 		item_label.anchor_left = 0.5
@@ -1763,10 +1764,14 @@ func _select_hotbar_slot(index: int):
 	# Update Selected Item Name
 	var label = hud.get_node_or_null("SelectedItemLabel") as Label
 	if label:
-		if selected_slot == 0:
-			label.text = PICKAXE_UPGRADES[pickaxe_level]["name"]
+		if index == 0:
+			label.text = ""
+		elif index < hotbar_item_ids.size():
+			var item_id = hotbar_item_ids[index]
+			label.text = item_id if item_id != "" else "Empty Slot"
 		else:
-			var item_id := ""
+			label.text = "Empty Slot"
+
 			var count := 0
 			if selected_slot >= 0 and selected_slot < hotbar_item_ids.size():
 				item_id = hotbar_item_ids[selected_slot]
@@ -1843,14 +1848,12 @@ func _refresh_selected_item_label() -> void:
 func add_hotbar_item(item_id: String, amount: int = 1) -> bool:
 	if amount <= 0:
 		return false
-	# Stack first.
 	for i in range(1, min(HOTBAR_SLOT_COUNT, hotbar_item_ids.size())):
 		if hotbar_item_ids[i] == item_id and int(hotbar_item_counts[i]) > 0:
 			hotbar_item_counts[i] = int(hotbar_item_counts[i]) + amount
 			_update_hotbar_slot_ui(i)
 			_refresh_selected_item_label()
 			return true
-	# Otherwise find an empty slot.
 	for i in range(1, min(HOTBAR_SLOT_COUNT, hotbar_item_ids.size())):
 		if hotbar_item_ids[i] == "" or int(hotbar_item_counts[i]) <= 0:
 			hotbar_item_ids[i] = item_id
