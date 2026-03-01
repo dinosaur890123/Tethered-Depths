@@ -11,7 +11,7 @@ extends Node2D
 var player_nearby: Node = null
 
 # Protect the ground under the shop from being mined.
-@export var foundation_half_width_tiles: int = 2 # total width = (half*2+1)
+@export var foundation_half_width_tiles: int = 4 # total width = (half*2+1)
 @export var foundation_depth_tiles: int = 2
 
 # Developer menu unlock (press F 10x near shop)
@@ -69,7 +69,6 @@ func _ready():
 	_apply_shop_ui_style()
 	$ShopZone.body_entered.connect(_on_body_entered)
 	$ShopZone.body_exited.connect(_on_body_exited)
-	_register_unbreakable_foundation_tiles()
 	
 	# Create pickaxe sprites for visual selection using the tileset atlas
 	var atlas_tex = load("res://Miner16Bit_AllFiles_v1/Miner16Bit_WorldTiles_01.png")
@@ -144,7 +143,7 @@ func _apply_shop_ui_style() -> void:
 	_btn_sb_disabled.bg_color = Color(0.10, 0.10, 0.12, 1.0)
 	_btn_sb_disabled.border_color = Color(0.16, 0.16, 0.18, 1.0)
 
-func _register_unbreakable_foundation_tiles() -> void:
+func _register_unbreakable_foundation_tiles(surface_y_world: float = 0.0) -> void:
 	var main := get_parent()
 	if main == null:
 		return
@@ -152,11 +151,9 @@ func _register_unbreakable_foundation_tiles() -> void:
 	if tilemap == null:
 		return
 
-	# Compute a probe position slightly below the shop origin so we land inside the ground tile.
-	var origin_global := tilemap.to_global(tilemap.map_to_local(Vector2i(0, 0)))
-	var down_global := tilemap.to_global(tilemap.map_to_local(Vector2i(0, 1)))
-	var tile_step_y := down_global.y - origin_global.y
-	var probe_global := global_position + Vector2(0.0, tile_step_y * 0.5)
+	# Probe at the shop's X and just below the surface so we land in the first underground tile row.
+	# Using global_position.y here would be wrong — the shop origin is far above the surface.
+	var probe_global := Vector2(global_position.x, surface_y_world + 4.0)
 	var anchor_tile: Vector2i = tilemap.local_to_map(tilemap.to_local(probe_global))
 
 	var unbreakable: Dictionary = {}

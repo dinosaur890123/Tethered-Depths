@@ -8,7 +8,7 @@ const TILE_COBBLE := 3
 const TILE_DEEPSLATE := 4
 
 const WIDTH = 120
-const DEPTH = 350
+const DEPTH = 600
 const SURFACE_Y = 0
 
 var is_game_started: bool = false
@@ -81,9 +81,6 @@ func _ready():
 	# Initial volume
 	_on_volume_changed(volume_slider.value)
 
-	# Initial sky setup
-	_update_sky_texture(_current_sky_texture)
-
 	load_game()
 
 	randomize()
@@ -107,40 +104,83 @@ func _ready():
 		player.connect("ore_collected", _on_ore_collected)
 
 var _current_sky_texture: String = "res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg"
-const SUNSET_MINUTES = 17.0 * 60.0 # 5 PM
-const NIGHT_MINUTES = 20.0 * 60.0  # 8 PM
+var _sky_base_sprites: Array = []
+var _sky_overlay_sprites: Array = []
+var _sky_overlay_texture: String = ""
+
+const SUNSET_START_MINUTES = 16.0 * 60.0  # 4 PM — begin blue→sunset crossfade
+const SUNSET_MINUTES       = 17.0 * 60.0  # 5 PM — fully sunset
+const NIGHT_START_MINUTES  = 19.0 * 60.0  # 7 PM — begin sunset→night crossfade
+const NIGHT_MINUTES        = 20.0 * 60.0  # 8 PM — fully night
 
 func _process(_delta: float) -> void:
 	if not is_game_started: return
-	
+
 	var player = get_node_or_null("Player")
 	if player and "game_minutes" in player:
-		var mins = player.game_minutes
-		var target_sky: String
-		
-		if mins >= NIGHT_MINUTES:
-			target_sky = "res://night.png"
-		elif mins >= SUNSET_MINUTES:
-			target_sky = "res://sunset.png"
-		else:
-			target_sky = "res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg"
-			
-		if target_sky != _current_sky_texture:
-			_update_sky_texture(target_sky)
-			_current_sky_texture = target_sky
+		_update_sky_blend(player.game_minutes)
+
+func _update_sky_blend(mins: float) -> void:
+	var base_path: String
+	var overlay_path: String
+	var alpha: float
+
+	if mins >= NIGHT_MINUTES:
+		base_path    = "res://night.png"
+		overlay_path = ""
+		alpha        = 0.0
+	elif mins >= NIGHT_START_MINUTES:
+		base_path    = "res://sunset.png"
+		overlay_path = "res://night.png"
+		alpha        = (mins - NIGHT_START_MINUTES) / (NIGHT_MINUTES - NIGHT_START_MINUTES)
+	elif mins >= SUNSET_MINUTES:
+		base_path    = "res://sunset.png"
+		overlay_path = ""
+		alpha        = 0.0
+	elif mins >= SUNSET_START_MINUTES:
+		base_path    = "res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg"
+		overlay_path = "res://sunset.png"
+		alpha        = (mins - SUNSET_START_MINUTES) / (SUNSET_MINUTES - SUNSET_START_MINUTES)
+	else:
+		base_path    = "res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg"
+		overlay_path = ""
+		alpha        = 0.0
+
+	if base_path != _current_sky_texture:
+		_update_sky_texture(base_path)
+		_current_sky_texture = base_path
+
+	if overlay_path != _sky_overlay_texture:
+		var tex = load(overlay_path) if overlay_path != "" else null
+		for i in range(_sky_overlay_sprites.size()):
+			var sp = _sky_overlay_sprites[i]
+			if not is_instance_valid(sp): continue
+			sp.texture = tex
+			if tex != null:
+				var rect = sp.get_rect()
+				var bottom_global_y = sp.to_global(Vector2(0.0, rect.end.y)).y
+				sp.global_position.y += _surface_y_cached - bottom_global_y
+		_sky_overlay_texture = overlay_path
+
+	for sp in _sky_overlay_sprites:
+		if is_instance_valid(sp):
+			sp.modulate.a = alpha
 
 func _update_sky_texture(path: String) -> void:
 	var tex = load(path)
 	if not tex: return
-	var bg_above = get_node_or_null("Background above")
-	if bg_above:
-		for bg in bg_above.get_children():
-			if bg is Sprite2D:
-				bg.texture = tex
-				# Re-align bottom to surface
-				var rect = bg.get_rect()
-				var bottom_global_y = bg.to_global(Vector2(0.0, rect.end.y)).y
-				bg.global_position.y += _surface_y_cached - bottom_global_y
+	for i in range(_sky_base_sprites.size()):
+		var bg = _sky_base_sprites[i]
+		if not is_instance_valid(bg): continue
+		bg.texture = tex
+		var rect = bg.get_rect()
+		var bottom_global_y = bg.to_global(Vector2(0.0, rect.end.y)).y
+		bg.global_position.y += _surface_y_cached - bottom_global_y
+		# Keep matching overlay sprite in sync
+		if i < _sky_overlay_sprites.size():
+			var ov = _sky_overlay_sprites[i]
+			if is_instance_valid(ov):
+				ov.global_position = bg.global_position
 
 func _setup_autosave() -> void:
 	if _autosave_timer != null:
@@ -464,19 +504,13 @@ func position_entities():
 	var shop := get_node_or_null("Shop")
 	if shop is Node2D:
 		_align_node_bottom_to_surface(shop as Node2D, surface_y)
+		_register_surface_footprint(shop as Node2D, surface_y, 0)
 
 	var house := get_node_or_null("House")
 	if house is Node2D:
 		house.z_index = 1
 		_align_node_bottom_to_surface(house as Node2D, surface_y)
-
-	var trader := get_node_or_null("Trader")
-
-	if trader is Node2D:
-		if shop:
-			trader.global_position.x = shop.global_position.x + 80.0
-		_align_node_bottom_to_surface(trader as Node2D, surface_y)
-
+		_register_surface_footprint(house as Node2D, surface_y, 1)
 
 	var sign_paths := ["Signtutorial", "Shopsign", "Signprice"]
 
@@ -491,6 +525,7 @@ func position_entities():
 		var tree := get_node_or_null(p)
 		if tree is Node2D:
 			_align_node_bottom_to_surface(tree as Node2D, surface_y)
+			_register_surface_footprint(tree as Node2D, surface_y, 0)
 
 	# 5. Sky backgrounds — align bottom edge exactly to the grass surface
 	var bg_above = get_node_or_null("Background above")
@@ -565,6 +600,21 @@ func _align_node_bottom_to_surface(n: Node2D, surface_y: float) -> void:
 	if bottom == -INF:
 		return
 	n.global_position.y += surface_y - bottom
+
+
+# Registers the surface grass tiles directly under a structure as unminable.
+# half_w: how many tiles to each side of the node's center column to protect.
+func _register_surface_footprint(node: Node2D, surface_y: float, half_w: int) -> void:
+	var probe_global := Vector2(node.global_position.x, surface_y + 4.0)
+	var anchor_tile := tilemap.local_to_map(tilemap.to_local(probe_global))
+	var unbreakable: Dictionary = {}
+	if tilemap.has_meta("unbreakable_tiles"):
+		var ex = tilemap.get_meta("unbreakable_tiles")
+		if ex is Dictionary:
+			unbreakable = ex
+	for tx in range(anchor_tile.x - half_w, anchor_tile.x + half_w + 1):
+		unbreakable[Vector2i(tx, anchor_tile.y)] = true
+	tilemap.set_meta("unbreakable_tiles", unbreakable)
 
 
 func find_node_by_name(root: Node, node_name: String) -> Node:

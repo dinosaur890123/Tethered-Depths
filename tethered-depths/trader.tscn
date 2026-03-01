@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3 uid="uid://j4qhjgifve7e"]
+[gd_scene format=3 uid="uid://p5je526d0hld"]
 
 [ext_resource type="Script" path="res://trader.gd" id="1_script"]
 [ext_resource type="Texture2D" uid="uid://b640scsoloskc" path="res://Miner16Bit_AllFiles_v1/Dialogue.png" id="2_dialogue"]
@@ -104,23 +104,23 @@ animations = [{
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_trader"]
 size = Vector2(40, 65)
 
-[node name="Trader" type="Node2D"]
+[node name="Trader" type="Node2D" unique_id=1620694107]
 script = ExtResource("1_script")
 
-[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1092897416]
 scale = Vector2(4, 4)
 sprite_frames = SubResource("SpriteFrames_trader")
 animation = &"idle"
 autoplay = "idle"
 offset = Vector2(0, -8)
 
-[node name="InteractZone" type="Area2D" parent="."]
+[node name="InteractZone" type="Area2D" parent="." unique_id=1337587430]
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="InteractZone"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="InteractZone" unique_id=1921289968]
 position = Vector2(0, -32)
 shape = SubResource("RectangleShape2D_trader")
 
-[node name="PromptLabel" type="RichTextLabel" parent="."]
+[node name="PromptLabel" type="RichTextLabel" parent="." unique_id=876455993]
 clip_contents = false
 offset_left = -150.0
 offset_top = -140.0

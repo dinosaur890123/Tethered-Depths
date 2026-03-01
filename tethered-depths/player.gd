@@ -40,7 +40,8 @@ var grapple_hover_invalid: bool = false
 var is_grapple_moving: bool = false
 var is_wall_stuck: bool = false
 const WALL_STICK_SLIDE_SPEED: float = 44.8  # half-tile/sec in global space
-const GRAPPLE_MAX_TILES: int = 8
+const GRAPPLE_MAX_TILES: int = 4
+const GRAPPLE_MIN_TILES: int = 2
 
 # --- Minimap ---
 var minimap_texture_rect: TextureRect
@@ -85,6 +86,7 @@ var daily_mutated_collected: int = 0
 var daily_ore_collected: Dictionary = {} # base ore name -> count (non-mutated)
 var daily_objectives_rewarded: bool = false
 var _midnight_warning_shown: bool = false
+var _midnight_handled: bool = false
 var objectives_label: RichTextLabel
 var objectives_toggle_btn: Button
 var _last_objectives_hud_text: String = "__init__"
@@ -167,7 +169,7 @@ var spawn_position: Vector2
 # --- Depth Lighting ---
 var depth_canvas_modulate: CanvasModulate
 const DEPTH_DARKEN_START_TILE_Y: int = 6
-const DEPTH_DARKEN_FULL_TILE_Y: int = 220
+const DEPTH_DARKEN_FULL_TILE_Y: int = 380
 const DEPTH_DARKEN_MIN_MULT: float = 0.22
 
 # --- Flashlight ---
@@ -182,6 +184,7 @@ var flashlight_on: bool = true
 # Track which direction the player is facing so we know which block to target
 var facing_dir: int = 1  # 1 = right, -1 = left
 var is_walking: bool = false
+var shop_node: Node2D = null
 var is_wall_climbing: bool = false
 
 # Highlight state — updated every frame based on mouse position
@@ -288,7 +291,7 @@ var ore_labels: Dictionary = {}
 var inventory_panel: ColorRect
 var inventory_label: RichTextLabel
 var inventory_open: bool = false
-var is_in_menu: bool = false # Used to block player input when shop/trader is open
+var is_in_menu: bool = false # Used to block player input when shop is open
 
 func _is_gameplay_enabled() -> bool:
 	# Block gameplay while the main menu is up (tree paused) and until Start is clicked.
@@ -312,6 +315,7 @@ func _ready():
 	# Find TileMapLayer more robustly
 	var main = get_parent()
 	tilemap = main.get_node_or_null("Dirt") as TileMapLayer
+	shop_node = main.get_node_or_null("Shop") as Node2D
 	_setup_depth_lighting()
 	_setup_flashlight()
 	
@@ -806,7 +810,8 @@ func _process(delta: float) -> void:
 		_midnight_warning_shown = true
 		_spawn_floating_text("GET HOME! Midnight in 30 min!", global_position + Vector2(0.0, -80.0), Color(1.0, 0.3, 0.1))
 
-	if game_minutes >= 1440.0:
+	if game_minutes >= 1440.0 and not _midnight_handled:
+		_midnight_handled = true
 		game_minutes = 1440.0
 		# Check if player is at the surface (home) — tile Y <= 3
 		var at_home := false
@@ -989,6 +994,8 @@ func _update_grapple_line():
 		grapple_line.visible = false
 
 func _update_highlight():
+	highlight_valid = false
+
 	if is_mining or not tilemap:
 		return
 
@@ -1003,20 +1010,14 @@ func _update_highlight():
 		player_tile + Vector2i(0, -1),
 	]
 
-	if mouse_tile in adjacent_tiles and tilemap.get_cell_source_id(mouse_tile) != -1:
-		var unbreakable: Dictionary = {}
+	var src_id := tilemap.get_cell_source_id(mouse_tile)
+	if mouse_tile in adjacent_tiles and src_id != -1:
 		if tilemap.has_meta("unbreakable_tiles"):
 			var meta = tilemap.get_meta("unbreakable_tiles")
-			if meta is Dictionary:
-				unbreakable = meta
-		
-		if not unbreakable.has(mouse_tile):
-			highlighted_tile = mouse_tile
-			highlight_valid = true
-		else:
-			highlight_valid = false
-	else:
-		highlight_valid = false
+			if meta is Dictionary and (meta as Dictionary).has(mouse_tile):
+				return
+		highlighted_tile = mouse_tile
+		highlight_valid = true
 
 
 func _update_animation():
@@ -1570,9 +1571,10 @@ func _update_grapple_hover() -> void:
 	var src = tilemap.get_cell_source_id(mouse_tile)
 	if src == -1: return  # Air — nothing to show
 	grapple_hover_tile = mouse_tile
+
 	var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 	var dist = Vector2(mouse_tile).distance_to(Vector2(player_tile))
-	if src == TILE_GRASS or dist > float(GRAPPLE_MAX_TILES) or not _has_los_to_tile(mouse_tile):
+	if src == TILE_GRASS or dist < float(GRAPPLE_MIN_TILES) or dist > float(GRAPPLE_MAX_TILES):
 		grapple_hover_invalid = true
 	else:
 		grapple_hover_valid = true
@@ -1584,8 +1586,8 @@ func _try_fire_grapple() -> void:
 	var src = tilemap.get_cell_source_id(mouse_tile)
 	if src == -1 or src == TILE_GRASS: return
 	var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
-	if Vector2(mouse_tile).distance_to(Vector2(player_tile)) > float(GRAPPLE_MAX_TILES): return
-	if not _has_los_to_tile(mouse_tile): return
+	var grapple_dist = Vector2(mouse_tile).distance_to(Vector2(player_tile))
+	if grapple_dist < float(GRAPPLE_MIN_TILES) or grapple_dist > float(GRAPPLE_MAX_TILES): return
 	var tile_center = tilemap.to_global(tilemap.map_to_local(mouse_tile))
 	var to_player = global_position - tile_center
 	var sx = sign(to_player.x) if to_player.x != 0 else 1.0
@@ -1926,6 +1928,7 @@ func _respawn_and_reset_day():
 	daily_mutated_collected = 0
 	daily_ore_collected.clear()
 	_midnight_warning_shown = false
+	_midnight_handled = false
 	if objectives_toggle_btn:
 		objectives_toggle_btn.text = "Daily Tasks ▼"
 	
