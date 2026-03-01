@@ -19,9 +19,7 @@
 [ext_resource type="PackedScene" uid="uid://cejj4pr8eahri" path="res://house.tscn" id="15_house"]
 [ext_resource type="Texture2D" uid="uid://b4qtjr0p7e7o5" path="res://signtutorial.png" id="16_2cqfq"]
 [ext_resource type="Texture2D" uid="uid://1odjg1g6j6s7" path="res://shopsign.png" id="18_074og"]
-[ext_resource type="Texture2D" uid="uid://bu6iu68kj38h0" path="res://cratestorage.png" id="18_82xsv"]
 [ext_resource type="Texture2D" uid="uid://yfchjk8l565l" path="res://rockwallbackground2.png" id="20_82xsv"]
-
 [ext_resource type="Texture2D" uid="uid://cv43mjh5vpbko" path="res://subterralogo.png" id="21_logo"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_menu"]
@@ -99,12 +97,6 @@ position = Vector2(580, 202.286)
 
 [node name="House" parent="." unique_id=759281187 instance=ExtResource("15_house")]
 position = Vector2(-300, 202.286)
-
-[node name="Cratestorage" type="Sprite2D" parent="." unique_id=526725492]
-position = Vector2(-160, 202.286)
-scale = Vector2(0.04, 0.04)
-texture = ExtResource("18_82xsv")
-
 
 [node name="MainMenu" type="CanvasLayer" parent="." unique_id=987654321]
 layer = 100
