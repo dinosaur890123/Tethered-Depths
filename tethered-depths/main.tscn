@@ -14,6 +14,7 @@
 [ext_resource type="Texture2D" uid="uid://brygcidv5xlq7" path="res://trees/tree3.png" id="10_dg77c"]
 [ext_resource type="Texture2D" uid="uid://b8ejsoft6l3ti" path="res://signprice.png" id="11_efxa6"]
 [ext_resource type="Texture2D" uid="uid://cn3u5c107fi7p" path="res://trees/tree4.png" id="11_ycdy4"]
+[ext_resource type="Texture2D" uid="uid://b08ow73g6yw48" path="res://stonewallbackground.png" id="12_dg77c"]
 [ext_resource type="PackedScene" uid="uid://j4qhjgifve7e" path="res://trader.tscn" id="14_trader"]
 [ext_resource type="PackedScene" path="res://house.tscn" id="15_house"]
 [ext_resource type="Texture2D" uid="uid://b4qtjr0p7e7o5" path="res://signtutorial.png" id="16_2cqfq"]
