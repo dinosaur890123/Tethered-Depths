@@ -79,6 +79,7 @@ var hotbar_item_count_labels: Array[Label] = []
 const HOTBAR_SLOT_COUNT: int = 9
 
 # Hotbar consumables
+const ITEM_POTION_SURFACE: String = "potion_surface"
 const ITEM_POTION_OXYGEN: String = "potion_oxygen"
 const ITEM_POTION_SPEED: String = "potion_speed"
 const OXYGEN_POTION_RESTORE: float = 60.0
@@ -459,7 +460,7 @@ func _ready():
 	add_child(mining_sfx_player)
 	
 	# Init hotbar
-	hotbar_items[0] = {"name": PICKAXE_UPGRADES[0]["name"], "type": "tool"}
+	# (Pickaxe lives in slot 1; consumables use slots 2-9)
 
 	if mining_sfx == null and ResourceLoader.exists(DEFAULT_MINING_SFX_PATH):
 
@@ -1060,9 +1061,6 @@ func _input(event: InputEvent) -> void:
 	if is_in_menu:
 		return
 
-	if Input.is_action_just_pressed("mine") and selected_slot != 0:
-		use_selected_item()
-
 	# Hotbar selection 1-9
 
 	if event is InputEventKey and event.pressed:
@@ -1502,6 +1500,8 @@ func _select_hotbar_slot(index: int):
 
 func _hotbar_item_display_name(item_id: String) -> String:
 	match item_id:
+		ITEM_POTION_SURFACE:
+			return "Surface Potion"
 		ITEM_POTION_OXYGEN:
 			return "Oxygen Potion"
 		ITEM_POTION_SPEED:
@@ -1512,6 +1512,8 @@ func _hotbar_item_display_name(item_id: String) -> String:
 
 func _hotbar_item_short_label(item_id: String) -> String:
 	match item_id:
+		ITEM_POTION_SURFACE:
+			return "UP"
 		ITEM_POTION_OXYGEN:
 			return "O2"
 		ITEM_POTION_SPEED:
@@ -1592,6 +1594,14 @@ func _use_selected_hotbar_item() -> void:
 
 	var used := false
 	match item_id:
+		ITEM_POTION_SURFACE:
+			global_position.y = spawn_position.y
+			current_battery = max_battery
+			if oxygen_bar:
+				oxygen_bar.value = current_battery
+			_update_low_battery_overlay()
+			_spawn_floating_text("Surface!", global_position, Color(0.75, 0.55, 0.95, 0.9))
+			used = true
 		ITEM_POTION_OXYGEN:
 			current_battery = min(max_battery, current_battery + OXYGEN_POTION_RESTORE)
 			if oxygen_bar:
@@ -1640,37 +1650,21 @@ func _refresh_inventory() -> void:
 	inventory_label.text = text
 
 func add_item_to_hotbar(item_name: String, color: Color) -> bool:
-	for i in range(1, hotbar_items.size()):
-		if hotbar_items[i] == null:
-			hotbar_items[i] = {"name": item_name, "type": "potion", "color": color}
-			# Update visual
-			var slot = hotbar_slots[i]
-			var icon = ColorRect.new()
-			icon.name = "Icon"
-			icon.custom_minimum_size = Vector2(20, 20)
-			icon.color = color
-			icon.position = Vector2(15, 15)
-			slot.add_child(icon)
-			return true
-	return false
+	# Legacy compatibility: route old calls to the new hotbar system.
+	# `color` is ignored (hotbar uses text labels).
+	match item_name:
+		"Surface Potion":
+			return add_hotbar_item(ITEM_POTION_SURFACE, 1)
+		"Oxygen Potion":
+			return add_hotbar_item(ITEM_POTION_OXYGEN, 1)
+		"Speed Potion":
+			return add_hotbar_item(ITEM_POTION_SPEED, 1)
+		_:
+			return false
 
 func use_selected_item():
-	var item = hotbar_items[selected_slot]
-	if item == null: return
-	
-	if item["type"] == "potion":
-		if item["name"] == "Surface Potion":
-			# Immediate resurface
-			global_position.y = spawn_position.y
-			current_battery = max_battery # Optional: refill oxygen too
-			if oxygen_bar: oxygen_bar.value = current_battery
-			
-			# Remove item
-			hotbar_items[selected_slot] = null
-			var slot = hotbar_slots[selected_slot]
-			var icon = slot.get_node_or_null("Icon")
-			if icon: icon.queue_free()
-			_select_hotbar_slot(selected_slot) # Update label
+	# Legacy compatibility.
+	_use_selected_hotbar_item()
 
 func _get_ore_value(ore_name: String) -> int:
 

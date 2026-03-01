@@ -39,8 +39,10 @@ const MAX_STAT_UPGRADE_LEVEL: int = 8
 # Consumables
 const POTION_OXYGEN_ID: String = "potion_oxygen"
 const POTION_SPEED_ID: String = "potion_speed"
+const POTION_SURFACE_ID: String = "potion_surface"
 const POTION_OXYGEN_PRICE: int = 150
 const POTION_SPEED_PRICE: int = 250
+const POTION_SURFACE_PRICE: int = 1000
 
 var pickaxe_sprites: Array[Sprite2D] = []
 var feedback_timer: float = 0.0
@@ -437,7 +439,7 @@ func _render_ui() -> void:
 			_add_button("Oxygen Tank (+%d)  %s  (Lv %d/%d)" % [int(OXYGEN_UPGRADE_STEP), _money_str(oxy_price), oxy_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("oxygen"); _last_render_state = -999, oxy_lv >= MAX_STAT_UPGRADE_LEVEL)
 			_add_button("Boots (+%d speed)  %s  (Lv %d/%d)" % [int(SPEED_UPGRADE_STEP), _money_str(spd_price), spd_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("speed"); _last_render_state = -999, spd_lv >= MAX_STAT_UPGRADE_LEVEL)
 			_add_button("Drill Motor (-%d%% mine time)  %s  (Lv %d/%d)" % [MINE_SPEED_UPGRADE_STEP_PCT, _money_str(mine_price), mine_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("mine"); _last_render_state = -999, mine_lv >= MAX_STAT_UPGRADE_LEVEL)
-			_add_button("Surface Potion ($1000)", func(): _buy_potion(); _last_render_state = -999)
+			_add_button("Surface Potion (%s)", func(): _buy_potion(POTION_SURFACE_ID); _last_render_state = -999, int(player_nearby.money) < POTION_SURFACE_PRICE)
 			_add_button("Back", func(): current_state = ShopState.MAIN_MENU)
 
 
@@ -535,6 +537,8 @@ func _buy_potion(potion_id: String) -> void:
 			price = POTION_OXYGEN_PRICE
 		POTION_SPEED_ID:
 			price = POTION_SPEED_PRICE
+		POTION_SURFACE_ID:
+			price = POTION_SURFACE_PRICE
 		_:
 			return
 
@@ -554,7 +558,14 @@ func _buy_potion(potion_id: String) -> void:
 	player_nearby.money -= price
 	if player_nearby.money_label:
 		player_nearby.money_label.text = "$" + str(player_nearby.money)
-	feedback_text = "Bought %s!" % ("Oxygen Potion" if potion_id == POTION_OXYGEN_ID else "Speed Potion")
+	var nm := "Potion"
+	if potion_id == POTION_OXYGEN_ID:
+		nm = "Oxygen Potion"
+	elif potion_id == POTION_SPEED_ID:
+		nm = "Speed Potion"
+	elif potion_id == POTION_SURFACE_ID:
+		nm = "Surface Potion"
+	feedback_text = "Bought %s!" % nm
 	feedback_timer = 1.6
 	if FileAccess.file_exists("res://buy_1.mp3"):
 		var asp = AudioStreamPlayer.new()
@@ -632,33 +643,6 @@ func _buy_stat_upgrade(kind: String) -> void:
 		add_child(asp)
 		asp.play()
 		asp.finished.connect(asp.queue_free)
-
-
-func _buy_potion() -> void:
-	if player_nearby == null:
-		return
-	if player_nearby.money < 1000:
-		feedback_text = "Not enough money ($1000)"
-		feedback_timer = 1.6
-		return
-	
-	if player_nearby.has_method("add_item_to_hotbar"):
-		if player_nearby.add_item_to_hotbar("Surface Potion", Color.MEDIUM_PURPLE):
-			player_nearby.money -= 1000
-			if player_nearby.money_label:
-				player_nearby.money_label.text = "$" + str(player_nearby.money)
-			feedback_text = "Bought Surface Potion!"
-			feedback_timer = 1.6
-			if FileAccess.file_exists("res://buy_1.mp3"):
-				var asp = AudioStreamPlayer.new()
-				asp.stream = load("res://buy_1.mp3")
-				add_child(asp)
-				asp.play()
-				asp.finished.connect(asp.queue_free)
-		else:
-			feedback_text = "Hotbar full!"
-			feedback_timer = 1.6
-
 func _ui_header() -> String:
 
 	if player_nearby == null:
