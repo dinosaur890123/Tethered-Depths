@@ -89,9 +89,7 @@ func _on_volume_changed(value: float):
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Master"), linear_to_db(value / 100.0))
 
 func generate_world():
-# ... (rest of generate_world)
-
-
+	# World generation
 	tilemap.clear()
 	print("Generating world...")
 	var half_w: int = WIDTH >> 1
