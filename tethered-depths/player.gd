@@ -135,6 +135,9 @@ var flashlight: PointLight2D
 var flashlight_texture: Texture2D
 const FLASHLIGHT_TEX_SIZE: int = 256
 const FLASHLIGHT_MAX_RADIUS_FRAC: float = 0.48
+const FLASHLIGHT_ENERGY_SURFACE: float = 0.35
+const FLASHLIGHT_ENERGY_DEEP: float = 0.9
+var flashlight_on: bool = true
 
 # Track which direction the player is facing so we know which block to target
 var facing_dir: int = 1  # 1 = right, -1 = left
@@ -445,8 +448,8 @@ func _setup_flashlight() -> void:
 		return
 	flashlight = PointLight2D.new()
 	flashlight.name = "Flashlight"
-	flashlight.enabled = true
-	flashlight.energy = 0.35
+	flashlight.enabled = flashlight_on
+	flashlight.energy = FLASHLIGHT_ENERGY_SURFACE
 	flashlight.color = Color(1.0, 0.98, 0.9)
 	flashlight.texture_scale = 1.5
 	flashlight.shadow_enabled = false
@@ -491,6 +494,20 @@ func _update_depth_lighting() -> void:
 func _update_flashlight() -> void:
 	if flashlight == null:
 		return
+	flashlight.enabled = flashlight_on
+	if not flashlight_on:
+		return
+
+	# Make light stronger as the player goes deeper.
+	var energy := FLASHLIGHT_ENERGY_SURFACE
+	if tilemap != null:
+		var pos_tile: Vector2i = tilemap.local_to_map(tilemap.to_local(global_position))
+		var y: int = int(pos_tile.y)
+		var t: float = 0.0
+		if y > DEPTH_DARKEN_START_TILE_Y:
+			t = clampf(float(y - DEPTH_DARKEN_START_TILE_Y) / float(DEPTH_DARKEN_FULL_TILE_Y - DEPTH_DARKEN_START_TILE_Y), 0.0, 1.0)
+		energy = lerpf(FLASHLIGHT_ENERGY_SURFACE, FLASHLIGHT_ENERGY_DEEP, t)
+	flashlight.energy = energy
 	# Omnidirectional light centered on the player.
 	flashlight.position = Vector2(0.0, -8.0)
 	flashlight.rotation = 0.0
@@ -953,6 +970,15 @@ func _input(event: InputEvent) -> void:
 	if is_end_of_day:
 		if event is InputEventKey and event.keycode == KEY_SPACE and event.pressed:
 			_close_end_of_day()
+		return
+
+	# Flashlight toggle (Q)
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_Q:
+		flashlight_on = not flashlight_on
+		if flashlight != null:
+			flashlight.enabled = flashlight_on
+			if flashlight_on:
+				_update_flashlight()
 		return
 	
 	if Input.is_action_just_pressed("inventory"):
