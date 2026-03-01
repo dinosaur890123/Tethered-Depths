@@ -366,16 +366,9 @@ func _ready():
 			slot.add_child(num_label)
 			
 			if i == 0:
-				var icon = Sprite2D.new()
-				icon.texture = load("res://Stones_ores_bars/stone_1.png") # Placeholder for pickaxe
-				icon.position = Vector2(25, 25)
-				icon.scale = Vector2(0.5, 0.5)
-				slot.add_child(icon)
-				sb.border_color = Color(1, 0.9, 0) # Gold highlight
+				sb.border_color = Color(1, 0.9, 0) # Keep selection highlight for slot 1
 				sb.bg_color = Color(0.3, 0.3, 0.3, 0.9)
-				hotbar_item_labels.append(null)
-				hotbar_item_count_labels.append(null)
-				
+
 			else:
 				var item_lbl := Label.new()
 				item_lbl.name = "ItemLabel"
