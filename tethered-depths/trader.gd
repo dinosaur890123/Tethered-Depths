@@ -25,16 +25,20 @@ func _input(event):
 		if current_state == TraderState.PROMPT:
 			if event.keycode == KEY_F:
 				current_state = TraderState.TALKING
+				if player_nearby: player_nearby.is_in_menu = true
 				anim_sprite.play("dialogue")
 		elif current_state == TraderState.TALKING:
 			if event.keycode == KEY_1 or event.keycode == KEY_Y:
 				_gamble_ores()
 			elif event.keycode == KEY_2 or event.keycode == KEY_N or event.keycode == KEY_ESCAPE:
 				current_state = TraderState.PROMPT
+				if player_nearby: player_nearby.is_in_menu = false
 				anim_sprite.play("idle")
 		elif current_state == TraderState.GAMBLING_RESULT:
 			current_state = TraderState.PROMPT
+			if player_nearby: player_nearby.is_in_menu = false
 			anim_sprite.play("idle")
+
 
 func _process(delta):
 	if not player_nearby:
@@ -67,7 +71,9 @@ func _process(delta):
 			prompt_label.text = '[center][b]TRADER[/b][/center]\n\n[center]%s[/center]\n\n[center][color=gray]Press any key to close[/color][/center]' % feedback_text
 			if Input.is_anything_pressed() and feedback_timer < 1.5: # Small delay to prevent instant skip
 				current_state = TraderState.PROMPT
+				if player_nearby: player_nearby.is_in_menu = false
 				anim_sprite.play("idle")
+
 
 func _gamble_ores():
 	var total_ores = 0
@@ -110,7 +116,10 @@ func _on_body_entered(body):
 
 func _on_body_exited(body):
 	if body.is_in_group("player"):
+		if player_nearby:
+			player_nearby.is_in_menu = false
 		player_nearby = null
 		current_state = TraderState.IDLE
 		prompt_label.visible = false
 		anim_sprite.play("idle")
+
