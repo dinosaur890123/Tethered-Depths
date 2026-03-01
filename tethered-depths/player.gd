@@ -338,14 +338,16 @@ func _ready():
 		inventory_panel = ColorRect.new()
 		inventory_panel.visible = false
 		inventory_panel.color = Color(0.0, 0.0, 0.0, 0.78)
+		# Attach inventory to the hotbar area (bottom-center), like a drop-up panel.
 		inventory_panel.anchor_left = 0.5
 		inventory_panel.anchor_right = 0.5
-		inventory_panel.anchor_top = 0.5
-		inventory_panel.anchor_bottom = 0.5
-		inventory_panel.offset_left = -320.0
-		inventory_panel.offset_right = 320.0
-		inventory_panel.offset_top = -220.0
-		inventory_panel.offset_bottom = 220.0
+		inventory_panel.anchor_top = 1.0
+		inventory_panel.anchor_bottom = 1.0
+		# Match hotbar width (520) and open above it.
+		inventory_panel.offset_left = -260.0
+		inventory_panel.offset_right = 260.0
+		inventory_panel.offset_bottom = -80.0
+		inventory_panel.offset_top = inventory_panel.offset_bottom - 240.0
 		inventory_panel.z_index = 20
 		hud.add_child(inventory_panel)
 
