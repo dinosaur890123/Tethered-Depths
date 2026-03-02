@@ -336,8 +336,8 @@ func _setup_tutorial_ui():
 	description.name = "Description"
 	description.bbcode_enabled = true
 	description.fit_content = true
-	description.custom_minimum_size = Vector2(600, 150)
-	description.add_theme_font_size_override("normal_font_size", 32)
+	description.custom_minimum_size = Vector2(800, 200)
+	description.add_theme_font_size_override("normal_font_size", 48)
 	vbox.add_child(description)
 	
 	vbox.add_spacer(false)
