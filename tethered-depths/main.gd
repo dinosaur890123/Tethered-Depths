@@ -8,18 +8,18 @@ const TILE_COBBLE := 3
 const TILE_DEEPSLATE := 4
 
 const WIDTH = 120
-const DEPTH = 1000
+const DEPTH = 10000
 const SURFACE_Y = 0
 
 # --- Water simulation ---
-const WATER_TICK         := 0.2    # seconds between simulation steps
-const WATER_PER_TICK     := 15     # max new water cells added per tick
+const WATER_TICK     := 0.15  # seconds between simulation steps
+const WATER_PER_TICK := 6     # max sideways cells added per tick (gravity is unlimited)
 
-var _water_cells:       Dictionary = {}   # Vector2i -> true
-var _water_sources:     Array[Vector2i] = []  # top of each staircase hole
-var _water_source_dirs: Array[int] = []       # staircase direction per source
-var _water_cell_dir:    Dictionary = {}   # Vector2i -> int (flow direction)
-var _water_blocked:     Dictionary = {}   # cells permanently removed by bubble; never re-filled
+var _water_cells:       Dictionary = {}
+var _water_sources:     Array[Vector2i] = []
+var _water_source_dirs: Array[int] = []
+var _water_cell_dir:    Dictionary = {}
+var _water_pending:     Dictionary = {}   # tiles blocked for 0.5 s after being broken
 var _water_timer:       float = 0.0
 var _water_drawer:      Node2D = null
 
@@ -136,28 +136,83 @@ func _ready():
 		player.connect("ore_collected", _on_ore_collected)
 	_setup_sky_bg_rect()
 
-var _current_sky_texture: String = "res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg"
-var _sky_base_sprites: Array = []
-var _sky_overlay_sprites: Array = []
-var _sky_overlay_texture: String = ""
+var _sky_sprite_day: Sprite2D = null
+var _sky_sprite_sunset: Sprite2D = null
+var _sky_sprite_night: Sprite2D = null
 var _sky_scroll_offset: float = 0.0
 var _sky_bg_rect: ColorRect = null
-const SKY_SCROLL_SPEED: float = 12.0  # global units/sec — clouds drift left
-const SKY_COLOR_DAY    := Color(0.48, 0.73, 0.89)
-const SKY_COLOR_SUNSET := Color(0.78, 0.50, 0.36)
-const SKY_COLOR_NIGHT  := Color(0.07, 0.09, 0.20)
-
-const SUNSET_START_MINUTES = 16.0 * 60.0  # 4 PM — begin blue→sunset crossfade
-const SUNSET_MINUTES       = 17.0 * 60.0  # 5 PM — fully sunset
-const NIGHT_START_MINUTES  = 19.0 * 60.0  # 7 PM — begin sunset→night crossfade
-const NIGHT_MINUTES        = 20.0 * 60.0  # 8 PM — fully night
+const SKY_SCROLL_SPEED: float = 12.0
 
 func _process(_delta: float) -> void:
-	# Sky always tracks camera, even during menu/day transitions
-	_sky_scroll_offset -= SKY_SCROLL_SPEED * _delta
-	var camera := get_node_or_null("Player/Camera2D") as Camera2D
-	if camera:
-		_anchor_sky_to_camera(camera.global_position.x)
+	_sky_scroll_offset += SKY_SCROLL_SPEED * _delta
+	var player = get_node_or_null("Player")
+	var camera = player.get_node_or_null("Camera2D") if player else null
+	
+	if player and camera:
+		var mins = float(player.game_minutes)
+		# Normalize mins to a 0-1440 range (one day)
+		var m = fmod(mins, 1440.0)
+		
+		# Alpha and Darkness calculations
+		var day_a = 0.0
+		var sunset_a = 0.0
+		var night_a = 0.0
+		var night_darkness = 0.0
+		
+		# 360=6am, 900=3pm, 1020=5pm, 1080=6pm, 1200=8pm, 1320=10pm, 1440=12am
+		if m >= 360 and m < 900: # 6am - 3pm: Pure Day
+			day_a = 1.0
+		elif m >= 900 and m < 1020: # 3pm - 5pm: Sunset rising
+			day_a = 1.0
+			sunset_a = (m - 900.0) / 120.0
+		elif m >= 1020 and m < 1080: # 5pm - 6pm: Peak Sunset, Day fades
+			sunset_a = 1.0
+			day_a = 1.0 - (m - 1020.0) / 60.0
+		elif m >= 1080 and m < 1200: # 6pm - 8pm: Night transition
+			sunset_a = 1.0 - (m - 1080.0) / 120.0
+			night_a = (m - 1080.0) / 120.0
+		elif m >= 1200 or m < 240: # 8pm - 4am: Night
+			night_a = 1.0
+			if m >= 1320: # 10pm - 12am: Darkening
+				night_darkness = (m - 1320.0) / 120.0
+			elif m < 240: # Keep dark until sunrise
+				night_darkness = 1.0
+		elif m >= 240 and m < 360: # 4am - 6am: Sunrise
+			night_a = 1.0 - (m - 240.0) / 120.0
+			day_a = (m - 240.0) / 120.0
+			night_darkness = 1.0 - (m - 240.0) / 120.0
+		
+		# Update sprite positions and scrolling
+		for spr in [_sky_sprite_day, _sky_sprite_sunset, _sky_sprite_night]:
+			if is_instance_valid(spr):
+				spr.global_position.x = camera.global_position.x
+				var tex_w: float = float(spr.texture.get_width())
+				var gsx: float   = abs(float(spr.get_global_transform().get_scale().x))
+				var rr: Rect2    = spr.region_rect
+				rr.position.x     = fmod(_sky_scroll_offset / gsx, tex_w)
+				spr.region_rect = rr
+		
+		if is_instance_valid(_sky_sprite_day): _sky_sprite_day.modulate.a = day_a
+		if is_instance_valid(_sky_sprite_sunset): _sky_sprite_sunset.modulate.a = sunset_a
+		
+		# Night sprite also gets darker
+		if is_instance_valid(_sky_sprite_night):
+			_sky_sprite_night.modulate.a = night_a
+			var darkness_col = Color.WHITE.lerp(Color(0.4, 0.4, 0.6), night_darkness)
+			_sky_sprite_night.modulate.r = darkness_col.r
+			_sky_sprite_night.modulate.g = darkness_col.g
+			_sky_sprite_night.modulate.b = darkness_col.b
+		
+		# Background Rect Color (blends for better look)
+		if _sky_bg_rect:
+			var day_col = Color(0.48, 0.73, 0.89)
+			var night_col_base = Color(0.04, 0.05, 0.12)
+			var night_col_dark = Color(0.01, 0.01, 0.03)
+			var sunset_col = Color(0.45, 0.25, 0.35)
+			
+			var night_col = night_col_base.lerp(night_col_dark, night_darkness)
+			var final_col = day_col * day_a + sunset_col * sunset_a + night_col * night_a
+			_sky_bg_rect.color = final_col
 
 	if not is_game_started: return
 
@@ -166,135 +221,14 @@ func _process(_delta: float) -> void:
 		_water_timer = 0.0
 		_tick_water()
 
-	var player = get_node_or_null("Player")
-	if player and "game_minutes" in player:
-		_update_sky_blend(player.game_minutes)
-
-func _update_sky_blend(mins: float) -> void:
-	var base_path: String
-	var overlay_path: String
-	var alpha: float
-
-	if mins >= NIGHT_MINUTES:
-		base_path    = "res://night.png"
-		overlay_path = ""
-		alpha        = 0.0
-	elif mins >= NIGHT_START_MINUTES:
-		base_path    = "res://sunset.png"
-		overlay_path = "res://night.png"
-		alpha        = (mins - NIGHT_START_MINUTES) / (NIGHT_MINUTES - NIGHT_START_MINUTES)
-	elif mins >= SUNSET_MINUTES:
-		base_path    = "res://sunset.png"
-		overlay_path = ""
-		alpha        = 0.0
-	elif mins >= SUNSET_START_MINUTES:
-		base_path    = "res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg"
-		overlay_path = "res://sunset.png"
-		alpha        = (mins - SUNSET_START_MINUTES) / (SUNSET_MINUTES - SUNSET_START_MINUTES)
-	else:
-		base_path    = "res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg"
-		overlay_path = ""
-		alpha        = 0.0
-
-	if base_path != _current_sky_texture:
-		_update_sky_texture(base_path)
-		_current_sky_texture = base_path
-
-	if overlay_path != _sky_overlay_texture:
-		if overlay_path != "":
-			_retile_sky_sprites(_sky_overlay_sprites, load(overlay_path))
-		else:
-			for sp in _sky_overlay_sprites:
-				if is_instance_valid(sp):
-					sp.texture = null
-		_sky_overlay_texture = overlay_path
-
-	for sp in _sky_overlay_sprites:
-		if is_instance_valid(sp):
-			sp.modulate.a = alpha
-
-	# Keep the solid-color backstop in sync so no viewport clear-colour shows through
-	if is_instance_valid(_sky_bg_rect):
-		var bg_color: Color
-		if mins >= NIGHT_MINUTES:
-			bg_color = SKY_COLOR_NIGHT
-		elif mins >= NIGHT_START_MINUTES:
-			bg_color = SKY_COLOR_SUNSET.lerp(SKY_COLOR_NIGHT,
-				(mins - NIGHT_START_MINUTES) / (NIGHT_MINUTES - NIGHT_START_MINUTES))
-		elif mins >= SUNSET_MINUTES:
-			bg_color = SKY_COLOR_SUNSET
-		elif mins >= SUNSET_START_MINUTES:
-			bg_color = SKY_COLOR_DAY.lerp(SKY_COLOR_SUNSET,
-				(mins - SUNSET_START_MINUTES) / (SUNSET_MINUTES - SUNSET_START_MINUTES))
-		else:
-			bg_color = SKY_COLOR_DAY
-		_sky_bg_rect.color = bg_color
-
-# Re-textures and repositions a set of sky sprites (2-sprite side-by-side layout).
-# X is a temporary placeholder; _anchor_sprite_row overwrites it every frame.
-# Y is the important part: bottom of sprite aligned to the surface.
-func _retile_sky_sprites(sprites: Array, tex: Texture2D) -> void:
-	if sprites.is_empty() or tex == null: return
-	var ref: Sprite2D = sprites[0]
-	if not is_instance_valid(ref): return
-	# Set texture on ref first so get_rect() reflects the new size
-	ref.texture = tex
-	var ref_rect := ref.get_rect()
-	var tile_w: float = abs(ref.to_global(Vector2(ref_rect.end.x, 0.0)).x
-			- ref.to_global(Vector2(ref_rect.position.x, 0.0)).x)
-	for i in range(sprites.size()):
-		var sp: Sprite2D = sprites[i]
-		if not is_instance_valid(sp): continue
-		sp.texture = tex
-		sp.global_position.x = (float(i) - 1.0) * tile_w  # placeholder, overridden each frame
-		var rect := sp.get_rect()
-		var bottom_gly := sp.to_global(Vector2(0.0, rect.end.y)).y
-		sp.global_position.y += _surface_y_cached - bottom_gly
-
-func _update_sky_texture(path: String) -> void:
-	var tex: Texture2D = load(path)
-	if not tex: return
-	_retile_sky_sprites(_sky_base_sprites, tex)
-
-# Called every frame — keeps sky tiles centred on the camera so horizontal
-# gaps are impossible regardless of texture size or player position.
-func _anchor_sky_to_camera(cam_x: float) -> void:
-	_anchor_sprite_row(_sky_base_sprites, cam_x, _sky_scroll_offset)
-	_anchor_sprite_row(_sky_overlay_sprites, cam_x, _sky_scroll_offset)
-
-func _anchor_sprite_row(sprites: Array, cam_x: float, scroll: float) -> void:
-	if sprites.is_empty(): return
-	var ref: Sprite2D = null
-	for s in sprites:
-		if is_instance_valid(s) and (s as Sprite2D).texture != null:
-			ref = s as Sprite2D
-			break
-	if ref == null: return
-	# Compute actual global pixel width via the sprite's transform — handles all
-	# parent scales (bg_above, Main, etc.) without manual multiplication.
-	var ref_rect := ref.get_rect()
-	var tile_w: float = abs(ref.to_global(Vector2(ref_rect.end.x, 0.0)).x
-			- ref.to_global(Vector2(ref_rect.position.x, 0.0)).x)
-	if tile_w <= 0.0: return
-	var wrapped := fmod(scroll, tile_w)
-	# centered=false: each sprite's left edge is at its global_position.x.
-	# tile[1] left edge = cam_x+wrapped, which is always in (cam_x-tile_w, cam_x].
-	# Since tile_w >> viewport_w, tile[1] alone covers the full viewport with no gaps.
-	# tile[0] and tile[2] are seamlessly adjacent on either side.
-	for i in range(sprites.size()):
-		var sp := sprites[i] as Sprite2D
-		if not is_instance_valid(sp): continue
-		sp.global_position.x = cam_x + wrapped + (float(i) - 1.0) * tile_w
-
 func _setup_sky_bg_rect() -> void:
 	var cl := CanvasLayer.new()
 	cl.layer = -10
 	add_child(cl)
 	_sky_bg_rect = ColorRect.new()
-	# Oversized rect in screen-space covers the full viewport regardless of window size
 	_sky_bg_rect.position = Vector2(-4000, -4000)
-	_sky_bg_rect.size = Vector2(12000, 12000)
-	_sky_bg_rect.color = SKY_COLOR_DAY
+	_sky_bg_rect.size     = Vector2(12000, 12000)
+	_sky_bg_rect.color    = Color(0.48, 0.73, 0.89)
 	cl.add_child(_sky_bg_rect)
 
 func _setup_autosave() -> void:
@@ -564,65 +498,35 @@ func _setup_water_drawer() -> void:
 	_water_drawer = drawer
 
 func _is_water_passable(pos: Vector2i) -> bool:
-	return pos.y > SURFACE_Y and tilemap.get_cell_source_id(pos) == -1
+	return pos.y > SURFACE_Y and tilemap.get_cell_source_id(pos) == -1 \
+		and not _water_pending.has(pos)
 
-# Called by player after breaking a tile; water seeps in after a short delay.
+# Called by player after breaking a tile near water.
+# Blocks the position for 0.5 s; the movement-based simulation then flows
+# water into it naturally on the next tick (volume conserved automatically).
 func notify_tile_removed(pos: Vector2i) -> void:
-	if not _is_water_passable(pos):
-		return
-	# Check now whether a neighbour has water — if not, no need to schedule anything
-	var neighbours := [
-		pos + Vector2i( 0, -1),
-		pos + Vector2i( 0,  1),
-		pos + Vector2i(-1,  0),
-		pos + Vector2i( 1,  0),
-	]
-	var has_water_neighbour := false
-	for nb in neighbours:
+	var has_nb := false
+	for nb in [pos + Vector2i(0,-1), pos + Vector2i(0,1),
+			   pos + Vector2i(-1,0), pos + Vector2i(1,0)]:
 		if _water_cells.has(nb):
-			has_water_neighbour = true
+			has_nb = true
 			break
-	if not has_water_neighbour:
+	if not has_nb:
 		return
-
-	# Wait 0.5 s before filling so the seep feels physical, not instant
+	_water_pending[pos] = true
 	await get_tree().create_timer(0.5).timeout
-
-	# Re-check passability after the delay (player may have re-placed a block)
-	if not _is_water_passable(pos):
-		return
-
-	# Fill the tile and inherit direction from the first water neighbour found
-	var filled := false
-	for nb in neighbours:
-		if _water_cells.has(nb):
-			_water_cells[pos] = true
-			if _water_cell_dir.has(nb) and not _water_cell_dir.has(pos):
-				_water_cell_dir[pos] = _water_cell_dir[nb]
-			filled = true
-			break
-	if not filled:
-		return
-
-	if _water_drawer:
-		_water_drawer.queue_redraw()
-
-	# Release a bubble from the topmost water cell near the break point
+	_water_pending.erase(pos)
+	# Visual-only bubble at the topmost nearby water cell
 	var top_pos := pos
-	var found_top := false
+	var found   := false
 	for raw in _water_cells:
 		var c := raw as Vector2i
 		if abs(c.x - pos.x) <= 8:
-			if not found_top or c.y < top_pos.y:
+			if not found or c.y < top_pos.y:
 				top_pos = c
-				found_top = true
-	if found_top and top_pos != pos:
-		_water_cells.erase(top_pos)
-		_water_cell_dir.erase(top_pos)
-		_water_blocked[top_pos] = true
+				found   = true
+	if found and top_pos != pos:
 		_spawn_water_bubble(top_pos)
-		if _water_drawer:
-			_water_drawer.queue_redraw()
 
 func _spawn_water_bubble(tile_pos: Vector2i) -> void:
 	var world_pos := tilemap.to_global(tilemap.map_to_local(tile_pos))
@@ -647,49 +551,65 @@ func _spawn_water_bubble(tile_pos: Vector2i) -> void:
 	tw.tween_callback(p.queue_free)
 
 func _tick_water() -> void:
-	var down_cands:       Array[Vector2i] = []
-	var side_cands_pref:  Array[Vector2i] = []  # staircase direction (preferred)
-	var side_cands_other: Array[Vector2i] = []  # opposite direction
+	var changed := false
 
-	# Sources drip in if not yet filled and not permanently blocked
+	# ── 1. GRAVITY (movement, not additive) ──────────────────────────────────
+	# Sort cells highest-y first (deepest in world first) so that when the
+	# bottom cell falls, the one above immediately falls into the vacated slot —
+	# the whole column cascades in a single tick with no per-tick cell limit.
+	var cells: Array[Vector2i] = []
+	for raw in _water_cells:
+		cells.append(raw as Vector2i)
+	cells.sort_custom(func(a, b): return a.y > b.y)
+
+	for cell in cells:
+		if not _water_cells.has(cell):
+			continue          # already moved earlier this frame
+		var below := cell + Vector2i(0, 1)
+		if not _water_cells.has(below) and _is_water_passable(below):
+			var fd: int = _water_cell_dir.get(cell, -1)
+			_water_cells.erase(cell)
+			_water_cell_dir.erase(cell)
+			_water_cells[below] = true
+			_water_cell_dir[below] = fd
+			changed = true
+
+	# ── 2. SIDEWAYS SPREAD (additive, fills staircase steps) ─────────────────
+	# Only for settled cells that cannot fall any further.
+	var pref:  Array[Vector2i] = []
+	var other: Array[Vector2i] = []
+	for raw in _water_cells:
+		var cell := raw as Vector2i
+		var fd: int = _water_cell_dir.get(cell, -1)
+		var below   := cell + Vector2i(0, 1)
+		if _water_cells.has(below) or not _is_water_passable(below):
+			for dx in [fd, -fd]:
+				var side := cell + Vector2i(dx, 0)
+				if not _water_cells.has(side) and _is_water_passable(side):
+					if dx == fd: pref.append(side)
+					else:        other.append(side)
+					if not _water_cell_dir.has(side):
+						_water_cell_dir[side] = fd
+
+	var added := 0
+	for pos in pref + other:
+		if added >= WATER_PER_TICK: break
+		if not _water_cells.has(pos) and _is_water_passable(pos):
+			_water_cells[pos] = true
+			added   += 1
+			changed  = true
+
+	# ── 3. SOURCE DRIP (refills top when gravity vacates it) ─────────────────
 	for i in range(_water_sources.size()):
 		var src  := _water_sources[i]
 		var sdir := _water_source_dirs[i] if i < _water_source_dirs.size() else -1
-		if not _water_cells.has(src) and not _water_blocked.has(src) and _is_water_passable(src):
-			down_cands.append(src)
+		if not _water_cells.has(src) and _is_water_passable(src):
+			_water_cells[src] = true
 			if not _water_cell_dir.has(src):
 				_water_cell_dir[src] = sdir
+			changed = true
 
-	# Existing water spreads downward first, then in staircase direction, then opposite
-	for raw_pos in _water_cells:
-		var cell := raw_pos as Vector2i
-		var fd: int = _water_cell_dir.get(cell, -1)
-
-		var below := cell + Vector2i(0, 1)
-		if not _water_cells.has(below) and not _water_blocked.has(below) and _is_water_passable(below):
-			down_cands.append(below)
-			if not _water_cell_dir.has(below):
-				_water_cell_dir[below] = fd
-
-		for dx in [fd, -fd]:
-			var side := cell + Vector2i(dx, 0)
-			if not _water_cells.has(side) and not _water_blocked.has(side) and _is_water_passable(side):
-				if dx == fd:
-					side_cands_pref.append(side)
-				else:
-					side_cands_other.append(side)
-				if not _water_cell_dir.has(side):
-					_water_cell_dir[side] = fd
-
-	var added := 0
-	for pos in down_cands + side_cands_pref + side_cands_other:
-		if added >= WATER_PER_TICK:
-			break
-		if not _water_cells.has(pos):
-			_water_cells[pos] = true
-			added += 1
-
-	if added > 0 and _water_drawer:
+	if changed and _water_drawer:
 		_water_drawer.queue_redraw()
 
 func generate_world():
@@ -707,7 +627,7 @@ func generate_world():
 	_water_sources.clear()
 	_water_source_dirs.clear()
 	_water_cell_dir.clear()
-	_water_blocked.clear()
+	_water_pending.clear()
 	const STAIR_GRID := 8
 	const STAIR_CHANCE := 0.05
 	for gx in range(-half_w + 1, half_w - 7, STAIR_GRID):
@@ -821,15 +741,14 @@ func position_entities():
 			_align_node_bottom_to_surface(tree as Node2D, surface_y)
 			_register_surface_footprint(tree as Node2D, surface_y, 0)
 
-	# 5. Sky backgrounds — 3 sprites: left / centre / right of camera, scrolling left on loop
+	# 5. Sky — Three layers for day/sunset/night transitions
+	_sky_sprite_day = null
+	_sky_sprite_sunset = null
+	_sky_sprite_night = null
 	var bg_above = get_node_or_null("Background above")
-	_sky_base_sprites.clear()
-	_sky_overlay_sprites.clear()
-	_sky_overlay_texture = ""
 	if bg_above:
-		# Inherit scale/z_index from existing scene sprite if present, then clear all
 		var spr_scale := Vector2(1.4, 1.4)
-		var spr_z := -1
+		var spr_z     := -1
 		for child in bg_above.get_children():
 			if child is Sprite2D and (child as Sprite2D).texture != null:
 				spr_scale = (child as Sprite2D).scale
@@ -838,35 +757,41 @@ func position_entities():
 		for child in bg_above.get_children():
 			child.queue_free()
 
-		var sky_tex: Texture2D = load(_current_sky_texture)
-		if sky_tex:
-			# Create 3 tiles with centered=false so left-edge placement is exact.
-			# tile[1] always straddles the camera — no gap can appear in the viewport.
-			for i in range(3):
+		var day_tex = load("res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg")
+		var sunset_tex = load("res://sunset.png")
+		var night_tex = load("res://night.png")
+		
+		var textures = [day_tex, sunset_tex, night_tex]
+		var sprites = []
+		
+		for tex in textures:
+			if tex:
 				var sp := Sprite2D.new()
-				sp.texture        = sky_tex
+				sp.texture        = tex
 				sp.scale          = spr_scale
 				sp.z_index        = spr_z
 				sp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-				sp.centered       = false
-				bg_above.add_child(sp)  # Must be in tree before global_position is valid
-				# Align bottom edge to the surface using the actual global transform
-				var rect      := sp.get_rect()
-				var bot_gly   := sp.to_global(Vector2(0.0, rect.end.y)).y
+				sp.texture_repeat = CanvasItem.TEXTURE_REPEAT_MIRROR
+				sp.centered       = true
+				sp.region_enabled = true
+				sp.region_rect    = Rect2(0.0, 0.0, float(tex.get_width()) * 4.0, float(tex.get_height()))
+				bg_above.add_child(sp)
+				
+				var rect    := sp.get_rect()
+				var bot_gly := sp.to_global(Vector2(0.0, rect.end.y)).y
 				sp.global_position.y += surface_y - bot_gly
-				_sky_base_sprites.append(sp)
-
-			for base in _sky_base_sprites:
-				var ov := Sprite2D.new()
-				ov.texture        = null
-				ov.scale          = base.scale
-				ov.z_index        = base.z_index + 1
-				ov.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-				ov.modulate       = Color(1.0, 1.0, 1.0, 0.0)
-				ov.centered       = false
-				bg_above.add_child(ov)  # Add first so global_position is valid
-				ov.global_position = base.global_position
-				_sky_overlay_sprites.append(ov)
+				sprites.append(sp)
+			else:
+				sprites.append(null)
+		
+		_sky_sprite_day = sprites[0]
+		_sky_sprite_sunset = sprites[1]
+		_sky_sprite_night = sprites[2]
+		
+		# Initial Alphas
+		if _sky_sprite_day: _sky_sprite_day.modulate.a = 1.0
+		if _sky_sprite_sunset: _sky_sprite_sunset.modulate.a = 0.0
+		if _sky_sprite_night: _sky_sprite_night.modulate.a = 0.0
 
 	# 6. Cobblestone backgrounds — Tile to cover the entire depth and width
 	var bg_under = get_node_or_null("Background Under")
@@ -903,7 +828,7 @@ func position_entities():
 					bg.z_index = -34
 					bg.centered = false
 					bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-					bg.modulate = Color(0.45, 0.35, 0.28, 1.0)
+					bg.modulate = Color(0.38, 0.32, 0.28, 1.0)
 					# Use floor and a 1px overlap to prevent sub-pixel seams
 					bg.global_position = Vector2(floor(x), floor(y))
 					bg_under.add_child(bg)

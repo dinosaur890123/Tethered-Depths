@@ -100,7 +100,7 @@ var hotbar_item_ids: Array[String] = []
 var hotbar_item_counts: Array[int] = []
 var hotbar_item_labels: Array[Label] = []
 var hotbar_item_count_labels: Array[Label] = []
-const HOTBAR_SLOT_COUNT: int = 9
+const HOTBAR_SLOT_COUNT: int = 8
 var flashlight_slot_label: Label
 var hotbar_hint_label: Label
 var _hovered_hotbar_slot: int = -1
@@ -197,7 +197,7 @@ var spawn_position: Vector2
 # --- Depth Lighting ---
 var depth_canvas_modulate: CanvasModulate
 const DEPTH_DARKEN_START_TILE_Y: int = 6
-const DEPTH_DARKEN_FULL_TILE_Y: int = 380
+const DEPTH_DARKEN_FULL_TILE_Y: int = 2000
 const DEPTH_DARKEN_MIN_MULT: float = 0.22
 
 # --- Flashlight ---
@@ -214,6 +214,8 @@ var facing_dir: int = 1  # 1 = right, -1 = left
 var is_walking: bool = false
 var shop_node: Node2D = null
 var is_wall_climbing: bool = false
+var is_wall_descending: bool = false
+var is_wall_sliding: bool = false
 var phase_grapple_unlocked: bool = false
 
 # Highlight state — updated every frame based on mouse position
@@ -501,60 +503,58 @@ func _ready():
 			slot.add_child(num_label)
 			
 			if i == 0:
-				sb.border_color = Color(1, 0.9, 0) # Keep selection highlight for slot 1
+				sb.border_color = Color(1, 0.9, 0) # Selection highlight for slot 1 (now an item slot)
 				sb.bg_color = Color(0.3, 0.3, 0.3, 0.9)
-				hotbar_item_labels.append(null)
-				hotbar_item_count_labels.append(null)
-				# Flashlight indicator
-				var fl_lbl := Label.new()
-				fl_lbl.text = "FL\nON"
-				fl_lbl.add_theme_font_size_override("font_size", 12)
-				fl_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-				fl_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-				fl_lbl.set_anchors_preset(Control.LayoutPreset.PRESET_FULL_RECT)
-				fl_lbl.offset_top = 14
-				fl_lbl.modulate = Color(1.0, 1.0, 0.5)
-				slot.add_child(fl_lbl)
-				flashlight_slot_label = fl_lbl
 
-			else:
-				var item_lbl := Label.new()
-				item_lbl.name = "ItemLabel"
-				item_lbl.text = ""
-				item_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-				item_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-				item_lbl.set_anchors_preset(Control.LayoutPreset.PRESET_FULL_RECT)
-				item_lbl.add_theme_font_size_override("font_size", 14)
-				item_lbl.modulate = Color(1.0, 1.0, 1.0, 0.95)
-				slot.add_child(item_lbl)
-				hotbar_item_labels.append(item_lbl)
+			var item_lbl := Label.new()
+			item_lbl.name = "ItemLabel"
+			item_lbl.text = ""
+			item_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			item_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			item_lbl.set_anchors_preset(Control.LayoutPreset.PRESET_FULL_RECT)
+			item_lbl.add_theme_font_size_override("font_size", 14)
+			item_lbl.modulate = Color(1.0, 1.0, 1.0, 0.95)
+			slot.add_child(item_lbl)
+			hotbar_item_labels.append(item_lbl)
 
-				var count_lbl := Label.new()
-				count_lbl.name = "CountLabel"
-				count_lbl.text = ""
-				count_lbl.add_theme_font_size_override("font_size", 12)
-				count_lbl.modulate = Color(1.0, 1.0, 1.0, 0.95)
-				count_lbl.anchor_left = 1.0
-				count_lbl.anchor_right = 1.0
-				count_lbl.anchor_top = 1.0
-				count_lbl.anchor_bottom = 1.0
-				count_lbl.offset_right = -4.0
-				count_lbl.offset_left = -22.0
-				count_lbl.offset_bottom = -2.0
-				count_lbl.offset_top = -16.0
-				count_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-				slot.add_child(count_lbl)
-				hotbar_item_count_labels.append(count_lbl)
+			var count_lbl := Label.new()
+			count_lbl.name = "CountLabel"
+			count_lbl.text = ""
+			count_lbl.add_theme_font_size_override("font_size", 12)
+			count_lbl.modulate = Color(1.0, 1.0, 1.0, 0.95)
+			count_lbl.anchor_left = 1.0
+			count_lbl.anchor_right = 1.0
+			count_lbl.anchor_top = 1.0
+			count_lbl.anchor_bottom = 1.0
+			count_lbl.offset_right = -4.0
+			count_lbl.offset_left = -22.0
+			count_lbl.offset_bottom = -2.0
+			count_lbl.offset_top = -16.0
+			count_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			slot.add_child(count_lbl)
+			hotbar_item_count_labels.append(count_lbl)
 
 			hotbar_item_ids.append("")
 			hotbar_item_counts.append(0)
 
 			hotbar_container.add_child(slot)
 			hotbar_slots.append(slot)
-			# Hover signals for "Press F" hint (potion slots only)
-			if i > 0:
-				slot.mouse_entered.connect(Callable(self, "_on_hotbar_slot_hover").bind(i))
-				slot.mouse_exited.connect(Callable(self, "_on_hotbar_slot_unhover").bind(i))
+			# Hover signals for "Press F" hint
+			slot.mouse_entered.connect(Callable(self, "_on_hotbar_slot_hover").bind(i))
+			slot.mouse_exited.connect(Callable(self, "_on_hotbar_slot_unhover").bind(i))
+
+		# Flashlight indicator near the clock/money
+		flashlight_slot_label = Label.new()
+		flashlight_slot_label.text = "FL: ON"
+		flashlight_slot_label.add_theme_font_size_override("font_size", 16)
+		flashlight_slot_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		flashlight_slot_label.add_theme_constant_override("outline_size", 3)
+		flashlight_slot_label.position = Vector2(1060.0, 60.0) # Below clock
+		flashlight_slot_label.size = Vector2(210.0, 24.0)
+		flashlight_slot_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		flashlight_slot_label.modulate = Color(1.0, 1.0, 0.5)
+		hud.add_child(flashlight_slot_label)
+		_update_flashlight_slot_label()
 
 		var item_label = Label.new()
 		item_label.name = "SelectedItemLabel"
@@ -643,13 +643,13 @@ func _ready():
 		inventory_panel.offset_left = -260.0
 		inventory_panel.offset_right = 260.0
 		inventory_panel.offset_bottom = -80.0
-		inventory_panel.offset_top = inventory_panel.offset_bottom - 240.0
+		inventory_panel.offset_top = inventory_panel.offset_bottom - 420.0
 		inventory_panel.z_index = 20
 		hud.add_child(inventory_panel)
 
 		inventory_label = RichTextLabel.new()
 		inventory_label.bbcode_enabled = true
-		inventory_label.fit_content = true
+		inventory_label.fit_content = false # Allow manual layout control
 		inventory_label.anchor_left = 0.0
 		inventory_label.anchor_right = 1.0
 		inventory_label.anchor_top = 0.0
@@ -1040,7 +1040,7 @@ func _physics_process(delta):
 			_update_animation()
 			_update_walking_sfx()
 			queue_redraw()
-			if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and selected_slot == 0:
+			if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 				if highlight_valid and not is_mining:
 					start_mining(highlighted_tile)
 			else:
@@ -1050,20 +1050,38 @@ func _physics_process(delta):
 	# 3. Gravity (moved before move_and_slide)
 	var in_water := _is_in_water()
 	_update_water_fx(in_water)
-	if not is_on_floor() and not is_wall_climbing:
+	if not is_on_floor() and not is_wall_climbing and not is_wall_descending:
 		var grav_mult := WATER_GRAVITY_MULT if in_water else 1.0
+		# Normal gravity fall
 		velocity.y += gravity * delta * grav_mult
 
-	# 4. Jump
-	if Input.is_action_just_pressed("ui_accept") and is_on_floor():
-		var jump_mult := WATER_JUMP_MULT if in_water else 1.0
-		velocity.y = -jump_speed * jump_mult
-
-	# 5. Velocity
+	# 4. Velocity
 	var move_mult := WATER_SPEED_MULT if in_water else 1.0
-	velocity.x = h * speed * speed_potion_mult * move_mult
+	if h != 0:
+		velocity.x = h * speed * speed_potion_mult * move_mult
+	elif is_on_floor():
+		velocity.x = 0
+	else:
+		velocity.x = move_toward(velocity.x, 0, 600.0 * delta)
+	
 	if is_wall_climbing:
 		velocity.y = -climb_speed * speed_potion_mult * move_mult
+	elif is_wall_descending:
+		velocity.y = climb_speed * speed_potion_mult * move_mult
+
+	# 5. Jump (moved after horizontal velocity so wall jump can override it)
+	if Input.is_action_just_pressed("ui_accept"):
+		if is_on_floor():
+			var jump_mult := WATER_JUMP_MULT if in_water else 1.0
+			velocity.y = -jump_speed * jump_mult
+		elif is_on_wall() and not is_on_floor():
+			# Wall jump: push away from the wall
+			var wall_norm = get_wall_normal()
+			velocity.y = -jump_speed * 0.9 # Slightly less height
+			velocity.x = wall_norm.x * speed * 1.3 # Push away
+			facing_dir = sign(wall_norm.x)
+			is_wall_climbing = false
+			is_wall_descending = false
 
 	move_and_slide()
 
@@ -1076,14 +1094,22 @@ func _physics_process(delta):
 	else:
 		_ripple_timer = 0.0
 
-	# 6. Wall climbing (now after move_and_slide for better sync)
+	# 6. Wall climbing/descending (now after move_and_slide for better sync)
 	var wall_normal = get_wall_normal()
-	is_wall_climbing = (
-		is_on_wall()
+	var on_wall = is_on_wall()
+	var wall_interact = (
+		on_wall
 		and h != 0
 		and wall_normal != Vector2.ZERO
 		and sign(h) == -sign(wall_normal.x)
 	)
+
+	var up_pressed = Input.is_action_pressed("Up") or Input.is_action_pressed("ui_up")
+	var down_pressed = Input.is_action_pressed("Down") or Input.is_action_pressed("ui_down")
+	
+	is_wall_climbing = wall_interact and up_pressed
+	is_wall_descending = wall_interact and down_pressed
+	is_wall_sliding = false # No longer used for manual clinging without direction
 
 	if is_mining:
 		var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
@@ -1093,7 +1119,7 @@ func _physics_process(delta):
 			player_tile + Vector2i(0, 1),
 			player_tile + Vector2i(0, -1),
 		]
-		if not (target_tile_coords in adjacent_tiles):
+		if not (target_tile_coords in adjacent_tiles) or tilemap.get_cell_source_id(target_tile_coords) == -1:
 			cancel_mining()
 
 	_update_highlight()
@@ -1130,7 +1156,7 @@ func _physics_process(delta):
 
 	queue_redraw()
 
-	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and selected_slot == 0:
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		if highlight_valid and not is_mining:
 			start_mining(highlighted_tile)
 	else:
@@ -1185,7 +1211,7 @@ func _update_animation():
 	if is_mining:
 		var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 		target_anim = &"mine_down" if target_tile_coords.y > player_tile.y else &"mine_right"
-	elif is_wall_climbing:
+	elif is_wall_climbing or is_wall_descending:
 		target_anim = &"climb"
 	elif is_walking:
 		target_anim = &"walk" 
@@ -1196,7 +1222,7 @@ func _update_animation():
 	if is_mining:
 		var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
 		anim_sprite.flip_h = target_tile_coords.x < player_tile.x
-	elif is_wall_climbing:
+	elif is_wall_climbing or is_wall_descending:
 		var wall_normal = get_wall_normal()
 		anim_sprite.flip_h = wall_normal.x > 0 
 	else:
@@ -1423,7 +1449,7 @@ func _generate_daily_objectives() -> void:
 	depth_target += int(oxygen_upgrade_level) * 10
 	# Speed upgrades help reach targets faster.
 	depth_target += int(speed_upgrade_level) * 6
-	depth_target = clampi(depth_target, 25, 330)
+	depth_target = clampi(depth_target, 25, 9500)
 	daily_objectives.append({
 		"type": "reach_depth",
 		"target": depth_target,
@@ -1590,6 +1616,12 @@ func finish_mining():
 
 	var source_id = tilemap.get_cell_source_id(target_tile_coords)
 	var is_grass = (source_id == 1)
+	
+	if mining_sfx_player and mining_sfx_player.finished.is_connected(_on_mining_sfx_finished):
+		mining_sfx_player.finished.disconnect(_on_mining_sfx_finished)
+	if mining_sfx_player:
+		mining_sfx_player.stop()
+
 	is_mining = false
 
 	var tile_world_pos = tilemap.to_global(tilemap.map_to_local(target_tile_coords))
@@ -1620,8 +1652,10 @@ func finish_mining():
 		_spawn_floating_text("Cargo Full!", tile_world_pos, Color(1.0, 0.3, 0.3))
 		return
 
-	# Apply oxygen-based luck bonus to current luck
-	var current_luck = PICKAXE_UPGRADES[pickaxe_level]["luck"] * block_luck_mult * oxygen_luck_bonus
+	# Apply oxygen-based luck bonus and depth-based luck bonus to current luck
+	# Bonus: +0.1% luck per tile depth (depth * 0.001)
+	var depth_luck_mult := 1.0 + (float(target_tile_coords.y) * 0.001)
+	var current_luck = PICKAXE_UPGRADES[pickaxe_level]["luck"] * block_luck_mult * oxygen_luck_bonus * depth_luck_mult
 	if ore_magnet_timer > 0.0:
 		current_luck *= ORE_MAGNET_LUCK_MULT
 
@@ -1752,10 +1786,10 @@ func _input(event: InputEvent) -> void:
 	if is_in_menu:
 		return
 
-	# Hotbar selection 1-9
+	# Hotbar selection 1-8
 
 	if event is InputEventKey and event.pressed:
-		if event.keycode >= KEY_1 and event.keycode <= KEY_9:
+		if event.keycode >= KEY_1 and event.keycode <= KEY_8:
 			_select_hotbar_slot(event.keycode - KEY_1)
 
 
@@ -1774,10 +1808,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				else:
 					_try_fire_grapple()
 			MOUSE_BUTTON_WHEEL_UP:
-				minimap_zoom = clamp(minimap_zoom * 1.25, 0.5, 8.0)
+				_select_hotbar_slot((selected_slot - 1 + hotbar_slots.size()) % hotbar_slots.size())
 				_update_minimap()
 			MOUSE_BUTTON_WHEEL_DOWN:
-				minimap_zoom = clamp(minimap_zoom / 1.25, 0.5, 8.0)
+				_select_hotbar_slot((selected_slot + 1) % hotbar_slots.size())
 				_update_minimap()
 	if event is InputEventKey and event.pressed:
 		match event.keycode:
@@ -1801,17 +1835,23 @@ func _update_ore_collection_hud() -> void:
 		return
 	var text := "[b]Collected this run:[/b]\n"
 	var any := false
+	var total_val := 0
 	for ore in ORE_TABLE:
 		var nm: String = ore[0]
 		var count: int = int(ore_counts.get(nm, 0))
 		if count <= 0:
 			continue
 		any = true
+		var val_each: int = int(ore[2])
+		total_val += count * val_each
 		var c: Color = ore[3] as Color
 		var hex := "#%02x%02x%02x" % [int(c.r * 255), int(c.g * 255), int(c.b * 255)]
 		text += "[color=%s]%s: %d[/color]\n" % [hex, nm, count]
 	if not any:
-		text += "[color=#888888]None yet[/color]"
+		text += "[color=#888888]None yet[/color]\n"
+	else:
+		text += "[b][color=yellow]Total Value: $%d[/color][/b]\n" % total_val
+	
 	ore_collection_label.text = text
 
 func _update_grapple_hover() -> void:
@@ -2144,7 +2184,6 @@ func trigger_end_of_day(_from_death: bool = false):
 		text += "[font_size=32]"
 		text += "[color=orange]Ores Collected: %d[/color]\n\n" % daily_ores_collected
 		text += "[color=gold]Money Made: $%d[/color]\n\n" % daily_money_made
-		text += "[color=red]Times Died: %d[/color]\n" % times_died
 
 		# Objectives summary
 		if not daily_objectives.is_empty():
@@ -2234,31 +2273,17 @@ func _select_hotbar_slot(index: int):
 	new_sb.bg_color = Color(0.3, 0.3, 0.3, 0.9)
 	new_slot.add_theme_stylebox_override("panel", new_sb)
 	
-	# Update Selected Item Name
-	var label = hud.get_node_or_null("SelectedItemLabel") as Label
-	if label:
-		if index == 0:
-			label.text = "Flashlight [%s]" % ("ON" if flashlight_on else "OFF")
-		else:
-			var item_id := ""
-			var count := 0
-			if selected_slot >= 0 and selected_slot < hotbar_item_ids.size():
-				item_id = hotbar_item_ids[selected_slot]
-				count = int(hotbar_item_counts[selected_slot])
-			if item_id != "" and count > 0:
-				label.text = "%s x%d" % [_hotbar_item_display_name(item_id), count]
-			else:
-				label.text = "Empty Slot"
+	_refresh_selected_item_label()
 
 
 func _update_flashlight_slot_label() -> void:
 	if flashlight_slot_label == null:
 		return
 	if flashlight_on:
-		flashlight_slot_label.text = "FL\nON"
+		flashlight_slot_label.text = "FL: ON"
 		flashlight_slot_label.modulate = Color(1.0, 1.0, 0.5)
 	else:
-		flashlight_slot_label.text = "FL\nOFF"
+		flashlight_slot_label.text = "FL: OFF"
 		flashlight_slot_label.modulate = Color(0.6, 0.6, 0.6)
 
 func _on_hotbar_slot_hover(slot_idx: int) -> void:
@@ -2293,9 +2318,7 @@ func _hotbar_item_short_label(item_id: String) -> String:
 
 
 func _update_hotbar_slot_ui(slot_index: int) -> void:
-	if slot_index <= 0:
-		return
-	if slot_index >= hotbar_item_ids.size() or slot_index >= hotbar_item_labels.size() or slot_index >= hotbar_item_count_labels.size():
+	if slot_index < 0 or slot_index >= hotbar_item_ids.size() or slot_index >= hotbar_item_labels.size() or slot_index >= hotbar_item_count_labels.size():
 		return
 	var item_lbl := hotbar_item_labels[slot_index]
 	var count_lbl := hotbar_item_count_labels[slot_index]
@@ -2317,9 +2340,6 @@ func _refresh_selected_item_label() -> void:
 	var label := hud.get_node_or_null("SelectedItemLabel") as Label
 	if label == null:
 		return
-	if selected_slot == 0:
-		label.text = "Flashlight [%s]" % ("ON" if flashlight_on else "OFF")
-		return
 	if selected_slot < 0 or selected_slot >= hotbar_item_ids.size():
 		label.text = "Empty Slot"
 		return
@@ -2334,13 +2354,15 @@ func _refresh_selected_item_label() -> void:
 func add_hotbar_item(item_id: String, amount: int = 1) -> bool:
 	if amount <= 0:
 		return false
-	for i in range(1, min(HOTBAR_SLOT_COUNT, hotbar_item_ids.size())):
+	# Find existing stack
+	for i in range(min(HOTBAR_SLOT_COUNT, hotbar_item_ids.size())):
 		if hotbar_item_ids[i] == item_id and int(hotbar_item_counts[i]) > 0:
 			hotbar_item_counts[i] = int(hotbar_item_counts[i]) + amount
 			_update_hotbar_slot_ui(i)
 			_refresh_selected_item_label()
 			return true
-	for i in range(1, min(HOTBAR_SLOT_COUNT, hotbar_item_ids.size())):
+	# Find empty slot
+	for i in range(min(HOTBAR_SLOT_COUNT, hotbar_item_ids.size())):
 		if hotbar_item_ids[i] == "" or int(hotbar_item_counts[i]) <= 0:
 			hotbar_item_ids[i] = item_id
 			hotbar_item_counts[i] = amount
@@ -2351,16 +2373,6 @@ func add_hotbar_item(item_id: String, amount: int = 1) -> bool:
 
 
 func _use_selected_hotbar_item() -> void:
-	if selected_slot == 0:
-		# Slot 1 = Flashlight toggle
-		flashlight_on = not flashlight_on
-		if flashlight != null:
-			flashlight.enabled = flashlight_on
-			if flashlight_on:
-				_update_flashlight()
-		_update_flashlight_slot_label()
-		_refresh_selected_item_label()
-		return
 	if selected_slot >= hotbar_item_ids.size():
 		return
 	var item_id := hotbar_item_ids[selected_slot]
@@ -2453,16 +2465,56 @@ func _refresh_inventory() -> void:
 	if not inventory_label:
 		return
 
-	var special_names := ["Rainbow", "Mutated Stone", "Mutated Copper", "Mutated Silver", "Mutated Gold"]
-	var total_value := 0
-	var text := "[center][b]INVENTORY[/b][/center]\n[center]Press E to close[/center]\n\n"
-	text += "[b]Rainbow / Mutated Ores[/b]\n"
+	var player_tile = tilemap.local_to_map(tilemap.to_local(global_position))
+	var depth: int = player_tile.y
+	# Calculate current luck multiplier
+	# Note: block_luck_mult is not included here as it varies by block, 
+	# we show the 'base' chance for standard dirt blocks.
+	var depth_luck_mult := 1.0 + (float(depth) * 0.001)
+	var cur_luck = PICKAXE_UPGRADES[pickaxe_level]["luck"] * oxygen_luck_bonus * depth_luck_mult
+	if ore_magnet_timer > 0.0:
+		cur_luck *= ORE_MAGNET_LUCK_MULT
+
+	var text := "[center][b][font_size=24]INVENTORY[/font_size][/b][/center]\n"
+	text += "[center][color=gray]Current Depth: %d tiles | Luck: %.2fx[/color][/center]\n\n" % [depth, cur_luck]
+	
+	# Part 1: Drop Chances
+	text += "[b][color=orange]Current Drop Chances (per block):[/color][/b]\n"
+	text += "[table=2]"
+	for ore in ORE_TABLE:
+		var nm: String = ore[0]
+		if nm.begins_with("Mutated "): continue
+		
+		# Check depth requirement
+		var min_d: int = int(ore[4]) if ore.size() > 4 else 0
+		var chance := 0.0
+		if depth >= min_d:
+			var base_denom := float(ore[1])
+			var eff_denom: float = base_denom if min_d == 0 else maxf(base_denom * float(min_d) / float(depth), base_denom * 0.1)
+			chance = (1.0 / (eff_denom / cur_luck)) * 100.0
+		
+		var color := "white"
+		if nm == "Rainbow": color = "yellow"
+		elif min_d > 0: color = "cyan"
+		
+		text += "[cell][color=%s]%s:[/color][/cell][cell][color=%s]%.3f%%[/color][/cell]" % [color, nm, color, chance]
+	
+	# Add Mutated chance
+	text += "[cell][color=magenta]Any Mutated:[/color][/cell][cell][color=magenta]%.2f%%[/color][/cell]" % (MUTATED_CHANCE * 100.0)
+	text += "[/table]\n"
+
+	# Part 2: Rare Ores Owned
+	text += "\n[b][color=orange]Rare Ores Owned:[/color][/b]\n"
+	var special_names := ["Rainbow", "Mutated Stone", "Mutated Copper", "Mutated Silver", "Mutated Gold", "Mutated Emerald", "Mutated Ruby", "Mutated Diamond"]
+	var rare_any := false
 	for nm in special_names:
 		var count := int(ore_counts.get(nm, 0))
-		var value_each := _get_ore_value(nm)
-		total_value += count * value_each
-		text += "%s: %d  ($%d ea)\n" % [nm, count, value_each]
-	text += "\n[b]Special value:[/b] $%d" % total_value
+		if count > 0:
+			rare_any = true
+			text += "[color=magenta]• %s: %d[/color]\n" % [nm, count]
+	if not rare_any:
+		text += "[color=gray]None[/color]\n"
+
 	inventory_label.text = text
 
 func add_item_to_hotbar(item_name: String, color: Color) -> bool:

@@ -424,7 +424,7 @@ func _render_ui() -> void:
 			var has_ores := not lines.is_empty()
 			var body := "[center][b]SELL ORES[/b][/center]\n\n"
 			if not has_ores:
-				body += "[center]No ore to sell[/center]"
+				body += "[center]Thanks for the ores! Bring me more when you have them.[/center]"
 			else:
 				body += "[center]" + "\n".join(lines) + "[/center]\n\n"
 				body += "[center]Total: [color=yellow]%s[/color][/center]" % _money_str(total_value)
@@ -543,11 +543,6 @@ func _buy_pickaxe(index: int):
 		if player_nearby.has_method("recompute_mine_time"):
 			player_nearby.recompute_mine_time()
 		
-		# Update hotbar label if pickaxe slot is selected
-		if player_nearby.selected_slot == 0:
-			var label = player_nearby.hud.get_node_or_null("SelectedItemLabel") as Label
-			if label:
-				label.text = upg["name"]
 		if player_nearby.money_label:
 			player_nearby.money_label.text = "$" + str(player_nearby.money)
 		feedback_text = "Bought " + upg["name"] + "!"
@@ -869,8 +864,10 @@ func _sell_ores():
 	if player_nearby.money_label:
 		player_nearby.money_label.text = "$" + str(player_nearby.money)
 	player_nearby.current_cargo = 0
+	if player_nearby.has_method("_update_ore_collection_hud"):
+		player_nearby._update_ore_collection_hud()
 	if OS.is_debug_build():
 		print("Sold ", total_ores_sold, " ores for $", total_earnings)
 	
-	feedback_text = "Sold for $" + str(total_earnings)
+	feedback_text = "Thank you for your ores! (+$" + str(total_earnings) + ")"
 	feedback_timer = 2.0
