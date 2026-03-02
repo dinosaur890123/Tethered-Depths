@@ -57,6 +57,8 @@ var _autosave_timer: Timer
 @onready var settings_root: Control = $MainMenu/Settings
 @onready var pb_root: Control = $MainMenu/PBTab
 @onready var ore_root: Control = $MainMenu/OreTab
+var tutorial_root: Control
+var current_tutorial_slide: int = 0
 @onready var death_screen: CanvasLayer = $DeathScreen
 
 @onready var volume_slider: HSlider = $MainMenu/Settings/VBox/VolumeSlider
@@ -95,6 +97,16 @@ func _ready():
 	# Connect menu buttons
 	start_btn.pressed.connect(_on_start_pressed)
 	restart_btn.pressed.connect(_on_restart_pressed)
+	
+	var tutorial_btn := Button.new()
+	tutorial_btn.name = "TutorialBtn"
+	tutorial_btn.text = "Tutorial"
+	tutorial_btn.add_theme_font_size_override("font_size", 28)
+	var vbox := $MainMenu/Root/PanelContainer/VBox as VBoxContainer
+	vbox.add_child(tutorial_btn)
+	vbox.move_child(tutorial_btn, 1) # Put it after Start but before Settings
+	tutorial_btn.pressed.connect(_on_tutorial_pressed)
+
 	$MainMenu/Root/PanelContainer/VBox/SettingsBtn.pressed.connect(_on_settings_pressed)
 	$MainMenu/Root/PanelContainer/VBox/RecordsBtn.pressed.connect(_on_records_pressed)
 	$MainMenu/Root/PanelContainer/VBox/OreBtn.pressed.connect(_on_ore_tab_pressed)
@@ -278,6 +290,145 @@ func _toggle_menu():
 		pb_root.visible = false
 		ore_root.visible = false
 
+func _on_tutorial_pressed():
+	if not tutorial_root:
+		_setup_tutorial_ui()
+	menu_root.visible = false
+	tutorial_root.visible = true
+	current_tutorial_slide = 0
+	_update_tutorial_slide()
+
+func _setup_tutorial_ui():
+	tutorial_root = Control.new()
+	tutorial_root.name = "TutorialTab"
+	tutorial_root.set_anchors_preset(Control.LayoutPreset.PRESET_FULL_RECT)
+	main_menu.add_child(tutorial_root)
+	
+	var bg = ColorRect.new()
+	bg.color = Color(0, 0, 0, 0.9)
+	bg.set_anchors_preset(Control.LayoutPreset.PRESET_FULL_RECT)
+	tutorial_root.add_child(bg)
+	
+	var vbox = VBoxContainer.new()
+	vbox.set_anchors_preset(Control.LayoutPreset.PRESET_CENTER)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.custom_minimum_size = Vector2(800, 600)
+	vbox.position = Vector2(-400, -300)
+	tutorial_root.add_child(vbox)
+	
+	var title = Label.new()
+	title.name = "Title"
+	title.text = "TUTORIAL"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 48)
+	vbox.add_child(title)
+	
+	vbox.add_spacer(false)
+	
+	var texture_rect = TextureRect.new()
+	texture_rect.name = "Image"
+	texture_rect.custom_minimum_size = Vector2(400, 300)
+	texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	vbox.add_child(texture_rect)
+	
+	var description = RichTextLabel.new()
+	description.name = "Description"
+	description.bbcode_enabled = true
+	description.fit_content = true
+	description.custom_minimum_size = Vector2(600, 150)
+	description.add_theme_font_size_override("normal_font_size", 32)
+	vbox.add_child(description)
+	
+	vbox.add_spacer(false)
+	
+	var hbox = HBoxContainer.new()
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_theme_constant_override("separation", 20)
+	vbox.add_child(hbox)
+	
+	var prev_btn = Button.new()
+	prev_btn.name = "PrevBtn"
+	prev_btn.text = "Previous"
+	prev_btn.custom_minimum_size = Vector2(150, 50)
+	prev_btn.pressed.connect(_on_tutorial_prev)
+	hbox.add_child(prev_btn)
+	
+	var next_btn = Button.new()
+	next_btn.name = "NextBtn"
+	next_btn.text = "Next"
+	next_btn.custom_minimum_size = Vector2(150, 50)
+	next_btn.pressed.connect(_on_tutorial_next)
+	hbox.add_child(next_btn)
+	
+	var back_btn = Button.new()
+	back_btn.name = "BackBtn"
+	back_btn.text = "Back to Menu"
+	back_btn.custom_minimum_size = Vector2(150, 50)
+	back_btn.pressed.connect(_on_tutorial_back)
+	hbox.add_child(back_btn)
+
+func _on_tutorial_next():
+	current_tutorial_slide = min(current_tutorial_slide + 1, 6)
+	_update_tutorial_slide()
+
+func _on_tutorial_prev():
+	current_tutorial_slide = max(current_tutorial_slide - 1, 0)
+	_update_tutorial_slide()
+
+func _on_tutorial_back():
+	tutorial_root.visible = false
+	menu_root.visible = true
+
+func _update_tutorial_slide():
+	var title = tutorial_root.find_child("Title", true, false) as Label
+	var img = tutorial_root.find_child("Image", true, false) as TextureRect
+	var desc = tutorial_root.find_child("Description", true, false) as RichTextLabel
+	var next_btn = tutorial_root.find_child("NextBtn", true, false) as Button
+	var prev_btn = tutorial_root.find_child("PrevBtn", true, false) as Button
+	
+	prev_btn.disabled = (current_tutorial_slide == 0)
+	next_btn.text = "Finish" if current_tutorial_slide == 6 else "Next"
+	if current_tutorial_slide == 6 and next_btn.is_connected("pressed", _on_tutorial_next):
+		next_btn.pressed.disconnect(_on_tutorial_next)
+		if not next_btn.is_connected("pressed", _on_tutorial_back):
+			next_btn.pressed.connect(_on_tutorial_back)
+	elif current_tutorial_slide < 6 and next_btn.is_connected("pressed", _on_tutorial_back):
+		next_btn.pressed.disconnect(_on_tutorial_back)
+		if not next_btn.is_connected("pressed", _on_tutorial_next):
+			next_btn.pressed.connect(_on_tutorial_next)
+
+	match current_tutorial_slide:
+		0:
+			title.text = "1. Movement"
+			# We can try to find an existing texture or just use a placeholder color for now if assets are missing
+			img.texture = load("res://Miner16Bit_AllFiles_v1/Miner16Bit_Characters_01.png")
+			desc.text = "[center]Use [color=yellow]WASD[/color] or [color=yellow]Arrow Keys[/color] to move with [color=yellow]Spacebar[/color] to jump.[/center]"
+		1:
+			title.text = "2. Climbing"
+			img.texture = load("res://signtutorial.png")
+			desc.text = "[center]Hold [color=yellow]W + A/D[/color] to climb up walls.\nHold [color=yellow]S + A/D[/color] to climb down walls.[/center]"
+		2:
+			title.text = "3. Wall Jumping"
+			img.texture = load("res://signtutorial.png")
+			desc.text = "[center]Press [color=yellow]Spacebar[/color] while on a wall to jump off it.[/center]"
+		3:
+			title.text = "4. Inventory"
+			img.texture = load("res://icon.svg")
+			desc.text = "[center]Press [color=yellow]E[/color] to open your Inventory.\nCheck your [color=cyan]Drop Chances[/color] and [color=magenta]Rare Ores[/color] here.[/center]"
+		4:
+			title.text = "5. Oxygen"
+			img.texture = null # Could use a progress bar here but sticking to description
+			desc.text = "[center]The [color=cyan]Oxygen Bar[/color] at the top shows your remaining air.\nIt drains while underground and refills at the surface.[/center]"
+		5:
+			title.text = "6. HUD Overview"
+			img.texture = load("res://signtutorial.png")
+			desc.text = "[center]Top: Oxygen & Money\nBottom: Hotbar\nRight: Minimap & Objectives\nLeft: Ore Collection & Value[/center]"
+		6:
+			title.text = "7. Good Luck!"
+			img.texture = load("res://subterralogo.png")
+			desc.text = "[center]Good luck on your journey into the depths!\nWatch your oxygen and mine carefully.[/center]"
+
 func _on_start_pressed():
 	is_game_started = true
 	main_menu.visible = false
@@ -311,6 +462,7 @@ func _on_settings_back_pressed():
 	settings_root.visible = false
 	pb_root.visible = false
 	ore_root.visible = false
+	if tutorial_root: tutorial_root.visible = false
 	$MainMenu/LogoTexture.visible = true
 
 func _on_exit_pressed():

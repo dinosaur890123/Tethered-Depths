@@ -141,6 +141,7 @@ var _ripple_timer:    float           = 0.0
 const RIPPLE_INTERVAL: float          = 0.32
 var cargo_label: Label
 var depth_hud_label: Label
+var luck_hud_label: Label
 var ore_collection_label: RichTextLabel
 
 var grapple_line: Line2D
@@ -302,6 +303,7 @@ func _spawn_block_break_effect(tile_center_global: Vector2, source_id: int) -> v
 
 # --- Mutated Ores ---
 const MUTATED_CHANCE: float = 0.01
+const RAINBOW_CHANCE: float = 0.001
 const MUTATED_DROP_DENOM: float = 999999.0  # kept for pricing/inventory; never rolled directly
 
 # Ore table: [name, 1-in-N drop chance, value per ore, display color]
@@ -314,7 +316,7 @@ const ORE_TABLE = [
 	["Mutated Copper", MUTATED_DROP_DENOM,  135,   Color(0.80, 0.20, 0.95)],
 	["Mutated Silver", MUTATED_DROP_DENOM,  480,   Color(0.80, 0.20, 0.95)],
 	["Mutated Gold",   MUTATED_DROP_DENOM,  1800,  Color(0.80, 0.20, 0.95)],
-	["Rainbow", 180, 3500, Color(1.00, 1.00, 1.00)],
+	["Rainbow", 1800, 3500, Color(1.00, 1.00, 1.00)],
 	# Deep ores — 5th element is minimum tile depth (y) required to drop
 	["Emerald",      70,   800,   Color(0.10, 0.90, 0.30), 100],
 	["Ruby",         90,   2500,  Color(1.00, 0.10, 0.15), 250],
@@ -386,6 +388,20 @@ func _ready():
 			dlbl.size = Vector2(200.0, 28.0)
 			hud.add_child(dlbl)
 			depth_hud_label = dlbl
+
+			# Luck label below depth
+			var lucklbl := Label.new()
+			lucklbl.name = "LuckHudLabel"
+			lucklbl.text = "Luck: 1.0x"
+			lucklbl.add_theme_font_size_override("font_size", 18)
+			lucklbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+			lucklbl.add_theme_color_override("font_outline_color", Color.BLACK)
+			lucklbl.add_theme_constant_override("outline_size", 3)
+			lucklbl.position = Vector2(160.0, 54.0)
+			lucklbl.size = Vector2(200.0, 24.0)
+			lucklbl.visible = false
+			hud.add_child(lucklbl)
+			luck_hud_label = lucklbl
 
 
 		clock_label = hud.get_node_or_null("ClockLabel") as Label
@@ -1200,10 +1216,28 @@ func _update_highlight():
 				var meta = tilemap.get_meta("unbreakable_tiles")
 				if meta is Dictionary and (meta as Dictionary).has(mouse_tile):
 					highlight_out_of_range = true
+					if luck_hud_label: luck_hud_label.visible = false
 					return
 			highlight_valid = true
+			
+			# Update Luck HUD
+			if luck_hud_label:
+				var b_mult = 1.0
+				if src_id == 3: b_mult = 1.5
+				elif src_id == 4: b_mult = 2.3
+				
+				var d_mult = 1.0 + (float(mouse_tile.y) * 0.00001)
+				var cur_luck = PICKAXE_UPGRADES[pickaxe_level]["luck"] * b_mult * oxygen_luck_bonus * d_mult
+				if ore_magnet_timer > 0.0:
+					cur_luck *= ORE_MAGNET_LUCK_MULT
+				
+				luck_hud_label.text = "Luck: %.2fx" % cur_luck
+				luck_hud_label.visible = true
 		else:
 			highlight_out_of_range = true
+			if luck_hud_label: luck_hud_label.visible = false
+	else:
+		if luck_hud_label: luck_hud_label.visible = false
 
 
 func _update_animation():
@@ -1241,7 +1275,7 @@ func _get_sparkle_color(tile: Vector2i) -> Color:
 	if depth >= 250: candidates.append(Color(1.00, 0.10, 0.15))  # Ruby
 	if depth >= 500: candidates.append(Color(0.55, 1.00, 1.00))  # Diamond
 	if depth >= 800: candidates.append(Color(0.55, 0.05, 0.90))  # Void Crystal
-	if randf() < 0.03:
+	if randf() < 0.003:
 		return Color.from_hsv(randf(), 0.95, 1.0)  # Rare rainbow sparkle
 	return candidates[randi() % candidates.size()]
 
@@ -1653,8 +1687,8 @@ func finish_mining():
 		return
 
 	# Apply oxygen-based luck bonus and depth-based luck bonus to current luck
-	# Bonus: +0.1% luck per tile depth (depth * 0.001)
-	var depth_luck_mult := 1.0 + (float(target_tile_coords.y) * 0.001)
+	# Bonus: +0.001% luck per tile depth (depth * 0.00001)
+	var depth_luck_mult := 1.0 + (float(target_tile_coords.y) * 0.00001)
 	var current_luck = PICKAXE_UPGRADES[pickaxe_level]["luck"] * block_luck_mult * oxygen_luck_bonus * depth_luck_mult
 	if ore_magnet_timer > 0.0:
 		current_luck *= ORE_MAGNET_LUCK_MULT
@@ -1671,7 +1705,7 @@ func finish_mining():
 				stone_name = "Mutated Stone"
 				stone_color = Color(0.80, 0.20, 0.95)
 				stone_value = _get_ore_value("Mutated Stone")
-				if randf() < MUTATED_CHANCE:
+				if randf() < RAINBOW_CHANCE:
 					stone_name = "Rainbow"
 					stone_color = Color.from_hsv(randf(), 0.95, 1.0, 1.0)
 					stone_value = _get_ore_value("Rainbow")
@@ -1712,7 +1746,7 @@ func finish_mining():
 				drop_name = "Mutated %s" % drop_name
 				drop_color = Color(0.80, 0.20, 0.95)
 				drop_value = _get_ore_value(drop_name)
-				if randf() < MUTATED_CHANCE:
+				if randf() < RAINBOW_CHANCE:
 					drop_name = "Rainbow"
 					drop_color = Color.from_hsv(randf(), 0.95, 1.0, 1.0)
 					drop_value = _get_ore_value("Rainbow")
@@ -2470,7 +2504,7 @@ func _refresh_inventory() -> void:
 	# Calculate current luck multiplier
 	# Note: block_luck_mult is not included here as it varies by block, 
 	# we show the 'base' chance for standard dirt blocks.
-	var depth_luck_mult := 1.0 + (float(depth) * 0.001)
+	var depth_luck_mult := 1.0 + (float(depth) * 0.00001)
 	var cur_luck = PICKAXE_UPGRADES[pickaxe_level]["luck"] * oxygen_luck_bonus * depth_luck_mult
 	if ore_magnet_timer > 0.0:
 		cur_luck *= ORE_MAGNET_LUCK_MULT
