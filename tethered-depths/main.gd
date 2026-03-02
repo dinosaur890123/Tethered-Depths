@@ -12,13 +12,16 @@ const DEPTH = 1000
 const SURFACE_Y = 0
 
 # --- Water simulation ---
-const WATER_TICK         := 0.5   # seconds between simulation steps
-const WATER_PER_TICK     := 3     # max new water cells added per tick
+const WATER_TICK         := 0.2    # seconds between simulation steps
+const WATER_PER_TICK     := 15     # max new water cells added per tick
 
-var _water_cells:   Dictionary = {}        # Vector2i -> true
-var _water_sources: Array[Vector2i] = []   # top of each staircase hole
-var _water_timer:   float = 0.0
-var _water_drawer:  Node2D = null
+var _water_cells:       Dictionary = {}   # Vector2i -> true
+var _water_sources:     Array[Vector2i] = []  # top of each staircase hole
+var _water_source_dirs: Array[int] = []       # staircase direction per source
+var _water_cell_dir:    Dictionary = {}   # Vector2i -> int (flow direction)
+var _water_blocked:     Dictionary = {}   # cells permanently removed by bubble; never re-filled
+var _water_timer:       float = 0.0
+var _water_drawer:      Node2D = null
 
 class WaterDrawer extends Node2D:
 	var water_cells:     Dictionary   = {}
@@ -112,13 +115,17 @@ func _ready():
 	generate_world()
 	await get_tree().physics_frame
 	position_entities()
-	
+	_setup_water_drawer()
+
 	# Connect player signals
 	var player = get_node_or_null("Player")
 	if player:
 		# Apply persisted ore collection to the in-run player so the Ore tab shows lifetime totals.
 		if ("lifetime_ore_counts" in player) and (lifetime_ore_counts is Dictionary) and lifetime_ore_counts.size() > 0:
 			player.lifetime_ore_counts = lifetime_ore_counts.duplicate(true)
+		# Share water cells so the player can react when submerged
+		if "water_cells" in player:
+			player.water_cells = _water_cells
 
 		if not player.has_signal("died"):
 			player.add_user_signal("died")
@@ -127,13 +134,18 @@ func _ready():
 		if not player.has_signal("ore_collected"):
 			player.add_user_signal("ore_collected")
 		player.connect("ore_collected", _on_ore_collected)
+	_setup_sky_bg_rect()
 
 var _current_sky_texture: String = "res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg"
 var _sky_base_sprites: Array = []
 var _sky_overlay_sprites: Array = []
 var _sky_overlay_texture: String = ""
 var _sky_scroll_offset: float = 0.0
+var _sky_bg_rect: ColorRect = null
 const SKY_SCROLL_SPEED: float = 12.0  # global units/sec — clouds drift left
+const SKY_COLOR_DAY    := Color(0.48, 0.73, 0.89)
+const SKY_COLOR_SUNSET := Color(0.78, 0.50, 0.36)
+const SKY_COLOR_NIGHT  := Color(0.07, 0.09, 0.20)
 
 const SUNSET_START_MINUTES = 16.0 * 60.0  # 4 PM — begin blue→sunset crossfade
 const SUNSET_MINUTES       = 17.0 * 60.0  # 5 PM — fully sunset
@@ -141,17 +153,22 @@ const NIGHT_START_MINUTES  = 19.0 * 60.0  # 7 PM — begin sunset→night crossf
 const NIGHT_MINUTES        = 20.0 * 60.0  # 8 PM — fully night
 
 func _process(_delta: float) -> void:
-	if not is_game_started: return
-
-	var player = get_node_or_null("Player")
-	if player and "game_minutes" in player:
-		_update_sky_blend(player.game_minutes)
-
-	# Advance cloud scroll and re-centre tiles around the camera
+	# Sky always tracks camera, even during menu/day transitions
 	_sky_scroll_offset -= SKY_SCROLL_SPEED * _delta
 	var camera := get_node_or_null("Player/Camera2D") as Camera2D
 	if camera:
 		_anchor_sky_to_camera(camera.global_position.x)
+
+	if not is_game_started: return
+
+	_water_timer += _delta
+	if _water_timer >= WATER_TICK:
+		_water_timer = 0.0
+		_tick_water()
+
+	var player = get_node_or_null("Player")
+	if player and "game_minutes" in player:
+		_update_sky_blend(player.game_minutes)
 
 func _update_sky_blend(mins: float) -> void:
 	var base_path: String
@@ -196,21 +213,40 @@ func _update_sky_blend(mins: float) -> void:
 		if is_instance_valid(sp):
 			sp.modulate.a = alpha
 
-# Re-textures and repositions a set of sky sprites so they tile gap-free
-# across the world, centred on the player's spawn (global x = 0).
+	# Keep the solid-color backstop in sync so no viewport clear-colour shows through
+	if is_instance_valid(_sky_bg_rect):
+		var bg_color: Color
+		if mins >= NIGHT_MINUTES:
+			bg_color = SKY_COLOR_NIGHT
+		elif mins >= NIGHT_START_MINUTES:
+			bg_color = SKY_COLOR_SUNSET.lerp(SKY_COLOR_NIGHT,
+				(mins - NIGHT_START_MINUTES) / (NIGHT_MINUTES - NIGHT_START_MINUTES))
+		elif mins >= SUNSET_MINUTES:
+			bg_color = SKY_COLOR_SUNSET
+		elif mins >= SUNSET_START_MINUTES:
+			bg_color = SKY_COLOR_DAY.lerp(SKY_COLOR_SUNSET,
+				(mins - SUNSET_START_MINUTES) / (SUNSET_MINUTES - SUNSET_START_MINUTES))
+		else:
+			bg_color = SKY_COLOR_DAY
+		_sky_bg_rect.color = bg_color
+
+# Re-textures and repositions a set of sky sprites (2-sprite side-by-side layout).
+# X is a temporary placeholder; _anchor_sprite_row overwrites it every frame.
+# Y is the important part: bottom of sprite aligned to the surface.
 func _retile_sky_sprites(sprites: Array, tex: Texture2D) -> void:
 	if sprites.is_empty() or tex == null: return
 	var ref: Sprite2D = sprites[0]
 	if not is_instance_valid(ref): return
-	# Global rendered width of one tile: texture_px * sprite_scale * Main_scale
-	var tile_w: float = float(tex.get_width()) * ref.scale.x * self.scale.x
-	var n := sprites.size()
-	var half := n / 2  # integer division — centre index
-	for i in range(n):
+	# Set texture on ref first so get_rect() reflects the new size
+	ref.texture = tex
+	var ref_rect := ref.get_rect()
+	var tile_w: float = abs(ref.to_global(Vector2(ref_rect.end.x, 0.0)).x
+			- ref.to_global(Vector2(ref_rect.position.x, 0.0)).x)
+	for i in range(sprites.size()):
 		var sp: Sprite2D = sprites[i]
 		if not is_instance_valid(sp): continue
 		sp.texture = tex
-		sp.global_position.x = float(i - half) * tile_w
+		sp.global_position.x = (float(i) - 1.0) * tile_w  # placeholder, overridden each frame
 		var rect := sp.get_rect()
 		var bottom_gly := sp.to_global(Vector2(0.0, rect.end.y)).y
 		sp.global_position.y += _surface_y_cached - bottom_gly
@@ -228,22 +264,38 @@ func _anchor_sky_to_camera(cam_x: float) -> void:
 
 func _anchor_sprite_row(sprites: Array, cam_x: float, scroll: float) -> void:
 	if sprites.is_empty(): return
-	# Find the first valid sprite with a texture to measure tile width
 	var ref: Sprite2D = null
 	for s in sprites:
 		if is_instance_valid(s) and (s as Sprite2D).texture != null:
 			ref = s as Sprite2D
 			break
 	if ref == null: return
-	var tile_w := float(ref.texture.get_width()) * ref.scale.x * self.scale.x
-	# Wrap the scroll within one tile so the float stays small forever
-	var wrapped := fmod(scroll, tile_w)   # stays in (-tile_w, 0]
-	var n := sprites.size()
-	var half := n / 2
-	for i in range(n):
+	# Compute actual global pixel width via the sprite's transform — handles all
+	# parent scales (bg_above, Main, etc.) without manual multiplication.
+	var ref_rect := ref.get_rect()
+	var tile_w: float = abs(ref.to_global(Vector2(ref_rect.end.x, 0.0)).x
+			- ref.to_global(Vector2(ref_rect.position.x, 0.0)).x)
+	if tile_w <= 0.0: return
+	var wrapped := fmod(scroll, tile_w)
+	# centered=false: each sprite's left edge is at its global_position.x.
+	# tile[1] left edge = cam_x+wrapped, which is always in (cam_x-tile_w, cam_x].
+	# Since tile_w >> viewport_w, tile[1] alone covers the full viewport with no gaps.
+	# tile[0] and tile[2] are seamlessly adjacent on either side.
+	for i in range(sprites.size()):
 		var sp := sprites[i] as Sprite2D
 		if not is_instance_valid(sp): continue
-		sp.global_position.x = cam_x + wrapped + float(i - half) * tile_w
+		sp.global_position.x = cam_x + wrapped + (float(i) - 1.0) * tile_w
+
+func _setup_sky_bg_rect() -> void:
+	var cl := CanvasLayer.new()
+	cl.layer = -10
+	add_child(cl)
+	_sky_bg_rect = ColorRect.new()
+	# Oversized rect in screen-space covers the full viewport regardless of window size
+	_sky_bg_rect.position = Vector2(-4000, -4000)
+	_sky_bg_rect.size = Vector2(12000, 12000)
+	_sky_bg_rect.color = SKY_COLOR_DAY
+	cl.add_child(_sky_bg_rect)
 
 func _setup_autosave() -> void:
 	if _autosave_timer != null:
@@ -475,6 +527,10 @@ func _get_ore_tex_path(nm: String) -> String:
 		"Silver": return "res://Stones_ores_bars/silver_ore.png"
 		"Gold": return "res://Stones_ores_bars/gold_ore.png"
 		"Rainbow": return "res://Stones_ores_bars/gold_ore.png"
+		"Emerald": return "res://Stones_ores_bars/emerald_ore.png"
+		"Ruby": return "res://Stones_ores_bars/ruby_ore.png"
+		"Diamond": return "res://Stones_ores_bars/diamond_ore.png"
+		"Void Crystal": return "res://Stones_ores_bars/void_crystal_ore.png"
 	return ""
 
 # Persistence logic
@@ -497,6 +553,145 @@ func load_game():
 		discovered_ores = config.get_value("collection", "discovered_ores", {})
 		lifetime_ore_counts = config.get_value("collection", "lifetime_ore_counts", {})
 
+func _setup_water_drawer() -> void:
+	if _water_drawer:
+		_water_drawer.queue_free()
+	var drawer := WaterDrawer.new()
+	drawer.water_cells    = _water_cells
+	drawer.parent_tilemap = tilemap
+	drawer.z_index        = 2
+	tilemap.add_child(drawer)
+	_water_drawer = drawer
+
+func _is_water_passable(pos: Vector2i) -> bool:
+	return pos.y > SURFACE_Y and tilemap.get_cell_source_id(pos) == -1
+
+# Called by player after breaking a tile; water seeps in after a short delay.
+func notify_tile_removed(pos: Vector2i) -> void:
+	if not _is_water_passable(pos):
+		return
+	# Check now whether a neighbour has water — if not, no need to schedule anything
+	var neighbours := [
+		pos + Vector2i( 0, -1),
+		pos + Vector2i( 0,  1),
+		pos + Vector2i(-1,  0),
+		pos + Vector2i( 1,  0),
+	]
+	var has_water_neighbour := false
+	for nb in neighbours:
+		if _water_cells.has(nb):
+			has_water_neighbour = true
+			break
+	if not has_water_neighbour:
+		return
+
+	# Wait 0.5 s before filling so the seep feels physical, not instant
+	await get_tree().create_timer(0.5).timeout
+
+	# Re-check passability after the delay (player may have re-placed a block)
+	if not _is_water_passable(pos):
+		return
+
+	# Fill the tile and inherit direction from the first water neighbour found
+	var filled := false
+	for nb in neighbours:
+		if _water_cells.has(nb):
+			_water_cells[pos] = true
+			if _water_cell_dir.has(nb) and not _water_cell_dir.has(pos):
+				_water_cell_dir[pos] = _water_cell_dir[nb]
+			filled = true
+			break
+	if not filled:
+		return
+
+	if _water_drawer:
+		_water_drawer.queue_redraw()
+
+	# Release a bubble from the topmost water cell near the break point
+	var top_pos := pos
+	var found_top := false
+	for raw in _water_cells:
+		var c := raw as Vector2i
+		if abs(c.x - pos.x) <= 8:
+			if not found_top or c.y < top_pos.y:
+				top_pos = c
+				found_top = true
+	if found_top and top_pos != pos:
+		_water_cells.erase(top_pos)
+		_water_cell_dir.erase(top_pos)
+		_water_blocked[top_pos] = true
+		_spawn_water_bubble(top_pos)
+		if _water_drawer:
+			_water_drawer.queue_redraw()
+
+func _spawn_water_bubble(tile_pos: Vector2i) -> void:
+	var world_pos := tilemap.to_global(tilemap.map_to_local(tile_pos))
+	var p := CPUParticles2D.new()
+	p.global_position = world_pos
+	p.amount          = 10
+	p.lifetime        = 0.9
+	p.one_shot        = true
+	p.explosiveness   = 0.6
+	p.direction       = Vector2(0.0, -1.0)
+	p.spread          = 25.0
+	p.initial_velocity_min = 50.0
+	p.initial_velocity_max = 130.0
+	p.gravity         = Vector2(0.0, -60.0)   # bubbles float upward
+	p.scale_amount_min = 2.5
+	p.scale_amount_max = 5.0
+	p.color           = Color(0.65, 0.88, 1.0, 0.85)
+	add_child(p)
+	p.emitting = true
+	var tw := create_tween()
+	tw.tween_interval(p.lifetime + 0.3)
+	tw.tween_callback(p.queue_free)
+
+func _tick_water() -> void:
+	var down_cands:       Array[Vector2i] = []
+	var side_cands_pref:  Array[Vector2i] = []  # staircase direction (preferred)
+	var side_cands_other: Array[Vector2i] = []  # opposite direction
+
+	# Sources drip in if not yet filled and not permanently blocked
+	for i in range(_water_sources.size()):
+		var src  := _water_sources[i]
+		var sdir := _water_source_dirs[i] if i < _water_source_dirs.size() else -1
+		if not _water_cells.has(src) and not _water_blocked.has(src) and _is_water_passable(src):
+			down_cands.append(src)
+			if not _water_cell_dir.has(src):
+				_water_cell_dir[src] = sdir
+
+	# Existing water spreads downward first, then in staircase direction, then opposite
+	for raw_pos in _water_cells:
+		var cell := raw_pos as Vector2i
+		var fd: int = _water_cell_dir.get(cell, -1)
+
+		var below := cell + Vector2i(0, 1)
+		if not _water_cells.has(below) and not _water_blocked.has(below) and _is_water_passable(below):
+			down_cands.append(below)
+			if not _water_cell_dir.has(below):
+				_water_cell_dir[below] = fd
+
+		for dx in [fd, -fd]:
+			var side := cell + Vector2i(dx, 0)
+			if not _water_cells.has(side) and not _water_blocked.has(side) and _is_water_passable(side):
+				if dx == fd:
+					side_cands_pref.append(side)
+				else:
+					side_cands_other.append(side)
+				if not _water_cell_dir.has(side):
+					_water_cell_dir[side] = fd
+
+	var added := 0
+	for pos in down_cands + side_cands_pref + side_cands_other:
+		if added >= WATER_PER_TICK:
+			break
+		if not _water_cells.has(pos):
+			_water_cells[pos] = true
+			added += 1
+
+	if added > 0 and _water_drawer:
+		_water_drawer.queue_redraw()
+
 func generate_world():
 	tilemap.clear()
 	if OS.is_debug_build():
@@ -508,6 +703,11 @@ func generate_world():
 	# Check every 8x8 grid cell; 5% chance to carve a staircase in each cell.
 	# Each staircase: 3-5 steps, 2 tiles tall per step = 6-10 blocks removed.
 	# Steps go diagonally down-left or down-right (randomly chosen).
+	_water_cells.clear()
+	_water_sources.clear()
+	_water_source_dirs.clear()
+	_water_cell_dir.clear()
+	_water_blocked.clear()
 	const STAIR_GRID := 8
 	const STAIR_CHANCE := 0.05
 	for gx in range(-half_w + 1, half_w - 7, STAIR_GRID):
@@ -519,14 +719,19 @@ func generate_world():
 			var oy := gy + randi_range(0, STAIR_GRID - 1)
 			var n_steps := randi_range(3, 5)       # 3-5 steps = 6-10 blocks
 			var dir := 1 if randf() < 0.5 else -1  # down-right or down-left
+			# Top of step 0 is the water entry point for this staircase
+			_water_sources.append(Vector2i(ox, oy))
+			_water_source_dirs.append(dir)
 			for s in range(n_steps):
-				var sx := ox + s * dir
 				var sy := oy + s
-				if sx >= -half_w and sx < half_w:
-					if sy < DEPTH:
-						skip_tiles[Vector2i(sx, sy)] = true
-					if sy + 1 < DEPTH:
-						skip_tiles[Vector2i(sx, sy + 1)] = true
+				# 2 tiles wide per step: carve the current column and the next one in dir
+				for w in range(2):
+					var sx := ox + (s + w) * dir
+					if sx >= -half_w and sx < half_w:
+						if sy < DEPTH:
+							skip_tiles[Vector2i(sx, sy)] = true
+						if sy + 1 < DEPTH:
+							skip_tiles[Vector2i(sx, sy + 1)] = true
 
 	for x in range(-half_w, half_w):
 		for y in range(SURFACE_Y, DEPTH):
@@ -616,51 +821,52 @@ func position_entities():
 			_align_node_bottom_to_surface(tree as Node2D, surface_y)
 			_register_surface_footprint(tree as Node2D, surface_y, 0)
 
-	# 5. Sky backgrounds — align to surface, add extra copies, create crossfade overlay layer
+	# 5. Sky backgrounds — 3 sprites: left / centre / right of camera, scrolling left on loop
 	var bg_above = get_node_or_null("Background above")
 	_sky_base_sprites.clear()
 	_sky_overlay_sprites.clear()
 	_sky_overlay_texture = ""
 	if bg_above:
-		# Align existing scene sprites and collect them
-		var ref_sprite: Sprite2D = null
-		for bg in bg_above.get_children():
-			if not (bg is Sprite2D) or not bg.texture: continue
-			var rect = bg.get_rect()
-			var bottom_global_y = bg.to_global(Vector2(0.0, rect.end.y)).y
-			bg.global_position.y += surface_y - bottom_global_y
-			_sky_base_sprites.append(bg)
-			if ref_sprite == null:
-				ref_sprite = bg
+		# Inherit scale/z_index from existing scene sprite if present, then clear all
+		var spr_scale := Vector2(1.4, 1.4)
+		var spr_z := -1
+		for child in bg_above.get_children():
+			if child is Sprite2D and (child as Sprite2D).texture != null:
+				spr_scale = (child as Sprite2D).scale
+				spr_z     = (child as Sprite2D).z_index
+				break
+		for child in bg_above.get_children():
+			child.queue_free()
 
-		# Add 2 extra copies (one far-left, one far-right) to prevent evening-sky gaps
-		if ref_sprite != null and _sky_base_sprites.size() >= 2:
-			var xs: Array = []
-			for s in _sky_base_sprites:
-				xs.append(s.global_position.x)
-			xs.sort()
-			var spacing: float = (xs[-1] - xs[0]) / float(_sky_base_sprites.size() - 1)
-			for extra_x in [xs[0] - spacing, xs[-1] + spacing]:
-				var new_bg = Sprite2D.new()
-				new_bg.texture = ref_sprite.texture
-				new_bg.scale = ref_sprite.scale
-				new_bg.z_index = ref_sprite.z_index
-				new_bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-				new_bg.global_position = Vector2(extra_x, ref_sprite.global_position.y)
-				bg_above.add_child(new_bg)
-				_sky_base_sprites.append(new_bg)
+		var sky_tex: Texture2D = load(_current_sky_texture)
+		if sky_tex:
+			# Create 3 tiles with centered=false so left-edge placement is exact.
+			# tile[1] always straddles the camera — no gap can appear in the viewport.
+			for i in range(3):
+				var sp := Sprite2D.new()
+				sp.texture        = sky_tex
+				sp.scale          = spr_scale
+				sp.z_index        = spr_z
+				sp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+				sp.centered       = false
+				bg_above.add_child(sp)  # Must be in tree before global_position is valid
+				# Align bottom edge to the surface using the actual global transform
+				var rect      := sp.get_rect()
+				var bot_gly   := sp.to_global(Vector2(0.0, rect.end.y)).y
+				sp.global_position.y += surface_y - bot_gly
+				_sky_base_sprites.append(sp)
 
-		# Create an invisible overlay sprite per base sprite for crossfade transitions
-		for base in _sky_base_sprites:
-			var ov = Sprite2D.new()
-			ov.texture = null
-			ov.scale = base.scale
-			ov.z_index = base.z_index + 1
-			ov.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-			ov.global_position = base.global_position
-			ov.modulate = Color(1.0, 1.0, 1.0, 0.0)
-			bg_above.add_child(ov)
-			_sky_overlay_sprites.append(ov)
+			for base in _sky_base_sprites:
+				var ov := Sprite2D.new()
+				ov.texture        = null
+				ov.scale          = base.scale
+				ov.z_index        = base.z_index + 1
+				ov.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+				ov.modulate       = Color(1.0, 1.0, 1.0, 0.0)
+				ov.centered       = false
+				bg_above.add_child(ov)  # Add first so global_position is valid
+				ov.global_position = base.global_position
+				_sky_overlay_sprites.append(ov)
 
 	# 6. Cobblestone backgrounds — Tile to cover the entire depth and width
 	var bg_under = get_node_or_null("Background Under")
@@ -697,6 +903,7 @@ func position_entities():
 					bg.z_index = -34
 					bg.centered = false
 					bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+					bg.modulate = Color(0.45, 0.35, 0.28, 1.0)
 					# Use floor and a 1px overlap to prevent sub-pixel seams
 					bg.global_position = Vector2(floor(x), floor(y))
 					bg_under.add_child(bg)

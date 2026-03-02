@@ -45,6 +45,10 @@ const POTION_SURFACE_ID: String = "potion_surface"
 const POTION_OXYGEN_PRICE: int = 125
 const POTION_SPEED_PRICE: int = 220
 const POTION_SURFACE_PRICE: int = 900
+const POTION_LANTERN_OIL_PRICE: int = 350
+const POTION_DEEP_DIVE_PRICE: int = 750
+const POTION_ORE_MAGNET_PRICE: int = 550
+const POTION_BLAST_CHARGE_PRICE: int = 480
 
 var pickaxe_sprites: Array[Sprite2D] = []
 var feedback_timer: float = 0.0
@@ -236,14 +240,19 @@ func _input(event):
 				_start_confirm_buy(4)
 		elif current_state == ShopState.CONSUMABLES_MENU:
 			if event.keycode == KEY_1:
-				_buy_potion(POTION_OXYGEN_ID)
-				_last_render_state = -999
+				_buy_potion(POTION_OXYGEN_ID); _last_render_state = -999
 			elif event.keycode == KEY_2:
-				_buy_potion(POTION_SPEED_ID)
-				_last_render_state = -999
+				_buy_potion(POTION_SPEED_ID); _last_render_state = -999
 			elif event.keycode == KEY_3:
-				_buy_potion(POTION_SURFACE_ID)
-				_last_render_state = -999
+				_buy_potion(POTION_SURFACE_ID); _last_render_state = -999
+			elif event.keycode == KEY_4:
+				_buy_potion("lantern_oil"); _last_render_state = -999
+			elif event.keycode == KEY_5:
+				_buy_potion("deep_dive_tonic"); _last_render_state = -999
+			elif event.keycode == KEY_6:
+				_buy_potion("ore_magnet"); _last_render_state = -999
+			elif event.keycode == KEY_7:
+				_buy_potion("blast_charge"); _last_render_state = -999
 		elif current_state == ShopState.UPGRADE_MENU:
 			if event.keycode == KEY_1:
 				_buy_stat_upgrade("cargo")
@@ -440,8 +449,12 @@ func _render_ui() -> void:
 		ShopState.CONSUMABLES_MENU:
 			ui_body.text = "[center][b]CONSUMABLES[/b][/center]\n[center][color=gray]Click an item to buy[/color][/center]"
 			_add_button("1: Oxygen Potion (+60 oxygen)  (%s)" % _money_str(POTION_OXYGEN_PRICE), func(): _buy_potion(POTION_OXYGEN_ID); _last_render_state = -999, int(player_nearby.money) < POTION_OXYGEN_PRICE)
-			_add_button("2: Speed Potion (+%d%% for %ds)  (%s)" % [int((1.5 - 1.0) * 100.0), 10, _money_str(POTION_SPEED_PRICE)], func(): _buy_potion(POTION_SPEED_ID); _last_render_state = -999, int(player_nearby.money) < POTION_SPEED_PRICE)
-			_add_button("3: Surface Potion (Return to surface)  (%s)" % _money_str(POTION_SURFACE_PRICE), func(): _buy_potion(POTION_SURFACE_ID); _last_render_state = -999, int(player_nearby.money) < POTION_SURFACE_PRICE)
+			_add_button("2: Speed Potion (+50%% for 10s)  (%s)" % _money_str(POTION_SPEED_PRICE), func(): _buy_potion(POTION_SPEED_ID); _last_render_state = -999, int(player_nearby.money) < POTION_SPEED_PRICE)
+			_add_button("3: Surface Potion (Teleport to surface)  (%s)" % _money_str(POTION_SURFACE_PRICE), func(): _buy_potion(POTION_SURFACE_ID); _last_render_state = -999, int(player_nearby.money) < POTION_SURFACE_PRICE)
+			_add_button("4: Lantern Oil (Full brightness 60s)  (%s)" % _money_str(POTION_LANTERN_OIL_PRICE), func(): _buy_potion("lantern_oil"); _last_render_state = -999, int(player_nearby.money) < POTION_LANTERN_OIL_PRICE)
+			_add_button("5: Deep Dive Tonic (½ oxygen drain 60s)  (%s)" % _money_str(POTION_DEEP_DIVE_PRICE), func(): _buy_potion("deep_dive_tonic"); _last_render_state = -999, int(player_nearby.money) < POTION_DEEP_DIVE_PRICE)
+			_add_button("6: Ore Magnet (3× luck 30s)  (%s)" % _money_str(POTION_ORE_MAGNET_PRICE), func(): _buy_potion("ore_magnet"); _last_render_state = -999, int(player_nearby.money) < POTION_ORE_MAGNET_PRICE)
+			_add_button("7: Blast Charge (Clear 4 adjacent blocks)  (%s)" % _money_str(POTION_BLAST_CHARGE_PRICE), func(): _buy_potion("blast_charge"); _last_render_state = -999, int(player_nearby.money) < POTION_BLAST_CHARGE_PRICE)
 			_add_button("Back", func(): current_state = ShopState.MAIN_MENU)
 
 		ShopState.UPGRADE_MENU:
@@ -562,6 +575,14 @@ func _buy_potion(potion_id: String) -> void:
 			price = POTION_SPEED_PRICE
 		POTION_SURFACE_ID:
 			price = POTION_SURFACE_PRICE
+		"lantern_oil":
+			price = POTION_LANTERN_OIL_PRICE
+		"deep_dive_tonic":
+			price = POTION_DEEP_DIVE_PRICE
+		"ore_magnet":
+			price = POTION_ORE_MAGNET_PRICE
+		"blast_charge":
+			price = POTION_BLAST_CHARGE_PRICE
 		_:
 			return
 
@@ -588,6 +609,14 @@ func _buy_potion(potion_id: String) -> void:
 		nm = "Speed Potion"
 	elif potion_id == POTION_SURFACE_ID:
 		nm = "Surface Potion"
+	elif potion_id == "lantern_oil":
+		nm = "Lantern Oil"
+	elif potion_id == "deep_dive_tonic":
+		nm = "Deep Dive Tonic"
+	elif potion_id == "ore_magnet":
+		nm = "Ore Magnet"
+	elif potion_id == "blast_charge":
+		nm = "Blast Charge"
 	feedback_text = "Bought %s!" % nm
 	feedback_timer = 1.6
 	if FileAccess.file_exists("res://buy_1.mp3"):
@@ -640,6 +669,8 @@ func _buy_stat_upgrade(kind: String) -> void:
 	if kind == "cargo":
 		player_nearby.cargo_upgrade_level += 1
 		player_nearby.max_cargo += CARGO_UPGRADE_STEP
+		if player_nearby.cargo_label:
+			player_nearby.cargo_label.text = "Cargo: %d/%d" % [int(player_nearby.current_cargo), int(player_nearby.max_cargo)]
 		feedback_text = "+%d max cargo" % CARGO_UPGRADE_STEP
 	elif kind == "oxygen":
 		player_nearby.oxygen_upgrade_level += 1

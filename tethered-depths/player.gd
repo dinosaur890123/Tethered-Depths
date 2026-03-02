@@ -109,11 +109,36 @@ var _hovered_hotbar_slot: int = -1
 const ITEM_POTION_SURFACE: String = "potion_surface"
 const ITEM_POTION_OXYGEN: String = "potion_oxygen"
 const ITEM_POTION_SPEED: String = "potion_speed"
+const ITEM_LANTERN_OIL: String = "lantern_oil"
+const ITEM_DEEP_DIVE: String = "deep_dive_tonic"
+const ITEM_ORE_MAGNET: String = "ore_magnet"
+const ITEM_BLAST_CHARGE: String = "blast_charge"
 const OXYGEN_POTION_RESTORE: float = 60.0
 const SPEED_POTION_MULT: float = 1.5
 const SPEED_POTION_DURATION: float = 10.0
+const LANTERN_OIL_DURATION: float = 60.0
+const DEEP_DIVE_DURATION: float = 60.0
+const ORE_MAGNET_DURATION: float = 30.0
+const ORE_MAGNET_LUCK_MULT: float = 3.0
 var speed_potion_timer: float = 0.0
 var speed_potion_mult: float = 1.0
+var lantern_oil_timer: float = 0.0
+var deep_dive_timer: float = 0.0
+var ore_magnet_timer: float = 0.0
+
+# --- Water physics ---
+var water_cells: Dictionary = {}   # reference injected by main.gd
+const WATER_SPEED_MULT:   float = 0.50  # 50% movement speed in water
+const WATER_GRAVITY_MULT: float = 0.45  # floaty gravity in water
+const WATER_JUMP_MULT:    float = 0.65  # shallower jumps in water
+const WATER_OXYGEN_MULT:  float = 2.00  # oxygen drains twice as fast in water
+
+# --- Water visuals ---
+var _was_in_water:    bool            = false
+var _water_tint_tw:   Tween           = null
+var _water_bubbles:   CPUParticles2D  = null
+var _ripple_timer:    float           = 0.0
+const RIPPLE_INTERVAL: float          = 0.32
 var cargo_label: Label
 var depth_hud_label: Label
 var ore_collection_label: RichTextLabel
@@ -195,6 +220,12 @@ var phase_grapple_unlocked: bool = false
 var highlighted_tile: Vector2i
 var highlight_valid: bool = false
 var highlight_out_of_range: bool = false
+
+# Block sparkle effect
+var _sparkles: Array = []
+var _sparkle_timer: float = 0.0
+const SPARKLE_INTERVAL: float = 0.10
+
 # Tile size in world space: tileset is 128px, TileMapLayer scale is 0.5
 const TILE_WORLD_SIZE = 64.0
 
@@ -268,7 +299,7 @@ func _spawn_block_break_effect(tile_center_global: Vector2, source_id: int) -> v
 	cleanup.tween_callback(root.queue_free)
 
 # --- Mutated Ores ---
-const MUTATED_CHANCE: float = 0.05
+const MUTATED_CHANCE: float = 0.01
 const MUTATED_DROP_DENOM: float = 999999.0  # kept for pricing/inventory; never rolled directly
 
 # Ore table: [name, 1-in-N drop chance, value per ore, display color]
@@ -277,20 +308,20 @@ const ORE_TABLE = [
 	["Copper", 9, 20,  Color(0.90, 0.50, 0.15)],
 	["Silver", 22, 75,  Color(0.80, 0.85, 0.95)],
 	["Gold",   45, 300, Color(1.00, 0.85, 0.10)],
-	["Mutated Stone",  MUTATED_DROP_DENOM,  12,   Color(0.80, 0.20, 0.95)],
-	["Mutated Copper", MUTATED_DROP_DENOM,  90,  Color(0.80, 0.20, 0.95)],
-	["Mutated Silver", MUTATED_DROP_DENOM,  320, Color(0.80, 0.20, 0.95)],
-	["Mutated Gold",   MUTATED_DROP_DENOM,  1200, Color(0.80, 0.20, 0.95)],
+	["Mutated Stone",  MUTATED_DROP_DENOM,  18,    Color(0.80, 0.20, 0.95)],
+	["Mutated Copper", MUTATED_DROP_DENOM,  135,   Color(0.80, 0.20, 0.95)],
+	["Mutated Silver", MUTATED_DROP_DENOM,  480,   Color(0.80, 0.20, 0.95)],
+	["Mutated Gold",   MUTATED_DROP_DENOM,  1800,  Color(0.80, 0.20, 0.95)],
 	["Rainbow", 180, 3500, Color(1.00, 1.00, 1.00)],
 	# Deep ores — 5th element is minimum tile depth (y) required to drop
 	["Emerald",      70,   800,   Color(0.10, 0.90, 0.30), 100],
 	["Ruby",         90,   2500,  Color(1.00, 0.10, 0.15), 250],
 	["Diamond",     130,  12000,  Color(0.55, 1.00, 1.00), 500],
 	["Void Crystal", 160, 50000,  Color(0.55, 0.05, 0.90), 800],
-	["Mutated Emerald",      MUTATED_DROP_DENOM,  3200,   Color(0.80, 0.20, 0.95)],
-	["Mutated Ruby",         MUTATED_DROP_DENOM,  10000,  Color(0.80, 0.20, 0.95)],
-	["Mutated Diamond",      MUTATED_DROP_DENOM,  48000,  Color(0.80, 0.20, 0.95)],
-	["Mutated Void Crystal", MUTATED_DROP_DENOM,  200000, Color(0.80, 0.20, 0.95)],
+	["Mutated Emerald",      MUTATED_DROP_DENOM,  4800,   Color(0.80, 0.20, 0.95)],
+	["Mutated Ruby",         MUTATED_DROP_DENOM,  15000,  Color(0.80, 0.20, 0.95)],
+	["Mutated Diamond",      MUTATED_DROP_DENOM,  72000,  Color(0.80, 0.20, 0.95)],
+	["Mutated Void Crystal", MUTATED_DROP_DENOM,  300000, Color(0.80, 0.20, 0.95)],
 ]
 
 # Per-ore inventory counts
@@ -332,6 +363,7 @@ func _ready():
 	shop_node = main.get_node_or_null("Shop") as Node2D
 	_setup_depth_lighting()
 	_setup_flashlight()
+	_setup_water_fx()
 	
 	# Find HUD nodes more robustly
 	hud = main.get_node_or_null("HUD") as CanvasLayer
@@ -712,6 +744,63 @@ func _setup_depth_lighting() -> void:
 		main.move_child.call_deferred(depth_canvas_modulate, 0)
 	_update_depth_lighting()
 
+func _setup_water_fx() -> void:
+	_water_bubbles = CPUParticles2D.new()
+	_water_bubbles.name          = "WaterBubbles"
+	_water_bubbles.emitting      = false
+	_water_bubbles.amount        = 60
+	_water_bubbles.lifetime      = 0.7
+	_water_bubbles.randomness    = 0.4
+	_water_bubbles.explosiveness = 0.0
+	_water_bubbles.emission_shape          = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	_water_bubbles.emission_rect_extents   = Vector2(64.0, 8.0)  # 2 blocks wide (64 = half of 128px)
+	_water_bubbles.direction               = Vector2(0.0, 1.0)   # fall downward
+	_water_bubbles.spread                  = 15.0
+	_water_bubbles.initial_velocity_min    = 80.0
+	_water_bubbles.initial_velocity_max    = 160.0
+	_water_bubbles.gravity                 = Vector2(0.0, 600.0) # strong downward gravity
+	_water_bubbles.scale_amount_min        = 2.5
+	_water_bubbles.scale_amount_max        = 5.0
+	_water_bubbles.color                   = Color(0.55, 0.85, 1.0, 0.75)
+	_water_bubbles.z_index                 = 5
+	add_child(_water_bubbles)
+
+func _update_water_fx(in_water: bool) -> void:
+	if in_water == _was_in_water:
+		return
+	_was_in_water = in_water
+	# Kill any running tint tween before starting a new one
+	if _water_tint_tw:
+		_water_tint_tw.kill()
+	_water_tint_tw = create_tween()
+	if in_water:
+		_water_tint_tw.tween_property(anim_sprite, "modulate", Color(0.50, 0.78, 1.0, 1.0), 0.25)
+		if _water_bubbles:
+			_water_bubbles.emitting = true
+	else:
+		_water_tint_tw.tween_property(anim_sprite, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.25)
+		if _water_bubbles:
+			_water_bubbles.emitting = false
+
+func _spawn_water_ripple() -> void:
+	var line := Line2D.new()
+	line.width = 2.0
+	line.default_color = Color(0.55, 0.88, 1.0, 0.90)
+	# Build a circle of points
+	const PTS := 32
+	const R   := 7.0
+	for i in range(PTS + 1):
+		var a := float(i) / float(PTS) * TAU
+		line.add_point(Vector2(cos(a), sin(a)) * R)
+	line.global_position = global_position
+	get_parent().add_child(line)
+	# Expand as a flat ellipse and fade out
+	var tw := line.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(line, "scale",       Vector2(8.0, 3.5), 0.55)
+	tw.tween_property(line, "modulate:a",  0.0,               0.55)
+	tw.chain().tween_callback(line.queue_free)
+
 func _setup_flashlight() -> void:
 	if flashlight != null:
 		return
@@ -751,6 +840,9 @@ func _update_depth_lighting() -> void:
 		return
 	if tilemap == null:
 		depth_canvas_modulate.color = Color(1, 1, 1)
+		return
+	if lantern_oil_timer > 0.0:
+		depth_canvas_modulate.color = Color.WHITE
 		return
 	var pos_tile: Vector2i = tilemap.local_to_map(tilemap.to_local(global_position))
 	var y: int = int(pos_tile.y)
@@ -896,7 +988,10 @@ func _physics_process(delta):
 	var tile_at_feet = tilemap.get_cell_source_id(pos_tile) == 1
 
 	if (not on_grass and not tile_at_feet) and pos_tile.y > 0:
-		current_battery -= delta * 1.6
+		var drain_mult := WATER_OXYGEN_MULT if _is_in_water() else 1.0
+		if deep_dive_timer > 0.0:
+			drain_mult *= 0.5
+		current_battery -= delta * 1.6 * drain_mult
 	else:
 		var refill_rate = 60.0 if (on_grass or tile_at_feet) else 15.0
 		current_battery = min(max_battery, current_battery + delta * refill_rate)
@@ -908,11 +1003,17 @@ func _physics_process(delta):
 	if current_battery <= 0:
 		die_and_respawn()
 
-	# Timed speed potion
+	# Timed consumables
 	if speed_potion_timer > 0.0:
 		speed_potion_timer = max(0.0, speed_potion_timer - delta)
 		if speed_potion_timer == 0.0:
 			speed_potion_mult = 1.0
+	if lantern_oil_timer > 0.0:
+		lantern_oil_timer = max(0.0, lantern_oil_timer - delta)
+	if deep_dive_timer > 0.0:
+		deep_dive_timer = max(0.0, deep_dive_timer - delta)
+	if ore_magnet_timer > 0.0:
+		ore_magnet_timer = max(0.0, ore_magnet_timer - delta)
 
 	# 2. Horizontal input
 	var h = Input.get_axis("Left", "Right")
@@ -947,19 +1048,33 @@ func _physics_process(delta):
 			return
 
 	# 3. Gravity (moved before move_and_slide)
+	var in_water := _is_in_water()
+	_update_water_fx(in_water)
 	if not is_on_floor() and not is_wall_climbing:
-		velocity.y += gravity * delta
+		var grav_mult := WATER_GRAVITY_MULT if in_water else 1.0
+		velocity.y += gravity * delta * grav_mult
 
 	# 4. Jump
 	if Input.is_action_just_pressed("ui_accept") and is_on_floor():
-		velocity.y = -jump_speed
+		var jump_mult := WATER_JUMP_MULT if in_water else 1.0
+		velocity.y = -jump_speed * jump_mult
 
 	# 5. Velocity
-	velocity.x = h * speed * speed_potion_mult
+	var move_mult := WATER_SPEED_MULT if in_water else 1.0
+	velocity.x = h * speed * speed_potion_mult * move_mult
 	if is_wall_climbing:
-		velocity.y = -climb_speed * speed_potion_mult
+		velocity.y = -climb_speed * speed_potion_mult * move_mult
 
 	move_and_slide()
+
+	# Water ripple — spawn when moving through water
+	if in_water and abs(velocity.x) > 8.0:
+		_ripple_timer += delta
+		if _ripple_timer >= RIPPLE_INTERVAL:
+			_ripple_timer = 0.0
+			_spawn_water_ripple()
+	else:
+		_ripple_timer = 0.0
 
 	# 6. Wall climbing (now after move_and_slide for better sync)
 	var wall_normal = get_wall_normal()
@@ -987,6 +1102,32 @@ func _physics_process(delta):
 	_update_walking_sfx()
 	_update_grapple_line()
 	_update_flashlight()
+
+	# Age existing sparkles, cull dead ones
+	var si := _sparkles.size() - 1
+	while si >= 0:
+		_sparkles[si]["age"] += delta
+		if _sparkles[si]["age"] >= _sparkles[si]["max_age"]:
+			_sparkles.remove_at(si)
+		si -= 1
+
+	# Spawn new sparkles on the highlighted block
+	if highlight_valid and not is_mining and tilemap:
+		_sparkle_timer += delta
+		if _sparkle_timer >= SPARKLE_INTERVAL:
+			_sparkle_timer = 0.0
+			var half: float = TILE_WORLD_SIZE * 0.45
+			var tile_center: Vector2 = tilemap.to_global(tilemap.map_to_local(highlighted_tile))
+			_sparkles.append({
+				"pos":     tile_center + Vector2(randf_range(-half, half), randf_range(-half, half)),
+				"color":   _get_sparkle_color(highlighted_tile),
+				"age":     0.0,
+				"max_age": randf_range(0.4, 0.75),
+				"size":    randf_range(2.5, 4.5),
+			})
+	else:
+		_sparkle_timer = 0.0
+
 	queue_redraw()
 
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and selected_slot == 0:
@@ -1064,6 +1205,20 @@ func _update_animation():
 	if anim_sprite.animation != target_anim:
 		anim_sprite.play(target_anim)
 
+func _get_sparkle_color(tile: Vector2i) -> Color:
+	var depth: int = tile.y
+	var candidates: Array = [Color(0.75, 0.70, 0.65)]  # Stone always possible
+	if depth >= 5:   candidates.append(Color(0.90, 0.50, 0.15))  # Copper
+	if depth >= 15:  candidates.append(Color(0.80, 0.85, 0.95))  # Silver
+	if depth >= 30:  candidates.append(Color(1.00, 0.85, 0.10))  # Gold
+	if depth >= 100: candidates.append(Color(0.10, 0.90, 0.30))  # Emerald
+	if depth >= 250: candidates.append(Color(1.00, 0.10, 0.15))  # Ruby
+	if depth >= 500: candidates.append(Color(0.55, 1.00, 1.00))  # Diamond
+	if depth >= 800: candidates.append(Color(0.55, 0.05, 0.90))  # Void Crystal
+	if randf() < 0.03:
+		return Color.from_hsv(randf(), 0.95, 1.0)  # Rare rainbow sparkle
+	return candidates[randi() % candidates.size()]
+
 func _draw():
 	if not tilemap: return
 
@@ -1095,6 +1250,23 @@ func _draw():
 		var rect = Rect2(tile_center_local - Vector2(half, half), Vector2(TILE_WORLD_SIZE, TILE_WORLD_SIZE))
 		draw_rect(rect, Color(1.0, 1.0, 0.0, 0.45), true)
 		draw_rect(rect, Color(1.0, 0.85, 0.0, 1.0), false, 3.0)
+
+	# Ore sparkles — drawn in local space, float upward and fade
+	for sp in _sparkles:
+		var t: float = sp["age"] / sp["max_age"]
+		var alpha: float = sin(t * PI)
+		var lift: float = sp["age"] * 22.0
+		var screen_pos: Vector2 = to_local((sp["pos"] as Vector2) + Vector2(0.0, -lift))
+		var sz: float = (sp["size"] as float) * (1.0 - t * 0.3)
+		var col := sp["color"] as Color
+		col.a = alpha * 0.95
+		# Cross / sparkle shape
+		draw_line(screen_pos + Vector2(-sz, 0.0), screen_pos + Vector2(sz, 0.0), col, 1.5)
+		draw_line(screen_pos + Vector2(0.0, -sz), screen_pos + Vector2(0.0, sz), col, 1.5)
+		# Bright centre dot
+		var dot_col := col
+		dot_col.a = alpha
+		draw_circle(screen_pos, sz * 0.4, dot_col)
 
 	if is_mining:
 		var progress = 1.0 - (mining_timer.time_left / mine_time)
@@ -1428,6 +1600,9 @@ func finish_mining():
 
 	# Regular block (dirt, cobble, deepslate, grass)
 	tilemap.set_cell(target_tile_coords, -1)
+	var _main := get_parent()
+	if _main and _main.has_method("notify_tile_removed"):
+		_main.notify_tile_removed(target_tile_coords)
 
 	if is_grass:
 		return
@@ -1447,6 +1622,8 @@ func finish_mining():
 
 	# Apply oxygen-based luck bonus to current luck
 	var current_luck = PICKAXE_UPGRADES[pickaxe_level]["luck"] * block_luck_mult * oxygen_luck_bonus
+	if ore_magnet_timer > 0.0:
+		current_luck *= ORE_MAGNET_LUCK_MULT
 
 	# 75% chance to drop at least one Stone from regular blocks
 	if source_id in [TILE_DIRT, TILE_COBBLE, TILE_DEEPSLATE] and randf() < 0.75:
@@ -1487,7 +1664,7 @@ func finish_mining():
 			continue
 		# Scale chance: deeper = more likely (caps at 10x base rate)
 		var base_denom := float(ore[1])
-		var effective_denom := base_denom if min_depth == 0 else max(base_denom * float(min_depth) / float(depth), base_denom * 0.1)
+		var effective_denom: float = base_denom if min_depth == 0 else maxf(base_denom * float(min_depth) / float(depth), base_denom * 0.1)
 		var chance_denom = effective_denom / current_luck
 		if randf() * chance_denom < 1.0:
 			var amount = min(_roll_count(), cargo_remaining)
@@ -1612,6 +1789,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_BRACKETLEFT:   # [ = zoom out
 				minimap_zoom = clamp(minimap_zoom / 1.25, 0.5, 8.0)
 				_update_minimap()
+
+func _is_in_water() -> bool:
+	if water_cells.is_empty() or not tilemap:
+		return false
+	var pt := tilemap.local_to_map(tilemap.to_local(global_position))
+	return water_cells.has(pt)
 
 func _update_ore_collection_hud() -> void:
 	if not ore_collection_label:
@@ -1743,6 +1926,8 @@ func _update_minimap() -> void:
 				continue
 			var src = tilemap.get_cell_source_id(Vector2i(world_x, world_y))
 			if src == -1:
+				if water_cells.has(Vector2i(world_x, world_y)):
+					minimap_image.set_pixel(tx, ty, Color(0.10, 0.45, 0.95))
 				continue
 			minimap_image.set_pixel(tx, ty, MINIMAP_TILE_COLORS.get(src, MINIMAP_EMPTY_COLOR))
 	# Player dot always at image center
@@ -1799,12 +1984,17 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 		"Silver": tex_path = "res://Stones_ores_bars/silver_ore.png"
 		"Gold": tex_path = "res://Stones_ores_bars/gold_ore.png"
 		"Rainbow": tex_path = "res://Stones_ores_bars/gold_ore.png"
-		
+		"Emerald": tex_path = "res://Stones_ores_bars/emerald_ore.png"
+		"Ruby": tex_path = "res://Stones_ores_bars/ruby_ore.png"
+		"Diamond": tex_path = "res://Stones_ores_bars/diamond_ore.png"
+		"Void Crystal": tex_path = "res://Stones_ores_bars/void_crystal_ore.png"
+
 	var sprite = Sprite2D.new()
 	if tex_path != "" and FileAccess.file_exists(tex_path):
 		sprite.texture = load(tex_path)
 		sprite.scale = Vector2(2.5, 2.5)
-	if (ore_name == "Rainbow" or ore_name.begins_with("Mutated ")) and ore_data.has("color") and ore_data["color"] is Color:
+	var apply_color := not (base_name in ["Stone", "Copper", "Silver", "Gold"])
+	if apply_color and ore_data.has("color") and ore_data["color"] is Color:
 		sprite.modulate = ore_data["color"] as Color
 	fly_node.add_child(sprite)
 
@@ -2200,6 +2390,46 @@ func _use_selected_hotbar_item() -> void:
 			speed_potion_timer = SPEED_POTION_DURATION
 			_spawn_floating_text("+Speed", global_position, Color(1.0, 0.85, 0.35, 0.9))
 			used = true
+		ITEM_LANTERN_OIL:
+			lantern_oil_timer = LANTERN_OIL_DURATION
+			_spawn_floating_text("Lantern lit! (60s)", global_position, Color(1.0, 0.95, 0.4, 0.9))
+			used = true
+		ITEM_DEEP_DIVE:
+			deep_dive_timer = DEEP_DIVE_DURATION
+			_spawn_floating_text("Deep Dive! (60s)", global_position, Color(0.35, 0.85, 1.0, 0.9))
+			used = true
+		ITEM_ORE_MAGNET:
+			ore_magnet_timer = ORE_MAGNET_DURATION
+			_spawn_floating_text("Ore Magnet! (30s)", global_position, Color(1.0, 0.75, 0.1, 0.9))
+			used = true
+		ITEM_BLAST_CHARGE:
+			if tilemap:
+				var player_tile := tilemap.local_to_map(tilemap.to_local(global_position))
+				var targets := [
+					player_tile + Vector2i(1, 0),
+					player_tile + Vector2i(-1, 0),
+					player_tile + Vector2i(0, 1),
+					player_tile + Vector2i(0, -1),
+				]
+				var unbreakable: Dictionary = {}
+				if tilemap.has_meta("unbreakable_tiles"):
+					var ub = tilemap.get_meta("unbreakable_tiles")
+					if ub is Dictionary: unbreakable = ub
+				var mined := 0
+				for t in targets:
+					var src := tilemap.get_cell_source_id(t)
+					if src == -1 or src == 1: continue
+					if unbreakable.has(t): continue
+					_spawn_block_break_effect(tilemap.to_global(tilemap.map_to_local(t)), src)
+					tilemap.set_cell(t, -1)
+					mined += 1
+				if mined > 0:
+					_spawn_floating_text("BLAST!", global_position, Color(1.0, 0.55, 0.1, 0.9))
+					used = true
+					var _bmain := get_parent()
+					if _bmain and _bmain.has_method("notify_tile_removed"):
+						for t in targets:
+							_bmain.notify_tile_removed(t)
 		_:
 			used = false
 
