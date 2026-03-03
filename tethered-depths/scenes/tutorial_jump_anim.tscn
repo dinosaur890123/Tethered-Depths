@@ -1,0 +1,94 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Texture2D" path="res://8bit-pixel-graphic-blue-sky-background-with-clouds-vector.jpg" id="1_sky"]
+[ext_resource type="Texture2D" path="res://grass.png" id="2_grass"]
+[ext_resource type="Texture2D" path="res://dirt.png" id="3_dirt"]
+[ext_resource type="Texture2D" path="res://rockwallbackground2.png" id="4_hole_bg"]
+[ext_resource type="Texture2D" path="res://Miner16Bit_AllFiles_v1/Miner_AllAnimations_SpriteSheet.png" id="5_miner"]
+
+[sub_resource type="AtlasTexture" id="MinerJump"]
+atlas = ExtResource("5_miner")
+region = Rect2(0, 0, 16, 16)
+
+[node name="TutorialJumpAnim" type="Control"]
+custom_minimum_size = Vector2(400, 300)
+layout_mode = 3
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -150.0
+offset_right = 200.0
+offset_bottom = 150.0
+grow_horizontal = 2
+grow_vertical = 2
+clip_contents = true
+
+[node name="Sky" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 80.0
+grow_horizontal = 2
+texture = ExtResource("1_sky")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="GrassLeft" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 64.0
+offset_right = 160.0
+offset_bottom = 96.0
+texture = ExtResource("2_grass")
+stretch_mode = 1
+
+[node name="GrassRight" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = 240.0
+offset_top = 64.0
+offset_right = 400.0
+offset_bottom = 96.0
+texture = ExtResource("2_grass")
+stretch_mode = 1
+
+[node name="DirtLeft" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 96.0
+offset_right = 160.0
+offset_bottom = 300.0
+texture = ExtResource("3_dirt")
+stretch_mode = 1
+
+[node name="DirtRight" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = 240.0
+offset_top = 96.0
+offset_right = 400.0
+offset_bottom = 300.0
+texture = ExtResource("3_dirt")
+stretch_mode = 1
+
+[node name="HoleBG" type="TextureRect" parent="."]
+modulate = Color(0.4, 0.3, 0.2, 1)
+z_index = -1
+layout_mode = 0
+offset_left = 160.0
+offset_top = 64.0
+offset_right = 240.0
+offset_bottom = 300.0
+texture = ExtResource("4_hole_bg")
+stretch_mode = 1
+
+[node name="Player" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = 175.0
+offset_top = 140.0
+offset_right = 191.0
+offset_bottom = 156.0
+scale = Vector2(4, 4)
+texture = SubResource("MinerJump")
+stretch_mode = 2

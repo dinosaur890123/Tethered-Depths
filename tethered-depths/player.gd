@@ -2576,25 +2576,33 @@ func _refresh_inventory() -> void:
 	# Part 1: Drop Chances
 	text += "[b][color=orange]Current Drop Chances (per block):[/color][/b]\n"
 	text += "[table=2]"
+	
+	var total_weight := 0.0
+	var weights := []
 	for ore in ORE_TABLE:
 		var nm: String = ore[0]
 		if nm.begins_with("Mutated "): continue
-		
-		# Check depth requirement
 		var min_d: int = int(ore[4]) if ore.size() > 4 else 0
-		var chance := 0.0
+		var weight := 0.0
 		if depth >= min_d:
 			var base_denom := float(ore[1])
 			var eff_denom: float = base_denom if min_d == 0 else maxf(base_denom * float(min_d) / float(depth), base_denom * 0.1)
-			chance = (1.0 / (eff_denom / cur_luck)) * 100.0
+			weight = (1.0 / (eff_denom / cur_luck))
+		weights.append({"name": nm, "weight": weight, "min_d": min_d})
+		total_weight += weight
+	
+	for w in weights:
+		var chance := 0.0
+		if total_weight > 0:
+			chance = (w.weight / total_weight) * 100.0
 		
 		var color := "white"
-		if nm == "Rainbow": color = "yellow"
-		elif min_d > 0: color = "cyan"
+		if w.name == "Rainbow": color = "yellow"
+		elif w.min_d > 0: color = "cyan"
 		
-		text += "[cell][color=%s]%s:[/color][/cell][cell][color=%s]%.3f%%[/color][/cell]" % [color, nm, color, chance]
+		text += "[cell][color=%s]%s:[/color][/cell][cell][color=%s]%.3f%%[/color][/cell]" % [color, w.name, color, chance]
 	
-	# Add Mutated chance
+	# Add Mutated chance (informative)
 	text += "[cell][color=magenta]Any Mutated:[/color][/cell][cell][color=magenta]%.2f%%[/color][/cell]" % (MUTATED_CHANCE * 100.0)
 	text += "[/table]\n"
 

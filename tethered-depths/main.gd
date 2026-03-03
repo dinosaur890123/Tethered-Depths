@@ -333,12 +333,18 @@ func _setup_tutorial_ui():
 	
 	vbox.add_spacer(false)
 	
+	var illust_container = Control.new()
+	illust_container.name = "Illustration"
+	illust_container.custom_minimum_size = Vector2(400, 300)
+	illust_container.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	vbox.add_child(illust_container)
+	
 	var texture_rect = TextureRect.new()
 	texture_rect.name = "Image"
-	texture_rect.custom_minimum_size = Vector2(400, 300)
+	texture_rect.set_anchors_preset(Control.LayoutPreset.PRESET_FULL_RECT)
 	texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	vbox.add_child(texture_rect)
+	illust_container.add_child(texture_rect)
 	
 	var description = RichTextLabel.new()
 	description.name = "Description"
@@ -393,11 +399,18 @@ func _on_tutorial_back():
 
 func _update_tutorial_slide():
 	var title = tutorial_root.find_child("Title", true, false) as Label
-	var img = tutorial_root.find_child("Image", true, false) as TextureRect
+	var illust = tutorial_root.find_child("Illustration", true, false) as Control
+	var img = illust.find_child("Image", true, false) as TextureRect
 	var desc = tutorial_root.find_child("Description", true, false) as RichTextLabel
 	var next_btn = tutorial_root.find_child("NextBtn", true, false) as Button
 	var prev_btn = tutorial_root.find_child("PrevBtn", true, false) as Button
 	
+	# Clear any dynamic animations from previous slides
+	for child in illust.get_children():
+		if child != img:
+			child.queue_free()
+	img.visible = true
+
 	prev_btn.disabled = (current_tutorial_slide == 0)
 	next_btn.text = "Finish" if current_tutorial_slide == 6 else "Next"
 	if current_tutorial_slide == 6 and next_btn.is_connected("pressed", _on_tutorial_next):
@@ -420,7 +433,9 @@ func _update_tutorial_slide():
 			desc.text = "[center]Hold [color=yellow]W + A/D[/color] to climb up walls.\nHold [color=yellow]S + A/D[/color] to climb down walls.[/center]"
 		2:
 			title.text = "3. Wall Jumping"
-			img.texture = load("res://WallJumping.png")
+			img.visible = false
+			var anim = load("res://scenes/tutorial_jump_anim.tscn").instantiate()
+			illust.add_child(anim)
 			desc.text = "[center]Press [color=yellow]Spacebar[/color] while on a wall to jump off it.[/center]"
 		3:
 			title.text = "4. Inventory"
