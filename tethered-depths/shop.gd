@@ -457,6 +457,7 @@ func _render_ui() -> void:
 			_add_button("5: Deep Dive Tonic (½ oxygen drain 60s)  (%s)" % _money_str(POTION_DEEP_DIVE_PRICE), func(): _buy_potion("deep_dive_tonic"); _last_render_state = -999, int(player_nearby.money) < POTION_DEEP_DIVE_PRICE)
 			_add_button("6: Ore Magnet (3× luck 30s)  (%s)" % _money_str(POTION_ORE_MAGNET_PRICE), func(): _buy_potion("ore_magnet"); _last_render_state = -999, int(player_nearby.money) < POTION_ORE_MAGNET_PRICE)
 			_add_button("7: Blast Charge (Clear 4 adjacent blocks)  (%s)" % _money_str(POTION_BLAST_CHARGE_PRICE), func(): _buy_potion("blast_charge"); _last_render_state = -999, int(player_nearby.money) < POTION_BLAST_CHARGE_PRICE)
+			#_add_button("8: Luck potion( Increase luck by 50%")
 			_add_button("Back", func(): current_state = ShopState.MAIN_MENU)
 
 		ShopState.UPGRADE_MENU:

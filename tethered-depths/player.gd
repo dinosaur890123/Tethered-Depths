@@ -110,10 +110,13 @@ var _hovered_hotbar_slot: int = -1
 const ITEM_POTION_SURFACE: String = "potion_surface"
 const ITEM_POTION_OXYGEN: String = "potion_oxygen"
 const ITEM_POTION_SPEED: String = "potion_speed"
+const ITEM_POTION_LUCK: String = "potion_luck"
 const ITEM_LANTERN_OIL: String = "lantern_oil"
 const ITEM_DEEP_DIVE: String = "deep_dive_tonic"
 const ITEM_ORE_MAGNET: String = "ore_magnet"
 const ITEM_BLAST_CHARGE: String = "blast_charge"
+const LUCK_POTION_DURATION: float = 30.0
+const LUCK_POTION_MULT: float = 1.5
 const OXYGEN_POTION_RESTORE: float = 60.0
 const SPEED_POTION_MULT: float = 1.5
 const SPEED_POTION_DURATION: float = 10.0
@@ -126,6 +129,7 @@ var speed_potion_mult: float = 1.0
 var lantern_oil_timer: float = 0.0
 var deep_dive_timer: float = 0.0
 var ore_magnet_timer: float = 0.0
+var luck_potion_timer: float = 0.0
 
 # --- Water physics ---
 var water_cells: Dictionary = {}   # reference injected by main.gd
@@ -1047,6 +1051,8 @@ func _physics_process(delta):
 		deep_dive_timer = max(0.0, deep_dive_timer - delta)
 	if ore_magnet_timer > 0.0:
 		ore_magnet_timer = max(0.0, ore_magnet_timer - delta)
+	if luck_potion_timer > 0.0:
+		luck_potion_timer = max(0.0, luck_potion_timer - delta)
 
 	# 2. Horizontal input
 	var h = Input.get_axis("Left", "Right")
@@ -1733,6 +1739,8 @@ func finish_mining():
 	var current_luck = (PICKAXE_UPGRADES[pickaxe_level]["luck"] + luck_stat_bonus) * block_luck_mult * oxygen_luck_bonus * depth_luck_mult
 	if ore_magnet_timer > 0.0:
 		current_luck *= ORE_MAGNET_LUCK_MULT
+	if luck_potion_timer > 0.0:
+		current_luck *= LUCK_POTION_MULT
 
 	# 75% chance to drop at least one Stone from regular blocks
 	if source_id in [TILE_DIRT, TILE_COBBLE, TILE_DEEPSLATE] and randf() < 0.75:
@@ -2508,6 +2516,10 @@ func _use_selected_hotbar_item() -> void:
 		ITEM_ORE_MAGNET:
 			ore_magnet_timer = ORE_MAGNET_DURATION
 			_spawn_floating_text("Ore Magnet! (30s)", global_position, Color(1.0, 0.75, 0.1, 0.9))
+			used = true
+		ITEM_POTION_LUCK:
+			luck_potion_timer = LUCK_POTION_DURATION
+			_spawn_floating_text("Lucky! (+50% Luck 30s)", global_position, Color(1.0, 0.85, 0.2, 0.9))
 			used = true
 		ITEM_BLAST_CHARGE:
 			if tilemap:
