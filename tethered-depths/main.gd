@@ -6,6 +6,13 @@ const TILE_DIRT := 0
 const TILE_GRASS := 1
 const TILE_COBBLE := 3
 const TILE_DEEPSLATE := 4
+const TILE_COPPER := 10
+const TILE_SILVER := 11
+const TILE_GOLD := 12
+const TILE_EMERALD := 13
+const TILE_RUBY := 14
+const TILE_DIAMOND := 15
+const TILE_VOID := 16
 
 const WIDTH = 120
 const DEPTH = 10000
@@ -68,6 +75,7 @@ var current_tutorial_slide: int = 0
 func _ready():
 	process_mode = PROCESS_MODE_ALWAYS
 	_setup_autosave()
+	_setup_ore_tiles()
 	get_tree().paused = true
 	main_menu.visible = true
 	menu_root.visible = true
@@ -350,21 +358,24 @@ func _setup_tutorial_ui():
 	var prev_btn = Button.new()
 	prev_btn.name = "PrevBtn"
 	prev_btn.text = "Previous"
-	prev_btn.custom_minimum_size = Vector2(150, 50)
+	prev_btn.custom_minimum_size = Vector2(180, 60)
+	prev_btn.add_theme_font_size_override("font_size", 28)
 	prev_btn.pressed.connect(_on_tutorial_prev)
 	hbox.add_child(prev_btn)
 	
 	var next_btn = Button.new()
 	next_btn.name = "NextBtn"
 	next_btn.text = "Next"
-	next_btn.custom_minimum_size = Vector2(150, 50)
+	next_btn.custom_minimum_size = Vector2(180, 60)
+	next_btn.add_theme_font_size_override("font_size", 28)
 	next_btn.pressed.connect(_on_tutorial_next)
 	hbox.add_child(next_btn)
 	
 	var back_btn = Button.new()
 	back_btn.name = "BackBtn"
 	back_btn.text = "Back to Menu"
-	back_btn.custom_minimum_size = Vector2(150, 50)
+	back_btn.custom_minimum_size = Vector2(240, 60)
+	back_btn.add_theme_font_size_override("font_size", 28)
 	back_btn.pressed.connect(_on_tutorial_back)
 	hbox.add_child(back_btn)
 
@@ -401,16 +412,15 @@ func _update_tutorial_slide():
 	match current_tutorial_slide:
 		0:
 			title.text = "1. Movement"
-			# We can try to find an existing texture or just use a placeholder color for now if assets are missing
-			img.texture = load("res://Miner16Bit_AllFiles_v1/Miner16Bit_Characters_01.png")
-			desc.text = "[center]Use [color=yellow]WASD[/color] or [color=yellow]Arrow Keys[/color] to move with [color=yellow]Spacebar[/color] to jump.[/center]"
+			img.texture = load("res://Walking.png")
+			desc.text = "[center][color=yellow]WASD[/color] or [color=yellow]Arrow Keys[/color] to move with [color=yellow]Spacebar[/color] to jump.[/center]"
 		1:
 			title.text = "2. Climbing"
-			img.texture = load("res://signtutorial.png")
+			img.texture = load("res://Climbing.png")
 			desc.text = "[center]Hold [color=yellow]W + A/D[/color] to climb up walls.\nHold [color=yellow]S + A/D[/color] to climb down walls.[/center]"
 		2:
 			title.text = "3. Wall Jumping"
-			img.texture = load("res://signtutorial.png")
+			img.texture = load("res://WallJumping.png")
 			desc.text = "[center]Press [color=yellow]Spacebar[/color] while on a wall to jump off it.[/center]"
 		3:
 			title.text = "4. Inventory"
@@ -829,18 +839,30 @@ func generate_world():
 
 			if y == SURFACE_Y:
 				source_id = TILE_GRASS
-			elif y < 50:
-				source_id = TILE_COBBLE if roll < 0.25 else TILE_DIRT
 			else:
-				var t = clamp(float(y - 50) / 150.0, 0.0, 1.0)
-				var deep_c = lerp(0.0, 0.15, t)
-				var cobble_c = lerp(0.25, 0.35, t)
-				if roll < deep_c:
-					source_id = TILE_DEEPSLATE
-				elif roll < deep_c + cobble_c:
-					source_id = TILE_COBBLE
-				else:
-					source_id = TILE_DIRT
+				var ore_roll = randf()
+				if ore_roll < 0.025: # 2.5% chance for ANY ore
+					if y >= 800 and randf() < 0.08: source_id = TILE_VOID
+					elif y >= 500 and randf() < 0.12: source_id = TILE_DIAMOND
+					elif y >= 250 and randf() < 0.18: source_id = TILE_RUBY
+					elif y >= 100 and randf() < 0.22: source_id = TILE_EMERALD
+					elif y >= 45 and randf() < 0.3: source_id = TILE_GOLD
+					elif y >= 22 and randf() < 0.45: source_id = TILE_SILVER
+					elif y >= 9: source_id = TILE_COPPER
+
+				if source_id == TILE_DIRT:
+					if y < 50:
+						source_id = TILE_COBBLE if roll < 0.25 else TILE_DIRT
+					else:
+						var t = clamp(float(y - 50) / 150.0, 0.0, 1.0)
+						var deep_c = lerp(0.0, 0.15, t)
+						var cobble_c = lerp(0.25, 0.35, t)
+						if roll < deep_c:
+							source_id = TILE_DEEPSLATE
+						elif roll < deep_c + cobble_c:
+							source_id = TILE_COBBLE
+						else:
+							source_id = TILE_DIRT
 
 			var alt_tile = 0
 			if source_id in [TILE_DIRT, TILE_COBBLE, TILE_DEEPSLATE]:
@@ -1033,3 +1055,28 @@ func find_node_by_name(root: Node, node_name: String) -> Node:
 		var found = find_node_by_name(child, node_name)
 		if found: return found
 	return null
+
+func _setup_ore_tiles():
+	var ts = tilemap.tile_set
+	if not ts: return
+	var ores = {
+		TILE_COPPER: "res://Stones_ores_bars/copper_node.png",
+		TILE_SILVER: "res://Stones_ores_bars/silver_node.png",
+		TILE_GOLD: "res://Stones_ores_bars/gold_node.png",
+		TILE_EMERALD: "res://Stones_ores_bars/emerald_ore.png",
+		TILE_RUBY: "res://Stones_ores_bars/ruby_ore.png",
+		TILE_DIAMOND: "res://Stones_ores_bars/diamond_ore.png",
+		TILE_VOID: "res://Stones_ores_bars/void_crystal_ore.png"
+	}
+	for id in ores:
+		if ts.has_source(id): continue
+		var tex = load(ores[id]) as Texture2D
+		if tex:
+			var source = TileSetAtlasSource.new()
+			source.texture = tex
+			source.texture_region_size = tex.get_size()
+			source.create_tile(Vector2i(0, 0))
+			var td = source.get_tile_data(Vector2i(0, 0), 0)
+			# Full block collision: 128/2 = 64
+			td.set_collision_polygon_points(0, 0, PackedVector2Array([-64,-64, 64,-64, 64,64, -64,64]))
+			ts.add_source(source, id)

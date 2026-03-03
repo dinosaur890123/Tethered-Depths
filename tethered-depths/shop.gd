@@ -34,8 +34,10 @@ const CARGO_UPGRADE_BASE_PRICE: int = 270
 const OXYGEN_UPGRADE_BASE_PRICE: int = 450
 const SPEED_UPGRADE_BASE_PRICE: int = 600
 const MINE_SPEED_UPGRADE_BASE_PRICE: int = 800
+const LUCK_UPGRADE_BASE_PRICE: int = 1000
 
 const MAX_STAT_UPGRADE_LEVEL: int = 8
+const LUCK_UPGRADE_STEP: float = 0.5
 const PHASE_GRAPPLE_PRICE: int = 10000
 
 # Consumables
@@ -462,16 +464,19 @@ func _render_ui() -> void:
 			var oxy_lv := int(player_nearby.oxygen_upgrade_level)
 			var spd_lv := int(player_nearby.speed_upgrade_level)
 			var mine_lv := int(player_nearby.mining_speed_upgrade_level)
+			var luck_lv := int(player_nearby.luck_upgrade_level)
 			var cargo_price := _stat_upgrade_price(CARGO_UPGRADE_BASE_PRICE, cargo_lv)
 			var oxy_price := _stat_upgrade_price(OXYGEN_UPGRADE_BASE_PRICE, oxy_lv)
 			var spd_price := _stat_upgrade_price(SPEED_UPGRADE_BASE_PRICE, spd_lv)
 			var mine_price := _stat_upgrade_price(MINE_SPEED_UPGRADE_BASE_PRICE, mine_lv)
+			var luck_price := _stat_upgrade_price(LUCK_UPGRADE_BASE_PRICE, luck_lv)
 
 			ui_body.text = "[center][b]UPGRADES[/b][/center]"
 			_add_button("Cargo Pack (+%d cargo)  %s  (Lv %d/%d)" % [CARGO_UPGRADE_STEP, _money_str(cargo_price), cargo_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("cargo"); _last_render_state = -999, cargo_lv >= MAX_STAT_UPGRADE_LEVEL)
 			_add_button("Oxygen Tank (+%d)  %s  (Lv %d/%d)" % [int(OXYGEN_UPGRADE_STEP), _money_str(oxy_price), oxy_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("oxygen"); _last_render_state = -999, oxy_lv >= MAX_STAT_UPGRADE_LEVEL)
 			_add_button("Boots (+%d speed)  %s  (Lv %d/%d)" % [int(SPEED_UPGRADE_STEP), _money_str(spd_price), spd_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("speed"); _last_render_state = -999, spd_lv >= MAX_STAT_UPGRADE_LEVEL)
 			_add_button("Drill Motor (-%d%% mine time)  %s  (Lv %d/%d)" % [MINE_SPEED_UPGRADE_STEP_PCT, _money_str(mine_price), mine_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("mine"); _last_render_state = -999, mine_lv >= MAX_STAT_UPGRADE_LEVEL)
+			_add_button("Lucky Charm (+%.1f luck)  %s  (Lv %d/%d)" % [LUCK_UPGRADE_STEP, _money_str(luck_price), luck_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("luck"); _last_render_state = -999, luck_lv >= MAX_STAT_UPGRADE_LEVEL)
 			var phase_owned := bool(player_nearby.phase_grapple_unlocked) if "phase_grapple_unlocked" in player_nearby else false
 			_add_button("Phase Grapple (grapple through walls)  %s%s" % [_money_str(PHASE_GRAPPLE_PRICE), "  [OWNED]" if phase_owned else ""], func(): _buy_phase_grapple(); _last_render_state = -999, phase_owned)
 			_add_button("Back", func(): current_state = ShopState.MAIN_MENU)
@@ -548,7 +553,7 @@ func _buy_pickaxe(index: int):
 		feedback_text = "Bought " + upg["name"] + "!"
 		feedback_timer = 2.0
 		
-		if FileAccess.file_exists("res://buy_1.mp3"):
+		if ResourceLoader.exists("res://buy_1.mp3"):
 			var asp = AudioStreamPlayer.new()
 			asp.stream = load("res://buy_1.mp3")
 			add_child(asp)
@@ -614,7 +619,7 @@ func _buy_potion(potion_id: String) -> void:
 		nm = "Blast Charge"
 	feedback_text = "Bought %s!" % nm
 	feedback_timer = 1.6
-	if FileAccess.file_exists("res://buy_1.mp3"):
+	if ResourceLoader.exists("res://buy_1.mp3"):
 		var asp = AudioStreamPlayer.new()
 		asp.stream = load("res://buy_1.mp3")
 		add_child(asp)
@@ -643,6 +648,9 @@ func _buy_stat_upgrade(kind: String) -> void:
 	elif kind == "mine":
 		level = int(player_nearby.mining_speed_upgrade_level)
 		base_price = MINE_SPEED_UPGRADE_BASE_PRICE
+	elif kind == "luck":
+		level = int(player_nearby.luck_upgrade_level)
+		base_price = LUCK_UPGRADE_BASE_PRICE
 	else:
 		return
 
@@ -684,9 +692,14 @@ func _buy_stat_upgrade(kind: String) -> void:
 		if player_nearby.has_method("recompute_mine_time"):
 			player_nearby.recompute_mine_time()
 		feedback_text = "-%d%% mine time" % MINE_SPEED_UPGRADE_STEP_PCT
+	elif kind == "luck":
+		player_nearby.luck_upgrade_level += 1
+		player_nearby.luck_stat_bonus += LUCK_UPGRADE_STEP
+		feedback_text = "+%.1f luck" % LUCK_UPGRADE_STEP
+
 
 	feedback_timer = 1.6
-	if FileAccess.file_exists("res://buy_1.mp3"):
+	if ResourceLoader.exists("res://buy_1.mp3"):
 		var asp = AudioStreamPlayer.new()
 		asp.stream = load("res://buy_1.mp3")
 		add_child(asp)
@@ -709,7 +722,7 @@ func _buy_phase_grapple() -> void:
 	player_nearby.phase_grapple_unlocked = true
 	feedback_text = "Phase Grapple unlocked!"
 	feedback_timer = 1.6
-	if FileAccess.file_exists("res://buy_1.mp3"):
+	if ResourceLoader.exists("res://buy_1.mp3"):
 		var asp = AudioStreamPlayer.new()
 		asp.stream = load("res://buy_1.mp3")
 		add_child(asp)
@@ -823,6 +836,8 @@ func _dev_reset_progress() -> void:
 	player_nearby.oxygen_upgrade_level = 0
 	player_nearby.speed_upgrade_level = 0
 	player_nearby.mining_speed_upgrade_level = 0
+	player_nearby.luck_upgrade_level = 0
+	player_nearby.luck_stat_bonus = 0.0
 	player_nearby.current_battery = player_nearby.max_battery
 	if player_nearby.oxygen_bar:
 		player_nearby.oxygen_bar.max_value = player_nearby.max_battery

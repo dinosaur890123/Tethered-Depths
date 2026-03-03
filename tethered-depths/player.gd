@@ -25,6 +25,7 @@ var cargo_upgrade_level: int = 0
 var oxygen_upgrade_level: int = 0
 var speed_upgrade_level: int = 0
 var mining_speed_upgrade_level: int = 0
+var luck_upgrade_level: int = 0
 
 const MINE_TIME_UPGRADE_FACTOR: float = 0.88  # ~12% faster per level
 const MIN_MINE_TIME_MULT: float = 0.30
@@ -143,11 +144,13 @@ var cargo_label: Label
 var depth_hud_label: Label
 var luck_hud_label: Label
 var ore_collection_label: RichTextLabel
+var stones_collected_streak: int = 0
 
 var grapple_line: Line2D
 
 # --- Luck Strategy ---
 var oxygen_luck_bonus: float = 1.0
+var luck_stat_bonus: float = 0.0
 
 var end_day_layer: CanvasLayer
 var fade_rect: ColorRect
@@ -162,6 +165,13 @@ const TILE_DIRT := 0
 const TILE_GRASS := 1
 const TILE_COBBLE := 3
 const TILE_DEEPSLATE := 4
+const TILE_COPPER := 10
+const TILE_SILVER := 11
+const TILE_GOLD := 12
+const TILE_EMERALD := 13
+const TILE_RUBY := 14
+const TILE_DIAMOND := 15
+const TILE_VOID := 16
 
 # Mining SFX (assign in Inspector, or place `anvil.mp3` at res://anvil.mp3)
 const DEFAULT_MINING_SFX_PATH: String = "res://anvil.mp3"
@@ -176,11 +186,11 @@ var walking_sfx_player: AudioStreamPlayer
 # Upgrade tracking
 var pickaxe_level: int = 0
 const PICKAXE_UPGRADES = [
-	{"name": "Starter Pick", "price": 0,     "mine_time": 1.4,  "luck": 1.20, "color": Color(0.6, 0.6, 0.6)},
-	{"name": "Stone Pick",   "price": 450,   "mine_time": 1.0,  "luck": 1.35, "color": Color(0.75, 0.7, 0.65)},
-	{"name": "Copper Pick",  "price": 900,   "mine_time": 0.72, "luck": 1.55, "color": Color(0.9, 0.5, 0.15)},
-	{"name": "Silver Pick",  "price": 4200,  "mine_time": 0.44, "luck": 1.85, "color": Color(0.8, 0.85, 0.95)},
-	{"name": "Gold Pick",    "price": 42000, "mine_time": 0.22, "luck": 2.20, "color": Color(1.0, 0.85, 0.1)},
+	{"name": "Starter Pick", "price": 0,     "mine_time": 1.4,  "luck": 1.00, "color": Color(0.6, 0.6, 0.6)},
+	{"name": "Stone Pick",   "price": 450,   "mine_time": 1.0,  "luck": 1.15, "color": Color(0.75, 0.7, 0.65)},
+	{"name": "Copper Pick",  "price": 900,   "mine_time": 0.72, "luck": 1.35, "color": Color(0.9, 0.5, 0.15)},
+	{"name": "Silver Pick",  "price": 4200,  "mine_time": 0.44, "luck": 1.65, "color": Color(0.8, 0.85, 0.95)},
+	{"name": "Gold Pick",    "price": 42000, "mine_time": 0.22, "luck": 2.00, "color": Color(1.0, 0.85, 0.1)},
 	{"name": "Admin Pick",   "price": 0,     "mine_time": 0.01, "luck": 10.0,  "color": Color(0.80, 0.20, 0.95), "admin": true, "insta_mine": true}
 ]
 
@@ -238,6 +248,13 @@ const _BREAK_TEX_PATH_BY_SOURCE := {
 	TILE_GRASS: "res://grass.png",
 	TILE_COBBLE: "res://blocks/cobblestone.png",
 	TILE_DEEPSLATE: "res://blocks/deepslate.png",
+	TILE_COPPER: "res://Stones_ores_bars/copper_node.png",
+	TILE_SILVER: "res://Stones_ores_bars/silver_node.png",
+	TILE_GOLD: "res://Stones_ores_bars/gold_node.png",
+	TILE_EMERALD: "res://Stones_ores_bars/emerald_ore.png",
+	TILE_RUBY: "res://Stones_ores_bars/ruby_ore.png",
+	TILE_DIAMOND: "res://Stones_ores_bars/diamond_ore.png",
+	TILE_VOID: "res://Stones_ores_bars/void_crystal_ore.png",
 }
 
 func _spawn_block_break_effect(tile_center_global: Vector2, source_id: int) -> void:
@@ -986,8 +1003,8 @@ func _physics_process(delta):
 		return  # Physics paused during grapple travel
 
 	# Oxygen-based Luck Strategy: Lower oxygen = higher luck bonus
-	# Bonus ranges from 1.0 (full tank) to 3.0 (empty tank)
-	oxygen_luck_bonus = 1.0 + (1.0 - (current_battery / max_battery)) * 2.0
+	# Bonus ranges from 1.0 (full tank) to 2.0 (empty tank)
+	oxygen_luck_bonus = 1.0 + (1.0 - (current_battery / max_battery)) * 1.0
 
 	# 1. Drain Battery (Oxygen)
 	var pos_tile = tilemap.local_to_map(tilemap.to_local(global_position))
@@ -1227,7 +1244,7 @@ func _update_highlight():
 				elif src_id == 4: b_mult = 2.3
 				
 				var d_mult = 1.0 + (float(mouse_tile.y) * 0.00001)
-				var cur_luck = PICKAXE_UPGRADES[pickaxe_level]["luck"] * b_mult * oxygen_luck_bonus * d_mult
+				var cur_luck = (PICKAXE_UPGRADES[pickaxe_level]["luck"] + luck_stat_bonus) * b_mult * oxygen_luck_bonus * d_mult
 				if ore_magnet_timer > 0.0:
 					cur_luck *= ORE_MAGNET_LUCK_MULT
 				
@@ -1686,10 +1703,34 @@ func finish_mining():
 		_spawn_floating_text("Cargo Full!", tile_world_pos, Color(1.0, 0.3, 0.3))
 		return
 
+	# Forced ore drop from specific ore blocks
+	var forced_ore_name := ""
+	if source_id == TILE_COPPER: forced_ore_name = "Copper"
+	elif source_id == TILE_SILVER: forced_ore_name = "Silver"
+	elif source_id == TILE_GOLD: forced_ore_name = "Gold"
+	elif source_id == TILE_EMERALD: forced_ore_name = "Emerald"
+	elif source_id == TILE_RUBY: forced_ore_name = "Ruby"
+	elif source_id == TILE_DIAMOND: forced_ore_name = "Diamond"
+	elif source_id == TILE_VOID: forced_ore_name = "Void Crystal"
+
+	if forced_ore_name != "":
+		for ore in ORE_TABLE:
+			if ore[0] == forced_ore_name:
+				var amt = min(_roll_count(), cargo_remaining)
+				if amt > 0:
+					cargo_remaining -= amt
+					found.append({
+						"name":   forced_ore_name,
+						"amount": amt,
+						"value":  int(ore[2]),
+						"color":  ore[3] as Color,
+					})
+				break
+
 	# Apply oxygen-based luck bonus and depth-based luck bonus to current luck
 	# Bonus: +0.001% luck per tile depth (depth * 0.00001)
 	var depth_luck_mult := 1.0 + (float(target_tile_coords.y) * 0.00001)
-	var current_luck = PICKAXE_UPGRADES[pickaxe_level]["luck"] * block_luck_mult * oxygen_luck_bonus * depth_luck_mult
+	var current_luck = (PICKAXE_UPGRADES[pickaxe_level]["luck"] + luck_stat_bonus) * block_luck_mult * oxygen_luck_bonus * depth_luck_mult
 	if ore_magnet_timer > 0.0:
 		current_luck *= ORE_MAGNET_LUCK_MULT
 
@@ -1715,47 +1756,67 @@ func finish_mining():
 				"value":  stone_value,
 				"color":  stone_color,
 			})
+			stones_collected_streak += amount
 
 	var depth: int = target_tile_coords.y
+	var non_stone_found := forced_ore_name != ""
 
-	for ore in ORE_TABLE:
-		if cargo_remaining <= 0:
-			break
-		var ore_name: String = ore[0] as String
-		if ore_name == "Stone":
-			continue
-		if ore_name.begins_with("Mutated "):
-			continue
-		# Deep ore depth gate
-		var min_depth: int = int(ore[4]) if ore.size() > 4 else 0
-		if depth < min_depth:
-			continue
-		# Scale chance: deeper = more likely (caps at 10x base rate)
-		var base_denom := float(ore[1])
-		var effective_denom: float = base_denom if min_depth == 0 else maxf(base_denom * float(min_depth) / float(depth), base_denom * 0.1)
-		var chance_denom = effective_denom / current_luck
-		if randf() * chance_denom < 1.0:
-			var amount = min(_roll_count(), cargo_remaining)
-			cargo_remaining -= amount
-			var drop_name: String = ore_name
-			var drop_color: Color = ore[3] as Color
-			var drop_value: int = int(ore[2])
-			if drop_name == "Rainbow":
-				drop_color = Color.from_hsv(randf(), 0.95, 1.0, 1.0)
-			elif randf() < MUTATED_CHANCE:
-				drop_name = "Mutated %s" % drop_name
-				drop_color = Color(0.80, 0.20, 0.95)
-				drop_value = _get_ore_value(drop_name)
-				if randf() < RAINBOW_CHANCE:
-					drop_name = "Rainbow"
+	if forced_ore_name == "":
+		for ore in ORE_TABLE:
+			if cargo_remaining <= 0:
+				break
+			var ore_name: String = ore[0] as String
+			if ore_name == "Stone" or ore_name.begins_with("Mutated "):
+				continue
+
+			# Deep ore depth gate
+			var min_depth: int = int(ore[4]) if ore.size() > 4 else 0
+			if depth < min_depth:
+				continue
+
+			# Scale chance: deeper = more likely (caps at 10x base rate)
+			var base_denom := float(ore[1])
+			var effective_denom: float = base_denom if min_depth == 0 else maxf(base_denom * float(min_depth) / float(depth), base_denom * 0.1)
+
+			# Pity bonus calculation (flat additions to probability)
+			var pity_bonus := 0.0
+			match ore_name:
+				"Copper": pity_bonus = stones_collected_streak * 0.005
+				"Silver": pity_bonus = stones_collected_streak * 0.001
+				"Gold":   pity_bonus = stones_collected_streak * 0.0005
+				"Rainbow": pity_bonus = stones_collected_streak * 0.0001
+
+			# Combined probability: (Base Rate * Luck) + Pity
+			var base_prob := 1.0 / effective_denom
+			var total_prob: float = (base_prob * current_luck) + pity_bonus
+
+			if randf() < total_prob:
+				var amount = min(_roll_count(), cargo_remaining)
+				cargo_remaining -= amount
+				var drop_name: String = ore_name
+				var drop_color: Color = ore[3] as Color
+				var drop_value: int = int(ore[2])
+
+				non_stone_found = true
+
+				if drop_name == "Rainbow":
 					drop_color = Color.from_hsv(randf(), 0.95, 1.0, 1.0)
-					drop_value = _get_ore_value("Rainbow")
-			found.append({
-				"name":   drop_name,
-				"amount": amount,
-				"value":  drop_value,
-				"color":  drop_color,
-			})
+				elif randf() < MUTATED_CHANCE:
+					drop_name = "Mutated %s" % drop_name
+					drop_color = Color(0.80, 0.20, 0.95)
+					drop_value = _get_ore_value(drop_name)
+					if randf() < RAINBOW_CHANCE:
+						drop_name = "Rainbow"
+						drop_color = Color.from_hsv(randf(), 0.95, 1.0, 1.0)
+						drop_value = _get_ore_value("Rainbow")
+				found.append({
+					"name":   drop_name,
+					"amount": amount,
+					"value":  drop_value,
+					"color":  drop_color,
+				})
+	if non_stone_found:
+		stones_collected_streak = 0
 
 	if found.is_empty():
 		_spawn_floating_text("No ore...", tile_world_pos, Color(0.6, 0.6, 0.6, 0.85))
@@ -2064,7 +2125,7 @@ func _spawn_ore_fly(ore_data: Dictionary, tile_world_pos: Vector2, delay: float)
 		"Void Crystal": tex_path = "res://Stones_ores_bars/void_crystal_ore.png"
 
 	var sprite = Sprite2D.new()
-	if tex_path != "" and FileAccess.file_exists(tex_path):
+	if tex_path != "" and ResourceLoader.exists(tex_path):
 		sprite.texture = load(tex_path)
 		sprite.scale = Vector2(2.5, 2.5)
 	var apply_color := not (base_name in ["Stone", "Copper", "Silver", "Gold"])

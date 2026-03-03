@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bua8qkfot1jkf"
-path="res://.godot/imported/mystrile_node.png-ac11ba69555e89856f1e220ad344e649.ctex"
+uid="uid://rwak4jm01ay0"
+path="res://.godot/imported/WallJumping.png-1f318da0542e7d88666730d4dca1f4b7.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Stones_ores_bars/mystrile_node.png"
-dest_files=["res://.godot/imported/mystrile_node.png-ac11ba69555e89856f1e220ad344e649.ctex"]
+source_file="res://WallJumping.png"
+dest_files=["res://.godot/imported/WallJumping.png-1f318da0542e7d88666730d4dca1f4b7.ctex"]
 
 [params]
 

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bua8qkfot1jkf"
-path="res://.godot/imported/mystrile_node.png-ac11ba69555e89856f1e220ad344e649.ctex"
+uid="uid://dc3q8frrdyk3s"
+path="res://.godot/imported/Walking.png-2acd7fb9f81c37bcf5e4a4dd6f48300d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Stones_ores_bars/mystrile_node.png"
-dest_files=["res://.godot/imported/mystrile_node.png-ac11ba69555e89856f1e220ad344e649.ctex"]
+source_file="res://Walking.png"
+dest_files=["res://.godot/imported/Walking.png-2acd7fb9f81c37bcf5e4a4dd6f48300d.ctex"]
 
 [params]
 
