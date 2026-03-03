@@ -320,9 +320,42 @@ func _setup_tutorial_ui():
 	var vbox = VBoxContainer.new()
 	vbox.set_anchors_preset(Control.LayoutPreset.PRESET_CENTER)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.custom_minimum_size = Vector2(800, 600)
-	vbox.position = Vector2(-400, -300)
+	vbox.custom_minimum_size = Vector2(1100, 680)
+	vbox.position = Vector2(-550, -340)
 	tutorial_root.add_child(vbox)
+
+	# Side Navigation Arrows
+	var left_arrow = Button.new()
+	left_arrow.name = "LeftArrow"
+	left_arrow.text = "<"
+	left_arrow.custom_minimum_size = Vector2(60, 100)
+	left_arrow.add_theme_font_size_override("font_size", 48)
+	left_arrow.anchor_left = 0.5
+	left_arrow.anchor_right = 0.5
+	left_arrow.anchor_top = 0.5
+	left_arrow.anchor_bottom = 0.5
+	left_arrow.offset_left = -620
+	left_arrow.offset_right = -560
+	left_arrow.offset_top = -50
+	left_arrow.offset_bottom = 50
+	left_arrow.pressed.connect(_on_tutorial_prev)
+	tutorial_root.add_child(left_arrow)
+
+	var right_arrow = Button.new()
+	right_arrow.name = "RightArrow"
+	right_arrow.text = ">"
+	right_arrow.custom_minimum_size = Vector2(60, 100)
+	right_arrow.add_theme_font_size_override("font_size", 48)
+	right_arrow.anchor_left = 0.5
+	right_arrow.anchor_right = 0.5
+	right_arrow.anchor_top = 0.5
+	right_arrow.anchor_bottom = 0.5
+	right_arrow.offset_left = 560
+	right_arrow.offset_right = 620
+	right_arrow.offset_top = -50
+	right_arrow.offset_bottom = 50
+	right_arrow.pressed.connect(_on_tutorial_next)
+	tutorial_root.add_child(right_arrow)
 	
 	var title = Label.new()
 	title.name = "Title"
@@ -335,7 +368,7 @@ func _setup_tutorial_ui():
 	
 	var illust_container = Control.new()
 	illust_container.name = "Illustration"
-	illust_container.custom_minimum_size = Vector2(400, 300)
+	illust_container.custom_minimum_size = Vector2(1050, 500)
 	illust_container.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	vbox.add_child(illust_container)
 	
@@ -350,8 +383,8 @@ func _setup_tutorial_ui():
 	description.name = "Description"
 	description.bbcode_enabled = true
 	description.fit_content = true
-	description.custom_minimum_size = Vector2(800, 200)
-	description.add_theme_font_size_override("normal_font_size", 48)
+	description.custom_minimum_size = Vector2(1000, 100)
+	description.add_theme_font_size_override("normal_font_size", 28)
 	vbox.add_child(description)
 	
 	vbox.add_spacer(false)
@@ -404,15 +437,22 @@ func _update_tutorial_slide():
 	var desc = tutorial_root.find_child("Description", true, false) as RichTextLabel
 	var next_btn = tutorial_root.find_child("NextBtn", true, false) as Button
 	var prev_btn = tutorial_root.find_child("PrevBtn", true, false) as Button
+	var left_arrow = tutorial_root.find_child("LeftArrow", true, false) as Button
+	var right_arrow = tutorial_root.find_child("RightArrow", true, false) as Button
 	
 	# Clear any dynamic animations from previous slides
 	for child in illust.get_children():
 		if child != img:
 			child.queue_free()
 	img.visible = true
+	illust.visible = true
 
 	prev_btn.disabled = (current_tutorial_slide == 0)
+	if left_arrow: left_arrow.disabled = (current_tutorial_slide == 0)
+
 	next_btn.text = "Finish" if current_tutorial_slide == 6 else "Next"
+	if right_arrow: right_arrow.disabled = (current_tutorial_slide == 6)
+
 	if current_tutorial_slide == 6 and next_btn.is_connected("pressed", _on_tutorial_next):
 		next_btn.pressed.disconnect(_on_tutorial_next)
 		if not next_btn.is_connected("pressed", _on_tutorial_back):
@@ -439,15 +479,16 @@ func _update_tutorial_slide():
 			desc.text = "[center]Press [color=yellow]Spacebar[/color] while on a wall to jump off it.[/center]"
 		3:
 			title.text = "4. Inventory"
-			img.texture = load("res://icon.svg")
+			img.texture = load("res://Inventory.png")
 			desc.text = "[center]Press [color=yellow]E[/color] to open your Inventory.\nCheck your [color=cyan]Drop Chances[/color] and [color=magenta]Rare Ores[/color] here.[/center]"
 		4:
 			title.text = "5. Oxygen"
 			img.texture = null # Could use a progress bar here but sticking to description
+			illust.visible = false
 			desc.text = "[center]The [color=cyan]Oxygen Bar[/color] at the top shows your remaining air.\nIt drains while underground and refills at the surface.[/center]"
 		5:
 			title.text = "6. HUD Overview"
-			img.texture = load("res://signtutorial.png")
+			img.texture = load("res://Hud overview.png")
 			desc.text = "[center]Top: Oxygen & Money\nBottom: Hotbar\nRight: Minimap & Objectives\nLeft: Ore Collection & Value[/center]"
 		6:
 			title.text = "7. Good Luck!"
@@ -858,12 +899,12 @@ func generate_world():
 				var ore_roll = randf()
 				if ore_roll < 0.025: # 2.5% chance for ANY ore
 					if y >= 800 and randf() < 0.08: source_id = TILE_VOID
-					elif y >= 500 and randf() < 0.12: source_id = TILE_DIAMOND
-					elif y >= 250 and randf() < 0.18: source_id = TILE_RUBY
-					elif y >= 100 and randf() < 0.22: source_id = TILE_EMERALD
-					elif y >= 45 and randf() < 0.3: source_id = TILE_GOLD
-					elif y >= 22 and randf() < 0.45: source_id = TILE_SILVER
-					elif y >= 9: source_id = TILE_COPPER
+					elif y >= 500 and y < 1600 and randf() < 0.12: source_id = TILE_DIAMOND
+					elif y >= 250 and y < 1400 and randf() < 0.18: source_id = TILE_RUBY
+					elif y >= 100 and y < 1200 and randf() < 0.22: source_id = TILE_EMERALD
+					elif y >= 45 and y < 1000 and randf() < 0.3: source_id = TILE_GOLD
+					elif y >= 22 and y < 800 and randf() < 0.45: source_id = TILE_SILVER
+					elif y >= 9 and y < 600: source_id = TILE_COPPER
 
 				if source_id == TILE_DIRT:
 					if y < 50:
@@ -1087,9 +1128,14 @@ func _setup_ore_tiles():
 		if ts.has_source(id): continue
 		var tex = load(ores[id]) as Texture2D
 		if tex:
+			var img = tex.get_image()
+			# Ores appear as 16x16 specks in 128x128 tiles. Upscale 5x for visibility.
+			img.resize(img.get_width() * 5, img.get_height() * 5, Image.INTERPOLATE_NEAREST)
+			var scaled_tex = ImageTexture.create_from_image(img)
+			
 			var source = TileSetAtlasSource.new()
-			source.texture = tex
-			source.texture_region_size = tex.get_size()
+			source.texture = scaled_tex
+			source.texture_region_size = scaled_tex.get_size()
 			source.create_tile(Vector2i(0, 0))
 			var td = source.get_tile_data(Vector2i(0, 0), 0)
 			# Full block collision: 128/2 = 64

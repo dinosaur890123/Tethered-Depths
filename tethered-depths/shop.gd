@@ -40,13 +40,18 @@ const MAX_STAT_UPGRADE_LEVEL: int = 8
 const LUCK_UPGRADE_STEP: float = 0.5
 const PHASE_GRAPPLE_PRICE: int = 10000
 
+const LODE_FINDER_BASE_PRICE: int = 1500
+const LODE_FINDER_STEP: float = 0.1
+
 # Consumables
 const POTION_OXYGEN_ID: String = "potion_oxygen"
 const POTION_SPEED_ID: String = "potion_speed"
 const POTION_SURFACE_ID: String = "potion_surface"
+const POTION_LUCK_ID: String = "potion_luck"
 const POTION_OXYGEN_PRICE: int = 125
 const POTION_SPEED_PRICE: int = 220
 const POTION_SURFACE_PRICE: int = 900
+const POTION_LUCK_PRICE: int = 500
 const POTION_LANTERN_OIL_PRICE: int = 350
 const POTION_DEEP_DIVE_PRICE: int = 750
 const POTION_ORE_MAGNET_PRICE: int = 550
@@ -457,7 +462,7 @@ func _render_ui() -> void:
 			_add_button("5: Deep Dive Tonic (½ oxygen drain 60s)  (%s)" % _money_str(POTION_DEEP_DIVE_PRICE), func(): _buy_potion("deep_dive_tonic"); _last_render_state = -999, int(player_nearby.money) < POTION_DEEP_DIVE_PRICE)
 			_add_button("6: Ore Magnet (3× luck 30s)  (%s)" % _money_str(POTION_ORE_MAGNET_PRICE), func(): _buy_potion("ore_magnet"); _last_render_state = -999, int(player_nearby.money) < POTION_ORE_MAGNET_PRICE)
 			_add_button("7: Blast Charge (Clear 4 adjacent blocks)  (%s)" % _money_str(POTION_BLAST_CHARGE_PRICE), func(): _buy_potion("blast_charge"); _last_render_state = -999, int(player_nearby.money) < POTION_BLAST_CHARGE_PRICE)
-			#_add_button("8: Luck potion( Increase luck by 50%")
+			_add_button("8: Luck Potion (+50% luck 30s)  (%s)" % _money_str(POTION_LUCK_PRICE), func(): _buy_potion(POTION_LUCK_ID); _last_render_state = -999, int(player_nearby.money) < POTION_LUCK_PRICE)
 			_add_button("Back", func(): current_state = ShopState.MAIN_MENU)
 
 		ShopState.UPGRADE_MENU:
@@ -466,11 +471,13 @@ func _render_ui() -> void:
 			var spd_lv := int(player_nearby.speed_upgrade_level)
 			var mine_lv := int(player_nearby.mining_speed_upgrade_level)
 			var luck_lv := int(player_nearby.luck_upgrade_level)
+			var lode_lv := int(player_nearby.lode_finder_upgrade_level) if "lode_finder_upgrade_level" in player_nearby else 0
 			var cargo_price := _stat_upgrade_price(CARGO_UPGRADE_BASE_PRICE, cargo_lv)
 			var oxy_price := _stat_upgrade_price(OXYGEN_UPGRADE_BASE_PRICE, oxy_lv)
 			var spd_price := _stat_upgrade_price(SPEED_UPGRADE_BASE_PRICE, spd_lv)
 			var mine_price := _stat_upgrade_price(MINE_SPEED_UPGRADE_BASE_PRICE, mine_lv)
 			var luck_price := _stat_upgrade_price(LUCK_UPGRADE_BASE_PRICE, luck_lv)
+			var lode_price := _stat_upgrade_price(LODE_FINDER_BASE_PRICE, lode_lv)
 
 			ui_body.text = "[center][b]UPGRADES[/b][/center]"
 			_add_button("Cargo Pack (+%d cargo)  %s  (Lv %d/%d)" % [CARGO_UPGRADE_STEP, _money_str(cargo_price), cargo_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("cargo"); _last_render_state = -999, cargo_lv >= MAX_STAT_UPGRADE_LEVEL)
@@ -478,6 +485,7 @@ func _render_ui() -> void:
 			_add_button("Boots (+%d speed)  %s  (Lv %d/%d)" % [int(SPEED_UPGRADE_STEP), _money_str(spd_price), spd_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("speed"); _last_render_state = -999, spd_lv >= MAX_STAT_UPGRADE_LEVEL)
 			_add_button("Drill Motor (-%d%% mine time)  %s  (Lv %d/%d)" % [MINE_SPEED_UPGRADE_STEP_PCT, _money_str(mine_price), mine_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("mine"); _last_render_state = -999, mine_lv >= MAX_STAT_UPGRADE_LEVEL)
 			_add_button("Lucky Charm (+%.1f luck)  %s  (Lv %d/%d)" % [LUCK_UPGRADE_STEP, _money_str(luck_price), luck_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("luck"); _last_render_state = -999, luck_lv >= MAX_STAT_UPGRADE_LEVEL)
+			_add_button("Lode Finder (+%d%% multi-drop)  %s  (Lv %d/%d)" % [int(LODE_FINDER_STEP * 100), _money_str(lode_price), lode_lv, MAX_STAT_UPGRADE_LEVEL], func(): _buy_stat_upgrade("lode_finder"); _last_render_state = -999, lode_lv >= MAX_STAT_UPGRADE_LEVEL)
 			var phase_owned := bool(player_nearby.phase_grapple_unlocked) if "phase_grapple_unlocked" in player_nearby else false
 			_add_button("Phase Grapple (grapple through walls)  %s%s" % [_money_str(PHASE_GRAPPLE_PRICE), "  [OWNED]" if phase_owned else ""], func(): _buy_phase_grapple(); _last_render_state = -999, phase_owned)
 			_add_button("Back", func(): current_state = ShopState.MAIN_MENU)
@@ -652,6 +660,9 @@ func _buy_stat_upgrade(kind: String) -> void:
 	elif kind == "luck":
 		level = int(player_nearby.luck_upgrade_level)
 		base_price = LUCK_UPGRADE_BASE_PRICE
+	elif kind == "lode_finder":
+		level = int(player_nearby.lode_finder_upgrade_level) if "lode_finder_upgrade_level" in player_nearby else 0
+		base_price = LODE_FINDER_BASE_PRICE
 	else:
 		return
 
@@ -697,6 +708,10 @@ func _buy_stat_upgrade(kind: String) -> void:
 		player_nearby.luck_upgrade_level += 1
 		player_nearby.luck_stat_bonus += LUCK_UPGRADE_STEP
 		feedback_text = "+%.1f luck" % LUCK_UPGRADE_STEP
+	elif kind == "lode_finder":
+		player_nearby.lode_finder_upgrade_level += 1
+		player_nearby.lode_finder_bonus += LODE_FINDER_STEP
+		feedback_text = "+%d%% multi-drop" % int(LODE_FINDER_STEP * 100)
 
 
 	feedback_timer = 1.6
@@ -706,6 +721,7 @@ func _buy_stat_upgrade(kind: String) -> void:
 		add_child(asp)
 		asp.play()
 		asp.finished.connect(asp.queue_free)
+
 func _buy_phase_grapple() -> void:
 	if not player_nearby: return
 	if "phase_grapple_unlocked" not in player_nearby: return

@@ -26,6 +26,8 @@ var oxygen_upgrade_level: int = 0
 var speed_upgrade_level: int = 0
 var mining_speed_upgrade_level: int = 0
 var luck_upgrade_level: int = 0
+var lode_finder_upgrade_level: int = 0
+var lode_finder_bonus: float = 0.0
 
 const MINE_TIME_UPGRADE_FACTOR: float = 0.88  # ~12% faster per level
 const MIN_MINE_TIME_MULT: float = 0.30
@@ -1253,8 +1255,11 @@ func _update_highlight():
 				var cur_luck = (PICKAXE_UPGRADES[pickaxe_level]["luck"] + luck_stat_bonus) * b_mult * oxygen_luck_bonus * d_mult
 				if ore_magnet_timer > 0.0:
 					cur_luck *= ORE_MAGNET_LUCK_MULT
-				
+				if luck_potion_timer > 0.0:
+					cur_luck *= LUCK_POTION_MULT
+
 				luck_hud_label.text = "Luck: %.2fx" % cur_luck
+
 				luck_hud_label.visible = true
 		else:
 			highlight_out_of_range = true
@@ -1386,6 +1391,35 @@ func _is_insta_mine_pickaxe() -> bool:
 		return bool(upg.get("insta_mine", false))
 	return false
 
+func _get_decayed_base_prob(ore_name: String, depth: int, current_base_prob: float) -> float:
+	var decay_ores = ["Stone", "Copper", "Silver", "Gold"]
+	if not ore_name in decay_ores:
+		return current_base_prob
+	
+	var R = 0.005 # 0.5% reduction per tile
+	var v = float(depth) * R
+	
+	# Initial base probabilities for the sequential decay sequence
+	var probs = [0.75, 1.0/9.0, 1.0/22.0, 1.0/45.0]
+	var names = ["Stone", "Copper", "Silver", "Gold"]
+	
+	for i in range(names.size()):
+		var p = probs[i]
+		# If this is the ore we are checking
+		if names[i] == ore_name:
+			# If we are in this ore's decay phase, return decayed prob
+			# Use current_base_prob to stay consistent with the caller's expectations (e.g. if table has 1/1.8)
+			return max(0.0, current_base_prob - v)
+		
+		# Subtract this ore's full probability from the decay budget
+		v = max(0.0, v - p)
+		# If the budget is exhausted before reaching the current ore, it hasn't started decaying
+		if v <= 0:
+			return current_base_prob
+	
+	# Budget exceeded all decayable ores
+	return 0.0
+
 func _play_mining_sfx() -> void:
 	if mining_sfx_player == null:
 		return
@@ -1469,6 +1503,10 @@ func die_and_respawn():
 
 func _roll_count() -> int:
 	var count = 1
+	# Lode Finder bonus: chance for extra drops
+	if randf() < lode_finder_bonus:
+		count += 1
+
 	var n = 2
 	while n <= 10 and randi() % n == 0:
 		count += 1
@@ -1742,8 +1780,9 @@ func finish_mining():
 	if luck_potion_timer > 0.0:
 		current_luck *= LUCK_POTION_MULT
 
-	# 75% chance to drop at least one Stone from regular blocks
-	if source_id in [TILE_DIRT, TILE_COBBLE, TILE_DEEPSLATE] and randf() < 0.75:
+	# 75% chance to drop at least one Stone from regular blocks (decays over depth)
+	var stone_drop_prob := _get_decayed_base_prob("Stone", target_tile_coords.y, 0.75)
+	if source_id in [TILE_DIRT, TILE_COBBLE, TILE_DEEPSLATE] and randf() < stone_drop_prob:
 		var amount = min(_roll_count(), cargo_remaining)
 		if amount > 0:
 			cargo_remaining -= amount
@@ -1795,7 +1834,7 @@ func finish_mining():
 				"Rainbow": pity_bonus = stones_collected_streak * 0.0001
 
 			# Combined probability: (Base Rate * Luck) + Pity
-			var base_prob := 1.0 / effective_denom
+			var base_prob := _get_decayed_base_prob(ore_name, depth, 1.0 / effective_denom)
 			var total_prob: float = (base_prob * current_luck) + pity_bonus
 
 			if randf() < total_prob:
@@ -2599,7 +2638,9 @@ func _refresh_inventory() -> void:
 		if depth >= min_d:
 			var base_denom := float(ore[1])
 			var eff_denom: float = base_denom if min_d == 0 else maxf(base_denom * float(min_d) / float(depth), base_denom * 0.1)
-			weight = (1.0 / (eff_denom / cur_luck))
+			# Apply decay to the weight calculation for inventory display
+			var base_prob := _get_decayed_base_prob(nm, depth, 1.0 / eff_denom)
+			weight = base_prob * cur_luck
 		weights.append({"name": nm, "weight": weight, "min_d": min_d})
 		total_weight += weight
 	
