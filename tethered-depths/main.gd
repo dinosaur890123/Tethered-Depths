@@ -483,10 +483,8 @@ func _update_tutorial_slide():
 			desc.text = "[center]Press [color=yellow]E[/color] to open your Inventory.\nCheck your [color=cyan]Drop Chances[/color] and [color=magenta]Rare Ores[/color] here.[/center]"
 		4:
 			title.text = "5. Oxygen"
-			img.texture = null # Could use a progress bar here but sticking to description
-			illust.visible = false
+			img.texture = load("res://Oxygen.png")
 			desc.text = "[center]The [color=cyan]Oxygen Bar[/color] at the top shows your remaining air.\nIt drains while underground and refills at the surface.[/center]"
-		5:
 			title.text = "6. HUD Overview"
 			img.texture = load("res://Hud overview.png")
 			desc.text = "[center]Top: Oxygen & Money\nBottom: Hotbar\nRight: Minimap & Objectives\nLeft: Ore Collection & Value[/center]"
